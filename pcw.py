@@ -58,18 +58,22 @@ def list_users(ctx):
     print("{0:20}|{1:15}|{2:10}|{3}".format("Name", "Age", "Groups", "Keys"))
     for response in iam.get_paginator('list_users').paginate():
         for user in response.get('Users'):
-            keys = []
+            keys = "";
             for response in iam.get_paginator('list_access_keys').paginate(
                     UserName=user.get('UserName')):
-                keys = keys + [key.get('AccessKeyId') for key in response.get(
-                    'AccessKeyMetadata')]
+                for key in response.get('AccessKeyMetadata'):
+                    if (len(keys) > 0):
+                        keys += ","
+                    keys += key.get('AccessKeyId')
+                    if (key.get('Status') == 'Inactive'):
+                        keys += "(Inactive)"
 
             groups = iam.list_groups_for_user(UserName=user.get('UserName'))
 
             print("{0:20} {1:15} {2:10} {3}".format(user.get('UserName'),
                   displ_age(user.get('CreateDate')),
                   ",".join([g['GroupName'] for g in groups['Groups']]),
-                  ",".join(keys)))
+                  keys))
 
 
 @cli.command('create-key')
@@ -155,9 +159,9 @@ def list_instances(ctx):
     print("{:20}|{:20}|{:10}|{:15}|{:15}".format("InstanceId", "AMI", "State",
                                                  "Type", "Age"))
     for i in ec2.instances.all():
-        print("{:20} {:20} {:10} {:15} {:15}".format(
+        print("{:20} {:20} {:10} {:15} {:15} {:15}".format(
             i.instance_id, i.image_id, i.state['Name'], i.instance_type,
-            displ_age(i.launch_time)))
+            displ_age(i.launch_time), i.public_dns_name))
 
 
 @cli.command()
