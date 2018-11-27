@@ -7,6 +7,8 @@ setup(
         install_requires=[
             'Click',
             'boto3',
+            'django',
+            'djangorestframework',
             ],
         entry_points='''
             [console_scripts]
