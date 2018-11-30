@@ -31,7 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'credentials.apps.CredentialsConfig',
+    'ec2.apps.Ec2Config',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

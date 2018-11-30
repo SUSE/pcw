@@ -1,6 +1,6 @@
 from django.http import HttpResponseForbidden
 from rest_framework.response import Response
-from credentials.serializers import UserSerializer
+from ec2.serializers import UserSerializer
 from rest_framework import viewsets
 from rest_framework import views
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
