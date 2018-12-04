@@ -2,3 +2,4 @@
 *__pycache__*
 env/
 tags
+webui/ec2/provider_conf.py

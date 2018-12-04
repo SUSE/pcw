@@ -1,0 +1,11 @@
+[Unit]
+Description=Unit for starting publiccloud watch webui
+
+[Service]
+Restart=on-failure
+User=django
+WorkingDirectory=/home/django/pcw/webui
+ExecStart=/home/django/pcw/venv/bin/uwsgi --socket :3000 --module webui.wsgi
+
+[Install]
+WantedBy=multi-user.target
