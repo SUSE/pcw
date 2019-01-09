@@ -13,7 +13,7 @@ import time
 
 class UserView (views.APIView):
     authentication_classes = (SessionAuthentication, BasicAuthentication)
-    permission_classes = (IsAuthenticated)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, name=None):
         yourdata = EC2.get_users(name)
