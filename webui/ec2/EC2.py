@@ -78,8 +78,7 @@ def delete_key(key_id):
     if user is None:
         return False
     if len(user.keys) == 1:
-        delete_user(user.name)
-        return True
+        return delete_user(user.name)
     else:
         iam_res = boto3.resource(
             'iam', aws_access_key_id=provider_conf.EC2['key'],
@@ -98,18 +97,20 @@ def delete_user(username):
     try:
         user = iam_res.User(username)
         user.load()
-    except iam.meta.client.exceptions.NoSuchEntityException:
+
+        for key in user.access_keys.all():
+            key.delete()
+
+        responses = iam.get_paginator('list_attached_user_policies').paginate(
+            UserName=username)
+        for response in responses:
+            for policy in response.get('AttachedPolicies'):
+                user.detach_policy(PolicyArn=policy.get('PolicyArn'))
+        user.delete()
+        return True
+    except Exception as e:
+        print("User delete fail with {}".format(e))
         return False
-
-    for key in user.access_keys.all():
-        key.delete()
-
-    for response in iam.get_paginator('list_attached_user_policies').paginate(
-            UserName=username):
-        for policy in response.get('AttachedPolicies'):
-            user.detach_policy(PolicyArn=policy.get('PolicyArn'))
-    user.delete()
-    return True
 
 
 def create_user(username):
