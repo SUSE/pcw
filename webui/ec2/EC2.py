@@ -5,12 +5,8 @@ from botocore.exceptions import ClientError
 
 
 def _ec2user_to_user(ec2user):
-    u = User()
-    u.name = ec2user.get('UserName')
-    u.id = ec2user.get('UserId')
-    u.create_date = ec2user.get('CreateDate')
-    u.keys = []
-    return u
+    return User(ec2user.get('UserName'), ec2user.get(
+        'UserId'), ec2user.get('UserId'))
 
 
 def _user_add_keys(user):
@@ -19,11 +15,8 @@ def _user_add_keys(user):
     for response in iam.get_paginator('list_access_keys').paginate(
             UserName=user.name):
         for key in response.get('AccessKeyMetadata'):
-            k = AccessKey()
-            k.create_date = key.get('CreateDate')
-            k.key_id = key.get('AccessKeyId')
-            k.status = key.get('Status').lower()
-            user.keys.append(k)
+            user.keys.append(AccessKey(key.get('AccessKeyId'), key.get(
+                'Status'), key.get('CreateDate')))
     return user
 
 
@@ -134,14 +127,8 @@ def create_user(username):
     except ClientError:
         return None
 
-    u = User()
-    u.name = user.user_name
-    u.id = user.user_id
-    u.create_date = user.create_date
-    k = AccessKey()
-    k.create_date = key.create_date
-    k.key_id = key.id
-    k.status = key.status.lower()
+    u = User(user.user_name, user.user_id, user.create_date)
+    k = AccessKey(key.id, key.status, key.create_date)
     k.secret = key.secret
     u.keys = [k]
     return u
