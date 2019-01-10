@@ -127,8 +127,6 @@ def create_user(username):
     except ClientError:
         return None
 
-    u = User(user.user_name, user.user_id, user.create_date)
-    k = AccessKey(key.id, key.status, key.create_date)
-    k.secret = key.secret
-    u.keys = [k]
+    u = User(user.user_name, user.user_id, user.create_date,
+             [AccessKey(key.id, key.status, key.create_date, key.secret)])
     return u
