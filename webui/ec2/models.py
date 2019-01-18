@@ -1,3 +1,5 @@
+from django.db import models
+
 
 class User(object):
     name = None
@@ -26,3 +28,15 @@ class AccessKey(object):
         self.status = status.lower()
         self.create_date = create_date
         self.secret = secret
+
+
+class Instance(models.Model):
+    first_seen = models.DateTimeField()
+    last_seen = models.DateTimeField()
+    active = models.BooleanField(default=False)
+    instance_id = models.CharField(max_length=200, unique=True)
+    region = models.CharField(max_length=64, default='')
+    csp_info = models.TextField(default='')
+
+    def age(self):
+        return self.last_seen - self.first_seen

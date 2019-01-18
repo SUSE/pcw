@@ -7,4 +7,6 @@ urlpatterns = [
     path('users/<str:name>', views.UserView.as_view()),
     path('key', views.AccessKeyView.as_view()),
     path('key/<str:key_id>', views.AccessKeyView.as_view()),
+    path('instances', views.FilteredInstanceTableView.as_view(), name='instances'),
+    path('update', views.update),
 ]
