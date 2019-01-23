@@ -10,7 +10,7 @@ setup(
             'django',
             'djangorestframework',
             'django-tables2',
-            'django-filters',
+            'django-filter',
             'django-bootstrap3'
             ],
         entry_points='''
