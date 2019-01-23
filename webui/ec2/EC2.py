@@ -130,3 +130,17 @@ def create_user(username):
     u = User(user.user_name, user.user_id, user.create_date,
              [AccessKey(key.id, key.status, key.create_date, key.secret)])
     return u
+
+
+def list_instances(region='eu-central-1'):
+    ec2 = boto3.resource('ec2', aws_access_key_id=provider_conf.EC2['key'],
+                         aws_secret_access_key=provider_conf.EC2['secret'],
+                         region_name=region)
+    return ec2.instances.all()
+
+
+def list_regions():
+    ec2 = boto3.client('ec2', aws_access_key_id=provider_conf.EC2['key'],
+                       aws_secret_access_key=provider_conf.EC2['secret'])
+    regions = [region['RegionName'] for region in ec2.describe_regions()['Regions']]
+    return regions

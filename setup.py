@@ -9,6 +9,9 @@ setup(
             'boto3',
             'django',
             'djangorestframework',
+            'django-tables2',
+            'django-filters',
+            'django-bootstrap3'
             ],
         entry_points='''
             [console_scripts]
