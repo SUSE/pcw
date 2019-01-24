@@ -1,3 +1,5 @@
+import configparser
+
 """
 Django settings for webui project.
 
@@ -24,6 +26,9 @@ SECRET_KEY = '%ma*-g0xjs1clg9u3k21mi4av%&j5-4sqn&)&!+owze@+9_es)'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+# This configuration file contains admin credentials for each CSP
+CONFIG_FILE = '/etc/pcw.ini'
 
 ALLOWED_HOSTS = ['127.0.0.1', 'publiccloud.qa.suse.de']
 
@@ -134,3 +139,32 @@ REST_FRAMEWORK = {
                                 + 'PageNumberPagination',
     'PAGE_SIZE': 10
 }
+
+
+class ConfigFile:
+    __instance = None
+    __file_mtime = None
+    filename = None
+    config = None
+
+    def __new__(cls, filename=CONFIG_FILE):
+        if ConfigFile.__instance is None:
+            ConfigFile.__instance = object.__new__(cls)
+        ConfigFile.__instance.filename = filename
+        return ConfigFile.__instance
+
+    def check_file(self):
+        if self.__file_mtime is None or self.__file_mtime != os.path.getmtime(self.filename):
+            self.__file_mtime = os.path.getmtime(self.filename)
+            self.config = configparser.ConfigParser()
+            self.config.read(self.filename)
+
+    def get(self, name, default=''):
+        self.check_file()
+        d = self.config
+        for i in name:
+            if i in d:
+                d = d[i]
+            else:
+                return default
+        return d
