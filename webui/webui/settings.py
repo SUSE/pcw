@@ -36,14 +36,13 @@ ALLOWED_HOSTS = ['127.0.0.1', 'publiccloud.qa.suse.de']
 # Application definition
 
 INSTALLED_APPS = [
-    'ec2.apps.Ec2Config',
+    'ocw.apps.OcwConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
     'django_tables2',
     'django_filters',
     'bootstrap3',
@@ -133,12 +132,6 @@ USE_TZ = True
 STATIC_ROOT = os.path.join(BASE_DIR, "nginx/static/")
 
 STATIC_URL = '/static/'
-
-REST_FRAMEWORK = {
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.'
-                                + 'PageNumberPagination',
-    'PAGE_SIZE': 10
-}
 
 
 class ConfigFile:

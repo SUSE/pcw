@@ -1,7 +1,7 @@
 from django.db import transaction
-from django.utils import timezone
-from ec2.models import Instance
-import json
+from ..models import Instance
+from ..models import ProviderChoice
+from ..lib import db
 
 
 def _instance_to_json(i):
@@ -28,29 +28,18 @@ def _instance_to_json(i):
                 'name': img.name,
                 }
 
-    return json.dumps(info, ensure_ascii=False)
+    return info
 
 
 @transaction.atomic
 def sync_instances_db(region, instances):
-    t_now = timezone.now()
-    Instance.objects.filter(region=region).update(active=False)
+    Instance.objects.filter(region=region,
+                            provider=ProviderChoice.EC2).update(active=False)
 
     for i in instances:
-        active = i.state['Name'] != 'terminated'
-        if Instance.objects.filter(instance_id=i.instance_id).exists():
-            o = Instance.objects.get(instance_id=i.instance_id)
-            o.last_seen = t_now
-            o.active = active
-            o.csp_info = _instance_to_json(i)
-            o.save()
-        else:
-            o = Instance(
-                    first_seen=t_now,
-                    last_seen=t_now,
-                    instance_id=i.instance_id,
-                    active=active,
-                    region=region,
-                    csp_info=_instance_to_json(i),
-                    )
-            o.save()
+        db.update_or_create_instance(
+                provider=ProviderChoice.EC2,
+                instance_id=i.instance_id,
+                active=i.state['Name'] != 'terminated',
+                region=region,
+                csp_info=_instance_to_json(i))

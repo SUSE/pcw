@@ -1,0 +1,33 @@
+{% load static %}
+{% load bootstrap3 %}
+<html>
+    <head>
+        <title>Openqa-CloudWatch</title>
+        {% bootstrap_css %}
+    </head>
+    <body>
+        <div class="page-header">
+            <div style="float:right">
+            {% if user.is_authenticated %}
+                <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                {% bootstrap_button 'Logout' %}
+                <input type="hidden" name="next" value="{{ request.path }}"/>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'login' %}">
+                {% csrf_token %}
+                {% bootstrap_button 'Login' %}
+                <input type="hidden" name="next" value="{{ request.path }}"/>
+                </form>
+            {% endif %}
+            </div>
+            <h1>Openqa-CloudWatch</h1>
+        </div>
+
+        <div class="content container">
+            {% block content %}
+            {% endblock %}
+        </div>
+    </body>
+</html>
