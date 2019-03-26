@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load render_table from django_tables2 %}
+{% load static %}
+{% load bootstrap3 %}
+
+{% block content %}
+    {% if filter %}
+        <form action="" method="get" class="form form-inline">
+            {% bootstrap_form filter.form %}
+            {% bootstrap_button 'filter' %}
+            <br/>
+                Displaying {{ filter.qs.count }} of {{ filter.queryset.count }} items.
+                |
+                <a href='{{ request.path }}' >Clear</a>
+        </form>
+    {% endif %}
+    {% render_table table 'django_tables2/bootstrap.html' %}
+{% endblock %}
+
