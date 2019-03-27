@@ -33,13 +33,17 @@ class Vault:
 
     def getClientToken(self):
         login_path = '/v1/auth/userpass/login'
-        if self.client_token is not None:
-            return self.client_token
+        if self.client_token is None:
+            try:
+                r = requests.post(self.url+login_path+'/'+self.user,
+                                  json={'password': self.password},
+                                  verify=self.certificate_dir)
+                if 'errors' in r.json():
+                    raise ConnectionError(",".join(r.json()['errors']))
+                self.client_token = r.json()['auth']['client_token']
+            except Exception as e:
+                raise ConnectionError('Vault login failed - {}: {}'.format(type(e).__name__, str(e)))
 
-        r = requests.post(self.url+login_path+'/'+self.user,
-                          json={'password': self.password},
-                          verify=self.certificate_dir)
-        self.client_token = r.json()['auth']['client_token']
         return self.client_token
 
     def httpGet(self, path):
