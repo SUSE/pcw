@@ -1,6 +1,7 @@
 from django.db import transaction
 from ..models import Instance
 from ..models import ProviderChoice
+from ..models import StateChoice
 from ..lib import db
 
 
@@ -33,8 +34,9 @@ def _instance_to_json(i):
 
 @transaction.atomic
 def sync_instances_db(region, instances):
-    Instance.objects.filter(region=region,
-                            provider=ProviderChoice.EC2).update(active=False)
+    o = Instance.objects
+    o = o.filter(region=region, provider=ProviderChoice.EC2, state=StateChoice.ACTIVE)
+    o = o.update(state=StateChoice.UNK, active=False)
 
     for i in instances:
         db.update_or_create_instance(
@@ -43,3 +45,7 @@ def sync_instances_db(region, instances):
                 active=i.state['Name'] != 'terminated',
                 region=region,
                 csp_info=_instance_to_json(i))
+
+    o = Instance.objects
+    o = o.filter(region=region, provider=ProviderChoice.EC2, active=False)
+    o = o.update(state=StateChoice.DELETED)

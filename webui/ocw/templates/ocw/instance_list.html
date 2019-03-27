@@ -4,15 +4,17 @@
 {% load bootstrap3 %}
 
 {% block content %}
+    <link rel="stylesheet" href="{% static 'css/instance_table.css' %}">
     {% if filter %}
-        <form action="" method="get" class="form form-inline">
-            {% bootstrap_form filter.form %}
-            {% bootstrap_button 'filter' %}
-            <br/>
+        <button data-toggle="collapse" class="btn btn-default" data-target="#table_filter">Edit filter<span class="glyphicon glyphicon-filter"></span></button>
                 Displaying {{ filter.qs.count }} of {{ filter.queryset.count }} items.
-                |
-                <a href='{{ request.path }}' >Clear</a>
+        <div id="table_filter" class="well collapse {{ request.GET.state|yesno:"in, " }} ">
+        <form action="" method="get" class="form">
+            {% bootstrap_form filter.form %}
+            <a class="btn btn-default" role="button" href='{{ request.path }}' >Clear</a>
+            {% bootstrap_button 'Apply' %}
         </form>
+        </div>
     {% endif %}
     {% render_table table 'django_tables2/bootstrap.html' %}
 {% endblock %}

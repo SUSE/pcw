@@ -6,8 +6,13 @@
         {% bootstrap_css %}
     </head>
     <body>
+        {% bootstrap_javascript jquery=1 %}
         <div class="page-header">
-            <div style="float:right">
+            <ul class="list-inline" style="float:right;">
+              <li>
+              <div id="check_update_running"></div>
+              </li>
+              <li>
             {% if user.is_authenticated %}
                 <form method="post" action="{% url 'logout' %}">
                 {% csrf_token %}
@@ -21,7 +26,8 @@
                 <input type="hidden" name="next" value="{{ request.path }}"/>
                 </form>
             {% endif %}
-            </div>
+              </li>
+            </ul>
             <h1>Openqa-CloudWatch</h1>
         </div>
 
@@ -29,5 +35,31 @@
             {% block content %}
             {% endblock %}
         </div>
+        <script type="text/javascript">
+          function check_update_status() {
+            $.ajax({
+              url: "{% url  'update_status' %}",
+              dataType: 'json',
+            }).done(function(data) {
+              var e = $('#check_update_running');
+              if (data.status == 'running'){
+                e.data('status', 'running');
+                e.html('<a class="btn btn-info" role="button" href="{% url 'update' %}">Updating <span class="glyphicon glyphicon-refresh"></span> </a>');
+                setTimeout(function(){check_update_status();}, 1000);
+              } else {
+                if (e.data('status') == 'running') {
+                  e.html('<a class="btn btn-warning" role="button" href="{% url 'instances' %}">Refresh <span class="glyphicon glyphicon-reload"></span> </a>');
+                } else {
+                  e.html('<a class="btn btn-default" role="button" href="{% url 'update' %}">Update</a>');
+                  setTimeout(function(){check_update_status();}, 5000);
+                }
+              }
+            });
+          }
+
+          $(function() {
+            check_update_status();
+          });
+        </script>
     </body>
 </html>
