@@ -15,6 +15,9 @@ class InstanceTable(tables.Table):
         }
     })
 
+    def render_age(self, record):
+        return record.age_formated()
+
     class Meta:
         model = Instance
         exclude = ['active']
