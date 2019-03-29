@@ -17,7 +17,7 @@ def _instance_to_json(i):
             'public_ip_address': i.public_ip_address,
             'security_groups': [sg['GroupName'] for sg in i.security_groups],
             'sriov_net_support': i.sriov_net_support,
-            'tags': i.tags,
+            'tags': {t['Key']: t['Value'] for t in i.tags} if i.tags else {}
             }
     if i.state_reason:
         info['state_reason'] = i.state_reason['Message']

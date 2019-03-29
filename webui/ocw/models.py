@@ -42,6 +42,17 @@ class Instance(models.Model):
     instance_id = models.CharField(max_length=200, unique=True)
     region = models.CharField(max_length=64, default='')
     csp_info = models.TextField(default='')
+    notified = models.BooleanField(default=False)
+
+    def age_formated(self):
+        days, remainder = divmod(self.age.total_seconds(), 60*60*24)
+        hours, remainder = divmod(remainder, 60*60)
+        minutes, seconds = divmod(remainder, 60)
+        if days > 0:
+            return '{:.0f}d{:.0f}h{:.0f}m'.format(days, hours, minutes)
+        if hours > 0:
+            return '{:.0f}h{:.0f}m'.format(hours, minutes)
+        return '{:.0f}m'.format(minutes)
 
     class Meta:
         unique_together = (('provider', 'instance_id'),)

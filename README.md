@@ -37,6 +37,14 @@ cat > /etc/pcw.ini << EOT
 url = https://publiccloud.your.vault.server/vault
 user = Your_VAULT_USER
 password = VAULT_USER_PASSWORD
+
+# Add this section to enable email notification for left overs
+[notify]
+smtp = YOUR_EMAIL_RELAY
+smtp-port = PORT_NUMER
+to = RECEIPE_ADDRESS1[, RECEIPE_ADDRESS2]
+from = FROM_ADDRESS
+age-hours = NUMBER_OF_HOURS_TO_COUNT_AS_LEFT_OVER
 EOT
 
 python manage.py migrate
