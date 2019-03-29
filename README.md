@@ -41,6 +41,7 @@ EOT
 
 python manage.py migrate
 python manage.py createsuperuser --email admin@example.com --username admin
+python manage.py collectstatic
 python manage.py runserver
 ```
 => http://127.0.0.1:8000/
