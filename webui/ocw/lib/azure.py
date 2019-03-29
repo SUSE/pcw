@@ -21,28 +21,33 @@ class Azure:
         if Azure.__instance is None:
             Azure.__instance = object.__new__(cls)
             Azure.__instance.__credentials = AzureCredential()
+
+        Azure.__instance.check_credentials()
         return Azure.__instance
 
     def subscription(self):
         return self.__credentials.getData('subscription_id')
 
-    def sp_credentials(self):
-        if (self.__sp_credentials is not None):
-            return self.__sp_credentials
+    def check_credentials(self):
+        if self.__credentials.isExpired():
+            self.__sp_credentials = None
+            self.__credentials.renew()
+
         for i in range(1, 40):
             try:
-                self.__sp_credentials = ServicePrincipalCredentials(
-                        client_id=self.__credentials.getData('client_id'),
-                        secret=self.__credentials.getData('client_secret'),
-                        tenant=self.__credentials.getData('tenant_id')
-                    )
-                break
+                self.sp_credentials()
+                return True
             except AuthenticationError as e:
-                print('ServicePrincipalCredentials failed (attemp:{}) - {}'
-                      .format(i, str(e)))
+                print('ServicePrincipalCredentials failed (attemp:{}) - {}'.format(i, str(e)))
                 time.sleep(1)
-        if self.__sp_credentials is None:
-            raise AuthenticationError("FAILED TO LOGIN TO AZURE")
+        raise AuthenticationError("Invalid Azure credentials")
+
+    def sp_credentials(self):
+        if (self.__sp_credentials is None):
+            self.__sp_credentials = ServicePrincipalCredentials(client_id=self.__credentials.getData('client_id'),
+                                                                secret=self.__credentials.getData('client_secret'),
+                                                                tenant=self.__credentials.getData('tenant_id')
+                                                                )
         return self.__sp_credentials
 
     def compute_mgmt_client(self):

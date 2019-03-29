@@ -16,10 +16,17 @@ class EC2:
             EC2.__instance = object.__new__(cls)
             EC2.__instance.__credentials = EC2Credential()
 
-        EC2.__instance.checkCredentials()
+        EC2.__instance.check_credentials()
         return EC2.__instance
 
-    def checkCredentials(self):
+    def check_credentials(self):
+        if self.__credentials.isExpired():
+            self.__credentials.renew()
+            self.__key = None
+            self.__secret = None
+            self.__ec2_resource = dict()
+            self.__ec2_client = dict()
+
         self.__secret = self.__credentials.getData('secret_key')
         self.__key = self.__credentials.getData('access_key')
 
@@ -28,9 +35,9 @@ class EC2:
                 self.list_regions()
                 return True
             except Exception as e:
-                print('Credentialserror (attemp:{}) - {}'.format(i, str(e)))
+                print('CredentialsError (attemp:{}) - {}'.format(i, str(e)))
                 time.sleep(1)
-        raise Exception("FAILED TO LOGIN TO EC2")
+        raise Exception("Invalid EC2 credentials")
 
     def ec2_resource(self, region='eu-central-1'):
         if region not in self.__ec2_resource:
