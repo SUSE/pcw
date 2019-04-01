@@ -2,6 +2,7 @@ from django.db import transaction
 from ..lib.vault import AzureCredential
 from ..models import Instance
 from ..models import ProviderChoice
+from ..models import StateChoice
 from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
@@ -82,7 +83,9 @@ def _instance_to_json(i):
 
 @transaction.atomic
 def sync_instances_db(instances):
-    Instance.objects.filter(provider=ProviderChoice.AZURE).update(active=False)
+    o = Instance.objects
+    o = o.filter(provider=ProviderChoice.AZURE, state=StateChoice.ACTIVE)
+    o = o.update(active=False, state=StateChoice.UNK)
 
     for i in instances:
         db.update_or_create_instance(
@@ -91,3 +94,7 @@ def sync_instances_db(instances):
                 active=True,
                 region=i.location,
                 csp_info=_instance_to_json(i))
+
+    o = Instance.objects
+    o = o.filter(provider=ProviderChoice.AZURE, active=False)
+    o = o.update(state=StateChoice.DELETED)

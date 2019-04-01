@@ -3,20 +3,25 @@ import django_tables2 as tables
 import django_filters
 from .models import Instance
 from .models import ProviderChoice
-from django.utils.html import format_html
+from .models import StateChoice
 from django_tables2.utils import A
 
 
 class InstanceTable(tables.Table):
     opt = tables.LinkColumn('delete_instance', args=[A('pk')], text='delete')
-
-    def render_age(self, value):
-        color = 'red' if (value.seconds > 60 * 60) else 'green'
-        return format_html('<span style="color:{}">{}</span>', color, value)
+    age = tables.Column(attrs={
+        'td': {
+            'class': lambda record: 'old' if record.age.seconds > 60*60 else ''
+        }
+    })
 
     class Meta:
         model = Instance
+        exclude = ['active']
         template_name = 'django_tables2/bootstrap.html'
+        row_attrs = {
+                'class': lambda record: "state_{}".format(record.state)
+                }
 
 
 # Create a BaseFilterSet to support initial value
@@ -27,16 +32,21 @@ class BaseFilterSet(django_filters.FilterSet):
             for name, f in self.base_filters.items():
                 initial = f.extra.get('initial')
                 if not data.get(name) and initial is not None:
-                    data[name] = initial
+                    if isinstance(initial, list):
+                        data.setlistdefault(name, initial)
+                    else:
+                        data.setdefault(name, initial)
         super(BaseFilterSet, self).__init__(data, *args, **kwargs)
 
 
 class InstanceFilter(BaseFilterSet):
-    provider = django_filters.ChoiceFilter(field_name='provider', choices=[(tag, tag.value) for tag in ProviderChoice])
-    active = django_filters.BooleanFilter(field_name='active', initial=True)
+    provider = django_filters.ChoiceFilter(field_name='provider', choices=ProviderChoice.choices())
+    state = django_filters.MultipleChoiceFilter(field_name='state', choices=StateChoice.choices(),
+                                                initial=[str(i) for i in [StateChoice.ACTIVE, StateChoice.DELETING]])
     region = django_filters.CharFilter(lookup_expr='icontains')
     instance_id = django_filters.CharFilter(lookup_expr='icontains', field_name='instance_id')
+    csp_info = django_filters.CharFilter(lookup_expr='icontains', field_name='csp_info')
 
     class Meta:
         model = Instance
-        fields = ['active', 'instance_id', 'region']
+        fields = ['provider', 'state', 'instance_id', 'region', 'csp_info']

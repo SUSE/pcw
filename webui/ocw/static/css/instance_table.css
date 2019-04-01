@@ -1,0 +1,9 @@
+tr.state_DELETED, tr.state_DELETING,
+tr.state_DELETED td.old , tr.state_DELETING td.old,
+tr.state_DELETED td a , tr.state_DELETING td a  {
+    color: #999;
+}
+
+td.old {
+    color: red;
+}

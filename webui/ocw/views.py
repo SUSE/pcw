@@ -3,13 +3,14 @@ from django.http import HttpResponseForbidden
 from django_tables2 import SingleTableView
 from .lib.azure import Azure
 from .lib.EC2 import EC2
-from .lib import EC2db
-from .lib import azure
+from .lib import db
 from .models import Instance
 from .models import ProviderChoice
+from .models import StateChoice
 from .tables import InstanceTable
 from .tables import InstanceFilter
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 
 
 class FilteredSingleTableView(SingleTableView):
@@ -34,9 +35,13 @@ class FilteredInstanceTableView(FilteredSingleTableView):
 
 
 def update(request):
-    azure.sync_instances_db(Azure().list_resource_groups())
-    for region in EC2().list_regions():
-        EC2db.sync_instances_db(region, EC2().list_instances(region=region))
+    db.start_update()
+    return redirect('instances')
+
+
+def update_status(request):
+    if 'application/json' in request.META.get('HTTP_ACCEPT'):
+        return JsonResponse({'status': 'running' if db.is_updating() else 'idle'})
     return redirect('instances')
 
 
@@ -46,12 +51,14 @@ def delete(request, key_id=None):
     if 'openqa_created_by' not in o.csp_info:
         return HttpResponseForbidden('This instance isn\'t managed by openqa')
 
-    if (o.provider == str(ProviderChoice.AZURE)):
+    if (o.provider == ProviderChoice.AZURE):
         Azure().delete_resource(o.instance_id)
-    elif (o.provider == str(ProviderChoice.EC2)):
+    elif (o.provider == ProviderChoice.EC2):
         EC2().delete_instance(o.instance_id)
     else:
         raise NotImplementedError(
                 "Provider({}).delete() isn't implementd".format(o.provider))
 
+    o.state = StateChoice.DELETING
+    o.save()
     return redirect('update')
