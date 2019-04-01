@@ -1,6 +1,4 @@
 from .vault import GCECredential
-import googleapiclient.discovery
-from google.oauth2 import service_account
 from ..models import Instance
 from ..models import ProviderChoice
 from ..models import StateChoice
@@ -11,8 +9,6 @@ from ..lib import db
 class GCE:
     __instance = None
     __credentials = None
-    __compute_clinet = None
-    __project = None
 
     def __new__(cls):
         if GCE.__instance is None:
@@ -20,19 +16,8 @@ class GCE:
             GCE.__instance.__credentials = GCECredential()
         return GCE.__instance
 
-    def compute_client(self):
-        if self.__credentials.isExpired():
-            self.__credentials.renew()
-            self.__compute_clinet = None
-        self.__project = self.__credentials.getPrivateKeyData()['project_id']
-        if(self.__compute_clinet is None):
-            credentials = service_account.Credentials.from_service_account_info(self.__credentials.getPrivateKeyData())
-            self.__compute_clinet = googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
-        return self.__compute_clinet
-
     def list_instances(self, zone='europe-west1-b'):
-        i = self.compute_client().instances().list(project=self.__project, zone=zone).execute()
-        return i['items'] if 'items' in i else []
+        return self.__credentials.list_instances(zone)
 
 
 def _instance_to_json(i):
