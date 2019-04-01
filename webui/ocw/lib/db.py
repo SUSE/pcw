@@ -6,22 +6,29 @@ import json
 import dateutil.parser
 from threading import Thread
 from threading import Lock
+import logging
 
 update_thread = None
 update_mutex = Lock()
+logger = logging.getLogger(__name__)
 
 
 @transaction.atomic
-def update_or_create_instance(provider, instance_id, region, csp_info, active=True):
+def update_or_create_instance(provider, instance_id, region, csp_info):
     t_now = timezone.now()
-
+    logger.debug("Update/Create instance {}:{} @ {}\n\t{}".format(provider, instance_id, region, csp_info))
     if Instance.objects.filter(provider=provider, instance_id=instance_id).exists():
         o = Instance.objects.get(provider=provider, instance_id=instance_id)
         o.last_seen = t_now
         o.age = t_now - o.first_seen
-        o.active = active
+        o.active = True
         o.csp_info = json.dumps(csp_info, ensure_ascii=False)
-        if o.state == StateChoice.UNK:
+        if o.region != region:
+            logger.info('Instance {}:{} changed region from {} to {}'.format(provider, instance_id, o.region, region))
+            o.region = region
+        if o.state == StateChoice.DELETED:
+            logger.error("Update already DELETED instance {}:{}\n\t{}".format(provider, instance_id, csp_info))
+        if o.state != StateChoice.DELETING:
             o.state = StateChoice.ACTIVE
         o.save()
     else:
@@ -30,8 +37,8 @@ def update_or_create_instance(provider, instance_id, region, csp_info, active=Tr
                 first_seen=dateutil.parser.parse(csp_info.get('launch_time', str(t_now))),
                 last_seen=t_now,
                 instance_id=instance_id,
-                active=active,
-                state=StateChoice.ACTIVE if active else StateChoice.DELETED,
+                active=True,
+                state=StateChoice.ACTIVE,
                 region=region,
                 csp_info=json.dumps(csp_info, ensure_ascii=False)
                 )
@@ -48,10 +55,24 @@ def __update_run():
     from . import azure
     from . import gce
 
-    azure.sync_instances_db(Azure().list_resource_groups())
+    '''
+    Each update is using Instance.active to mark the model is still availalbe on CSP.
+    Instance.state is used to reflect the "local" state, e.g. if someone triggered a delete, the
+    state will moved to DELETING. If the instance is gone from CSP, the state will set to DELETED.
+    '''
+
+    instances = Azure().list_resource_groups()
+    logger.info('Got {} resources groups from Azure'.format(len(instances)))
+    azure.sync_instances_db(instances)
+
     for region in EC2().list_regions():
-        EC2db.sync_instances_db(region, EC2().list_instances(region=region))
-    gce.sync_instances_db(GCE().list_instances())
+        instances = EC2().list_instances(region=region)
+        logger.info('Got {} instances from EC2 in region {}'.format(len(instances), region))
+        EC2db.sync_instances_db(region, instances)
+
+    instances = GCE().list_all_instances()
+    logger.info('Got {} instances from GCE'.format(len(instances)))
+    gce.sync_instances_db(instances)
 
 
 def start_update():

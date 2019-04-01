@@ -37,8 +37,9 @@ class Instance(models.Model):
     first_seen = models.DateTimeField()
     last_seen = models.DateTimeField()
     age = models.DurationField(default=timedelta())
-    active = models.BooleanField(default=False)
-    state = models.CharField(max_length=8, default=StateChoice.UNK, choices=StateChoice.choices())
+    active = models.BooleanField(default=False, help_text='True if the last sync found this instance on CSP')
+    state = models.CharField(max_length=8, default=StateChoice.UNK, choices=StateChoice.choices(),
+                             help_text='Local computed state of that Instance')
     instance_id = models.CharField(max_length=200, unique=True)
     region = models.CharField(max_length=64, default='')
     csp_info = models.TextField(default='')

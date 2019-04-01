@@ -35,14 +35,13 @@ def _instance_to_json(i):
 @transaction.atomic
 def sync_instances_db(region, instances):
     o = Instance.objects
-    o = o.filter(region=region, provider=ProviderChoice.EC2, state=StateChoice.ACTIVE)
-    o = o.update(state=StateChoice.UNK, active=False)
+    o = o.filter(region=region, provider=ProviderChoice.EC2)
+    o = o.update(active=False)
 
     for i in instances:
         db.update_or_create_instance(
                 provider=ProviderChoice.EC2,
                 instance_id=i.instance_id,
-                active=i.state['Name'] != 'terminated',
                 region=region,
                 csp_info=_instance_to_json(i))
 

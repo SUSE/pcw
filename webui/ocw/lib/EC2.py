@@ -54,7 +54,7 @@ class EC2:
         return self.__ec2_client[region]
 
     def list_instances(self, region='eu-central-1'):
-        return self.ec2_resource(region).instances.all()
+        return [i for i in self.ec2_resource(region).instances.all()]
 
     def list_regions(self):
         regions_resp = self.ec2_client().describe_regions()
