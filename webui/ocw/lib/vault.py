@@ -2,11 +2,14 @@ import requests
 import base64
 import json
 from webui.settings import ConfigFile
+from datetime import datetime
+from datetime import timedelta
 
 
 class Vault:
     client_token = None
     auth_json = None
+    auth_expire = None
 
     def __init__(self, url, user, password, certificate_dir):
         self.url = url
@@ -18,8 +21,7 @@ class Vault:
             self.url = cfg.get(['vault', 'url'])
             self.user = cfg.get(['vault', 'user'])
             self.password = cfg.get(['vault', 'password'])
-            self.certificate_dir = cfg.get(['vault', 'cert_dir'],
-                                           '/etc/ssl/certs')
+            self.certificate_dir = cfg.get(['vault', 'cert_dir'], '/etc/ssl/certs')
 
     def __del__(self):
         self.revoke()
@@ -61,9 +63,21 @@ class Vault:
         raise NotImplementedError
 
     def getData(self, name=None):
+        if self.auth_json is None:
+            self.auth_json = self.getCredentials()
+            self.auth_expire = datetime.today() + timedelta(seconds=self.auth_json['lease_duration'])
         if name is None:
-            return self.getCredentials()['data']
-        return self.getCredentials()['data'][name]
+            return self.auth_json['data']
+        return self.auth_json['data'][name]
+
+    def isExpired(self):
+        if self.auth_expire is None:
+            return True
+        return self.auth_expire < datetime.today()
+
+    def renew(self):
+        self.revoke()
+        self.getData()
 
 
 class AzureCredential(Vault):
@@ -74,8 +88,6 @@ class AzureCredential(Vault):
         return super().__init__(url, user, password, certificate_dir)
 
     def getCredentials(self):
-        if self.auth_json is not None:
-            return self.auth_json
 
         path = '/v1/azure/creds/openqa-role'
         path_kv = '/v1/secret/azure/openqa-role'
@@ -84,8 +96,7 @@ class AzureCredential(Vault):
         for k, v in data.items():
             creds['data'][k] = v
 
-        self.auth_json = creds
-        return self.auth_json
+        return creds
 
 
 class EC2Credential(Vault):
@@ -95,12 +106,8 @@ class EC2Credential(Vault):
         return super().__init__(url, user, password, certificate_dir)
 
     def getCredentials(self):
-        if self.auth_json is not None:
-            return self.auth_json
-
         path = '/v1/aws/creds/openqa-role'
-        self.auth_json = self.httpGet(path).json()
-        return self.auth_json
+        return self.httpGet(path).json()
 
 
 class GCECredential(Vault):
@@ -111,15 +118,11 @@ class GCECredential(Vault):
         return super().__init__(url, user, password, certificate_dir)
 
     def getCredentials(self):
-        if self.auth_json is not None:
-            return self.auth_json
-
         path = '/v1/gcp/key/openqa-role'
-        self.auth_json = self.httpGet(path).json()
+        creds = self.httpGet(path).json()
 
         cred_file = json.loads(base64.b64decode(self.getData('private_key_data')))
         for k, v in cred_file.items():
-            if k not in self.auth_json['data']:
-                self.auth_json['data'][k] = v
-
-        return self.auth_json
+            if k not in creds['data']:
+                creds['data'][k] = v
+        return creds
