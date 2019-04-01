@@ -152,12 +152,24 @@ class ConfigFile:
             self.config = configparser.ConfigParser()
             self.config.read(self.filename)
 
-    def get(self, name, default=''):
+    def get(self, name, default=None):
         self.check_file()
         d = self.config
+        if not isinstance(name, list):
+            name = [name]
         for i in name:
             if i in d:
                 d = d[i]
             else:
+                if default is None:
+                    raise LookupError('Missing attribute {} in file {}'.format('.'.join(name), self.filename))
                 return default
         return d
+
+    def has(self, name):
+        try:
+            self.get(name)
+            return True
+        except Exception:
+            pass
+        return False
