@@ -11,18 +11,17 @@ class Vault:
     client_token = None
     auth_json = None
     auth_expire = None
+    url = None
+    user = None
+    password = None
+    certificate_dir = None
 
-    def __init__(self, url, user, password, certificate_dir):
-        self.url = url
-        self.user = user
-        self.password = password
-        self.certificate_dir = certificate_dir
+    def __init__(self):
         cfg = ConfigFile()
-        if (self.url is None):
-            self.url = cfg.get(['vault', 'url'])
-            self.user = cfg.get(['vault', 'user'])
-            self.password = cfg.get(['vault', 'password'])
-            self.certificate_dir = cfg.get(['vault', 'cert_dir'], '/etc/ssl/certs')
+        self.url = cfg.get(['vault', 'url'])
+        self.user = cfg.get(['vault', 'user'])
+        self.password = cfg.get(['vault', 'password'])
+        self.certificate_dir = cfg.get(['vault', 'cert_dir'], '/etc/ssl/certs')
 
     def __del__(self):
         self.revoke()
@@ -64,6 +63,8 @@ class Vault:
         raise NotImplementedError
 
     def getData(self, name=None):
+        if self.isExpired():
+            self.onExpired()
         if self.auth_json is None:
             self.auth_json = self.getCredentials()
             self.auth_expire = datetime.today() + timedelta(seconds=self.auth_json['lease_duration'])
@@ -76,17 +77,13 @@ class Vault:
             return True
         return self.auth_expire < datetime.today()
 
-    def renew(self):
+    def onExpired(self):
         self.revoke()
-        self.getData()
 
 
 class AzureCredential(Vault):
     ''' Known data fields: subscription_id, client_id, client_secret, tenant_id
     '''
-
-    def __init__(self, url=None, user=None, password=None, certificate_dir=None):
-        return super().__init__(url, user, password, certificate_dir)
 
     def getCredentials(self):
 
@@ -103,9 +100,6 @@ class AzureCredential(Vault):
 class EC2Credential(Vault):
     ''' Known data fields: access_key, secret_key '''
 
-    def __init__(self, url=None, user=None, password=None, certificate_dir=None):
-        return super().__init__(url, user, password, certificate_dir)
-
     def getCredentials(self):
         path = '/v1/aws/creds/openqa-role'
         return self.httpGet(path).json()
@@ -115,10 +109,6 @@ class GCECredential(Vault):
     ''' Known data fields: private_key_data, project_id, private_key_id,
             private_key, client_email, client_id'''
     cred_file = None
-
-    def __init__(self, url=None, user=None, password=None, certificate_dir=None):
-        self.cred_file = None
-        return super().__init__(url, user, password, certificate_dir)
 
     def getCredentials(self):
         path = '/v1/gcp/key/openqa-role'

@@ -3,32 +3,34 @@ import time
 from .vault import EC2Credential
 
 
-class EC2:
+class EC2(EC2Credential):
     __instance = None
     __key = None
     __secret = None
     __ec2_resource = dict()
     __ec2_client = dict()
-    __credentials = None
 
     def __new__(cls):
         if EC2.__instance is None:
             EC2.__instance = object.__new__(cls)
-            EC2.__instance.__credentials = EC2Credential()
+            super(EC2, EC2.__instance).__init__()
 
         EC2.__instance.check_credentials()
         return EC2.__instance
 
-    def check_credentials(self):
-        if self.__credentials.isExpired():
-            self.__credentials.renew()
-            self.__key = None
-            self.__secret = None
-            self.__ec2_resource = dict()
-            self.__ec2_client = dict()
+    def __init__(self):
+        pass
 
-        self.__secret = self.__credentials.getData('secret_key')
-        self.__key = self.__credentials.getData('access_key')
+    def onExpired(self):
+        self.revoke()
+        self.__key = None
+        self.__secret = None
+        self.__ec2_resource = dict()
+        self.__ec2_client = dict()
+
+    def check_credentials(self):
+        self.__secret = self.getData('secret_key')
+        self.__key = self.getData('access_key')
 
         for i in range(1, 60 * 5):
             try:
