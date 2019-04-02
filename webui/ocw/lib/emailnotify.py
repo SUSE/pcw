@@ -3,12 +3,12 @@ from ..models import Instance
 from datetime import timedelta
 from texttable import Texttable
 from django.urls import reverse
-from .. import views
 import json
 import smtplib
 
 
 def send_mail(request):
+    from .. import views
     cfg = ConfigFile()
     if not cfg.has('notify'):
         return
