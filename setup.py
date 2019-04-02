@@ -13,6 +13,6 @@ setup(
             'texttable',
             'oauth2client',
             'google-api-python-client',
-            'google-cloud-storage'
+            'google-cloud-storage',
             ],
 )
