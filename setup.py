@@ -10,6 +10,9 @@ setup(
             'django-tables2',
             'django-filter',
             'django-bootstrap3',
-            'texttable'
+            'texttable',
+            'oauth2client',
+            'google-api-python-client',
+            'google-cloud-storage',
             ],
 )

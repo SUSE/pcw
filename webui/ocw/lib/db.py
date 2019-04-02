@@ -43,12 +43,15 @@ def __update_run():
     # Avoid circular dependencies, so doing lazy import here
     from .azure import Azure
     from .EC2 import EC2
+    from .gce import GCE
     from . import EC2db
     from . import azure
+    from . import gce
 
     azure.sync_instances_db(Azure().list_resource_groups())
     for region in EC2().list_regions():
         EC2db.sync_instances_db(region, EC2().list_instances(region=region))
+    gce.sync_instances_db(GCE().list_instances())
 
 
 def start_update():

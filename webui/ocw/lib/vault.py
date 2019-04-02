@@ -4,6 +4,7 @@ import json
 from webui.settings import ConfigFile
 from datetime import datetime
 from datetime import timedelta
+from tempfile import NamedTemporaryFile
 
 
 class Vault:
@@ -113,16 +114,31 @@ class EC2Credential(Vault):
 class GCECredential(Vault):
     ''' Known data fields: private_key_data, project_id, private_key_id,
             private_key, client_email, client_id'''
+    cred_file = None
 
     def __init__(self, url=None, user=None, password=None, certificate_dir=None):
+        self.cred_file = None
         return super().__init__(url, user, password, certificate_dir)
 
     def getCredentials(self):
         path = '/v1/gcp/key/openqa-role'
         creds = self.httpGet(path).json()
-
-        cred_file = json.loads(base64.b64decode(self.getData('private_key_data')))
+        if 'errors' in creds:
+            raise Exception(",".join(creds['errors']))
+        cred_file = json.loads(base64.b64decode(creds['data']['private_key_data']).decode(encoding='UTF-8'))
         for k, v in cred_file.items():
             if k not in creds['data']:
                 creds['data'][k] = v
         return creds
+
+    def getPrivateKeyData(self):
+        return json.loads(base64.b64decode(self.getData('private_key_data')).decode(encoding='UTF-8'))
+
+    def writetofile(self):
+        if self.cred_file:
+            self.cred_file.close()
+            self.cred_file = None
+        self.cred_file = NamedTemporaryFile()
+        self.cred_file.write(base64.b64decode(self.getData('private_key_data')))
+        self.cred_file.flush()
+        return self.cred_file.name
