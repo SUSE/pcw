@@ -1,5 +1,7 @@
 .*.swp
 *__pycache__*
 env/
+venv/
 tags
 webui/db.sqlite3
+*.egg-info/
