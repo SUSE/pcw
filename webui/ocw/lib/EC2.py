@@ -5,10 +5,8 @@ from .vault import EC2Credential
 
 class EC2:
     __instance = None
-    __key = None
-    __secret = None
-    __ec2_resource = dict()
-    __ec2_client = dict()
+    __resource_by_region = dict()
+    __client_by_region = dict()
     __credentials = None
 
     def __new__(cls):
@@ -20,16 +18,6 @@ class EC2:
         return EC2.__instance
 
     def check_credentials(self):
-        if self.__credentials.isExpired():
-            self.__credentials.renew()
-            self.__key = None
-            self.__secret = None
-            self.__ec2_resource = dict()
-            self.__ec2_client = dict()
-
-        self.__secret = self.__credentials.getData('secret_key')
-        self.__key = self.__credentials.getData('access_key')
-
         for i in range(1, 60 * 5):
             try:
                 self.list_regions()
@@ -39,27 +27,32 @@ class EC2:
                 time.sleep(1)
         raise Exception("Invalid EC2 credentials")
 
-    def ec2_resource(self, region='eu-central-1'):
-        if region not in self.__ec2_resource:
-            self.__ec2_resource[region] = boto3.resource('ec2', aws_access_key_id=self.__key,
-                                                         aws_secret_access_key=self.__secret,
-                                                         region_name=region)
-        return self.__ec2_resource[region]
+    def get_resource_region(self, region='eu-central-1'):
+        if region not in self.__resource_by_region or self.__credentials.isExpired():
+            key, secret = self.getKey_and_secret()
+            self.__resource_by_region[region] = boto3.resource('ec2', aws_access_key_id=key,
+                                                             aws_secret_access_key=secret,
+                                                             region_name=region)
+        return self.__resource_by_region[region]
 
-    def ec2_client(self, region='eu-central-1'):
-        if region not in self.__ec2_client:
-            self.__ec2_client[region] = boto3.client('ec2', aws_access_key_id=self.__key,
-                                                     aws_secret_access_key=self.__secret,
-                                                     region_name=region)
-        return self.__ec2_client[region]
+    def get_client_region(self, region='eu-central-1'):
+        if region not in self.__client_by_region or self.__credentials.isExpired():
+            key, secret = self.getKey_and_secret()
+            self.__client_by_region[region] = boto3.client('ec2', aws_access_key_id=key,
+                                                         aws_secret_access_key=secret,
+                                                         region_name=region)
+        return self.__client_by_region[region]
+
+    def getKey_and_secret(self):
+        return self.__credentials.getData('access_key'), self.__credentials.getData('secret_key')
 
     def list_instances(self, region='eu-central-1'):
-        return self.ec2_resource(region).instances.all()
+        return self.get_resource_region(region).instances.all()
 
     def list_regions(self):
-        regions_resp = self.ec2_client().describe_regions()
-        regions = [region['RegionName'] for region in regions_resp['Regions']]
-        return regions
+        regions_resp = self.get_client_region().describe_regions()
+        self.__client_by_region = [region['RegionName'] for region in regions_resp['Regions']]
+        return self.__client_by_region
 
     def delete_instance(self, instance_id):
-        self.ec2_resource().instances.filter(InstanceIds=[instance_id]).terminate()
+        self.get_resource_region().instances.filter(InstanceIds=[instance_id]).terminate()

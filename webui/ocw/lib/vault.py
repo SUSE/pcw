@@ -60,6 +60,8 @@ class Vault:
         raise NotImplementedError
 
     def getData(self, name=None):
+        if self.isExpired():
+            self.revoke()
         if self.auth_json is None:
             self.auth_json = self.getCredentials()
             self.auth_expire = datetime.today() + timedelta(seconds=self.auth_json['lease_duration'])
@@ -68,13 +70,7 @@ class Vault:
         return self.auth_json['data'][name]
 
     def isExpired(self):
-        if self.auth_expire is None:
-            return True
-        return self.auth_expire < datetime.today()
-
-    def renew(self):
-        self.revoke()
-        self.getData()
+        return self.auth_expire is None or self.auth_expire < datetime.today()
 
 
 class AzureCredential(Vault):

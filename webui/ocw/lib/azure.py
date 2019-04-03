@@ -30,10 +30,6 @@ class Azure:
         return self.__credentials.getData('subscription_id')
 
     def check_credentials(self):
-        if self.__credentials.isExpired():
-            self.__sp_credentials = None
-            self.__credentials.renew()
-
         for i in range(1, 40):
             try:
                 self.sp_credentials()
@@ -44,7 +40,7 @@ class Azure:
         raise AuthenticationError("Invalid Azure credentials")
 
     def sp_credentials(self):
-        if (self.__sp_credentials is None):
+        if (self.__sp_credentials is None or self.__credentials.isExpired()):
             self.__sp_credentials = ServicePrincipalCredentials(client_id=self.__credentials.getData('client_id'),
                                                                 secret=self.__credentials.getData('client_secret'),
                                                                 tenant=self.__credentials.getData('tenant_id')
@@ -52,13 +48,13 @@ class Azure:
         return self.__sp_credentials
 
     def compute_mgmt_client(self):
-        if (self.__compute_mgmt_client is None):
+        if (self.__compute_mgmt_client is None or self.__credentials.isExpired()):
             self.__compute_mgmt_client = ComputeManagementClient(
                 self.sp_credentials(), self.subscription())
         return self.__compute_mgmt_client
 
     def resource_mgmt_client(self):
-        if (self.__resource_mgmt_client is None):
+        if (self.__resource_mgmt_client is None or self.__credentials.isExpired()):
             self.__resoure_mgmt_client = ResourceManagementClient(
                 self.sp_credentials(), self.subscription())
         return self.__resoure_mgmt_client
