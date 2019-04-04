@@ -48,7 +48,7 @@ class InstanceFilter(BaseFilterSet):
                                                 initial=[str(i) for i in [StateChoice.ACTIVE, StateChoice.DELETING]])
     region = django_filters.CharFilter(lookup_expr='icontains')
     instance_id = django_filters.CharFilter(lookup_expr='icontains', field_name='instance_id')
-    csp_info = django_filters.CharFilter(lookup_expr='icontains', field_name='csp_info')
+    csp_info = django_filters.CharFilter(lookup_expr='icontains', field_name='csp_info', initial='openqa_created_by')
 
     class Meta:
         model = Instance
