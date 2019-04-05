@@ -30,16 +30,14 @@ class Vault:
 
     def getClientToken(self):
         if self.client_token is None:
-            r = self.httpPost('/v1/auth/userpass/login/'+self.user, data={'password': self.password})
+            r = self.httpPost('/v1/auth/userpass/login/' + self.user, data={'password': self.password})
             self.client_token = {'X-Vault-Token': r.json()['auth']['client_token']}
         return self.client_token
 
     def httpGet(self, path):
         try:
-            r = requests.get(self.url + path,
-                             headers=self.getClientToken(),
-                             verify=self.certificate_dir)
-            if 'errors' in r.json():
+            r = requests.get(self.url + path, headers=self.getClientToken(), verify=self.certificate_dir)
+            if len(r.content) > 0 and 'errors' in r.json():
                 raise ConnectionError(",".join(r.json()['errors']))
             else:
                 return r
@@ -49,7 +47,7 @@ class Vault:
     def httpPost(self, path, data, headers={}):
         try:
             r = requests.post(self.url + path, json=data, headers=headers, verify=self.certificate_dir)
-            if 'errors' in r.json():
+            if len(r.content) > 0 and 'errors' in r.json():
                 raise ConnectionError(",".join(r.json()['errors']))
             else:
                 return r
