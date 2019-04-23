@@ -4,31 +4,39 @@
     <head>
         <title>Openqa-CloudWatch</title>
         {% bootstrap_css %}
+        <link rel="stylesheet" href="{% static 'css/base.css' %}">
     </head>
     <body>
         {% bootstrap_javascript jquery=1 %}
         <div class="page-header">
-            <ul class="list-inline" style="float:right;">
-              <li>
-              <div id="check_update_running"></div>
-              </li>
-              <li>
-            {% if user.is_authenticated %}
-                <form method="post" action="{% url 'logout' %}">
-                {% csrf_token %}
-                {% bootstrap_button 'Logout' %}
-                <input type="hidden" name="next" value="{{ request.path }}"/>
-                </form>
-            {% else %}
-                <form method="post" action="{% url 'login' %}">
-                {% csrf_token %}
-                {% bootstrap_button 'Login' %}
-                <input type="hidden" name="next" value="{{ request.path }}"/>
-                </form>
-            {% endif %}
-              </li>
-            </ul>
-            <h1>Openqa-CloudWatch</h1>
+          <div class="row">
+            <div class="col-sm-6">
+              <h1>Openqa-CloudWatch</h1>
+            </div>
+            <div class="col-sm-6">
+              <div class="small-info"></div>
+              <ul class="list-inline" style="float:right;">
+                <li>
+                <div id="check_update_running"></div>
+                </li>
+                <li>
+              {% if user.is_authenticated %}
+                  <form method="post" action="{% url 'logout' %}">
+                  {% csrf_token %}
+                  {% bootstrap_button 'Logout' %}
+                  <input type="hidden" name="next" value="{{ request.path }}"/>
+                  </form>
+              {% else %}
+                  <form method="post" action="{% url 'login' %}">
+                  {% csrf_token %}
+                  {% bootstrap_button 'Login' %}
+                  <input type="hidden" name="next" value="{{ request.path }}"/>
+                  </form>
+              {% endif %}
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
 
         <div class="content container">
@@ -52,6 +60,13 @@
                 } else {
                   e.html('<a class="btn btn-default" role="button" href="{% url 'update' %}">Update</a>');
                   setTimeout(function(){check_update_status();}, 5000);
+                }
+              }
+              if (data.last_update.length > 0){
+                d = new Date(Date.parse(data.last_update));
+                $('div.small-info').html('Last update: ' + d.toLocaleString());
+                if (Date.now() - d.getTime() > 3600*1000){
+                  $('div.small-info').css('color', 'red');
                 }
               }
             });

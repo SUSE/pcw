@@ -6,9 +6,13 @@ import json
 import dateutil.parser
 from threading import Thread
 from threading import Lock
+from datetime import datetime
+from .emailnotify import send_mail
+import traceback
 import logging
 
 update_thread = None
+update_date = None
 update_mutex = Lock()
 logger = logging.getLogger(__name__)
 
@@ -54,47 +58,54 @@ def __update_run():
     from . import EC2db
     from . import azure
     from . import gce
+    global update_date, update_mutex
 
     '''
     Each update is using Instance.active to mark the model is still availalbe on CSP.
     Instance.state is used to reflect the "local" state, e.g. if someone triggered a delete, the
     state will moved to DELETING. If the instance is gone from CSP, the state will set to DELETED.
     '''
+    try:
+        instances = Azure().list_resource_groups()
+        logger.info('Got {} resources groups from Azure'.format(len(instances)))
+        azure.sync_instances_db(instances)
 
-    instances = Azure().list_resource_groups()
-    logger.info('Got {} resources groups from Azure'.format(len(instances)))
-    azure.sync_instances_db(instances)
+        for region in EC2().list_regions():
+            instances = EC2().list_instances(region=region)
+            logger.info('Got {} instances from EC2 in region {}'.format(len(instances), region))
+            EC2db.sync_instances_db(region, instances)
 
-    for region in EC2().list_regions():
-        instances = EC2().list_instances(region=region)
-        logger.info('Got {} instances from EC2 in region {}'.format(len(instances), region))
-        EC2db.sync_instances_db(region, instances)
+        instances = GCE().list_all_instances()
+        logger.info('Got {} instances from GCE'.format(len(instances)))
+        gce.sync_instances_db(instances)
 
-    instances = GCE().list_all_instances()
-    logger.info('Got {} instances from GCE'.format(len(instances)))
-    gce.sync_instances_db(instances)
+        with update_mutex:
+            update_date = datetime.now(timezone.utc)
+
+    except Exception:
+        logger.exception("Update failed!")
+        send_mail('[Openqa-Cloud-Watch] Exception on Update', traceback.format_exc())
 
 
 def start_update():
     global update_thread, update_mutex
 
-    update_mutex.acquire()
-    if update_thread and update_thread.is_alive():
-        update_mutex.release()
-        return False
+    with update_mutex:
+        if update_thread and update_thread.is_alive():
+            return False
 
-    update_thread = Thread(target=__update_run)
-    update_thread.start()
-    update_mutex.release()
+        update_thread = Thread(target=__update_run)
+        update_thread.start()
     return True
 
 
 def is_updating():
     global update_thread, update_mutex
+    with update_mutex:
+        return update_thread and update_thread.is_alive()
 
-    update_mutex.acquire()
-    if update_thread and update_thread.is_alive():
-        update_mutex.release()
-        return True
-    update_mutex.release()
-    return False
+
+def last_update():
+    global update_mutex
+    with update_mutex:
+        return update_date.isoformat() if update_date is not None else ''

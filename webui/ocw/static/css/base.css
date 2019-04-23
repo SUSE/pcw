@@ -1,0 +1,9 @@
+.page-header {
+    margin-top: 0px;
+}
+
+.page-header div.small-info {
+    font-size: 0.7em;
+    text-align: right;
+    padding: 3px;
+}

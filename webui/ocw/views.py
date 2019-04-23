@@ -44,13 +44,17 @@ def update(request):
 
 def update_status(request):
     if 'application/json' in request.META.get('HTTP_ACCEPT'):
-        return JsonResponse({'status': 'running' if db.is_updating() else 'idle'})
+        return JsonResponse({
+                  'status': 'running' if db.is_updating() else 'idle',
+                  'last_update': db.last_update()
+                  })
+
     return redirect('instances')
 
 
 def cron(request):
     update(request)
-    emailnotify.send_mail(request)
+    emailnotify.send_leftover_notification(request)
     return HttpResponse('Done...')
 
 
