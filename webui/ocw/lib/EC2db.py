@@ -25,9 +25,11 @@ def _instance_to_json(i):
     if i.image:
         img = i.image
         info['image'] = {
-                'image_id': img.image_id,
-                'name': img.name,
+                'image_id': img.image_id
                 }
+        # This happen, if the image was already deleted
+        if img.meta.data is not None:
+            info['image']['name'] = img.name
 
     return info
 

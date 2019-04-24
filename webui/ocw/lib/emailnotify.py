@@ -5,9 +5,12 @@ from texttable import Texttable
 from django.urls import reverse
 import json
 import smtplib
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-def send_mail(request):
+def send_leftover_notification(request):
     from .. import views
     cfg = ConfigFile()
     if not cfg.has('notify'):
@@ -38,21 +41,29 @@ def send_mail(request):
     if num_new == 0:
         return
 
+    subject = cfg.get(['notify', 'subject'], '[Openqa-Cloud-Watch] CSP left overs')
+    send_mail(subject, table.draw())
+    o.update(notified=True)
+
+
+def send_mail(subject, message):
+    cfg = ConfigFile()
+    if not cfg.has('notify'):
+        return
+
     smtp_server = cfg.get(['notify', 'smtp'])
     port = cfg.get(['notify', 'smtp-port'], 25)
     sender_email = cfg.get(['notify', 'from'])
     receiver_email = cfg.get(['notify', 'to'])
-    subject = cfg.get(['notify', 'subject'], '[Openqa-Cloud-Watch] CSP left overs')
-    message = '''\
+    email = '''\
 Subject: {subject}
 From: {_from}
 To: {_to}
 
 
-{table}
-'''.format(subject=subject, _from=sender_email, _to=receiver_email, table=table.draw())
-    print('Send notify email to {}'.format(receiver_email))
+{message}
+'''.format(subject=subject, _from=sender_email, _to=receiver_email, message=message)
+    logger.info("Send Email To:'{}' Subject:'{}'".format(receiver_email, subject))
     server = smtplib.SMTP(smtp_server, port)
     server.ehlo()
-    server.sendmail(sender_email, receiver_email, message)
-    o.update(notified=True)
+    server.sendmail(sender_email, receiver_email, email)
