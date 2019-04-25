@@ -194,6 +194,9 @@ class ConfigFile:
                 return default
         return d
 
+    def getList(self, name, default=[]):
+        return [i.strip() for i in self.get(name, ','.join(default)).split(',')]
+
     def has(self, name):
         try:
             self.get(name)

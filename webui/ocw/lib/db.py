@@ -1,3 +1,4 @@
+from webui.settings import ConfigFile
 from ..models import Instance
 from ..models import StateChoice
 from django.db import transaction
@@ -59,6 +60,7 @@ def __update_run():
     from . import azure
     from . import gce
     global update_date, update_mutex
+    cfg = ConfigFile()
 
     '''
     Each update is using Instance.active to mark the model is still availalbe on CSP.
@@ -70,7 +72,7 @@ def __update_run():
         logger.info('Got {} resources groups from Azure'.format(len(instances)))
         azure.sync_instances_db(instances)
 
-        for region in EC2().list_regions():
+        for region in cfg.getList(['ec2', 'regions'], EC2().list_regions()):
             instances = EC2().list_instances(region=region)
             logger.info('Got {} instances from EC2 in region {}'.format(len(instances), region))
             EC2db.sync_instances_db(region, instances)
