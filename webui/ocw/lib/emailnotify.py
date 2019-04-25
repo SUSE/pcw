@@ -66,4 +66,4 @@ To: {_to}
     logger.info("Send Email To:'{}' Subject:'{}'".format(receiver_email, subject))
     server = smtplib.SMTP(smtp_server, port)
     server.ehlo()
-    server.sendmail(sender_email, receiver_email, email)
+    server.sendmail(sender_email, receiver_email.split(','), email)
