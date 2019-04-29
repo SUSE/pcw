@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 @transaction.atomic
 def update_or_create_instance(provider, instance_id, region, csp_info):
     t_now = timezone.now()
-    logger.debug("Update/Create instance {}:{} @ {}\n\t{}".format(provider, instance_id, region, csp_info))
+    logger.debug("Update/Create instance %s:%s @ %s\n\t%s", provider, instance_id, region, csp_info)
     if Instance.objects.filter(provider=provider, instance_id=instance_id).exists():
         o = Instance.objects.get(provider=provider, instance_id=instance_id)
         o.last_seen = t_now
@@ -29,24 +29,24 @@ def update_or_create_instance(provider, instance_id, region, csp_info):
         o.active = True
         o.csp_info = json.dumps(csp_info, ensure_ascii=False)
         if o.region != region:
-            logger.info('Instance {}:{} changed region from {} to {}'.format(provider, instance_id, o.region, region))
+            logger.info("Instance %s:%s changed region from %s to %s", provider, instance_id, o.region, region)
             o.region = region
         if o.state == StateChoice.DELETED:
-            logger.error("Update already DELETED instance {}:{}\n\t{}".format(provider, instance_id, csp_info))
+            logger.error("Update already DELETED instance %s:%s\n\t%s", provider, instance_id, csp_info)
         if o.state != StateChoice.DELETING:
             o.state = StateChoice.ACTIVE
         o.save()
     else:
         o = Instance(
-                provider=provider,
-                first_seen=dateutil.parser.parse(csp_info.get('launch_time', str(t_now))),
-                last_seen=t_now,
-                instance_id=instance_id,
-                active=True,
-                state=StateChoice.ACTIVE,
-                region=region,
-                csp_info=json.dumps(csp_info, ensure_ascii=False)
-                )
+            provider=provider,
+            first_seen=dateutil.parser.parse(csp_info.get('launch_time', str(t_now))),
+            last_seen=t_now,
+            instance_id=instance_id,
+            active=True,
+            state=StateChoice.ACTIVE,
+            region=region,
+            csp_info=json.dumps(csp_info, ensure_ascii=False)
+        )
         o.age = o.last_seen - o.first_seen
         o.save()
 
@@ -69,16 +69,16 @@ def __update_run():
     '''
     try:
         instances = Azure().list_resource_groups()
-        logger.info('Got {} resources groups from Azure'.format(len(instances)))
+        logger.info("Got %d resources groups from Azure", len(instances))
         azure.sync_instances_db(instances)
 
         for region in cfg.getList(['ec2', 'regions'], EC2().list_regions()):
             instances = EC2().list_instances(region=region)
-            logger.info('Got {} instances from EC2 in region {}'.format(len(instances), region))
+            logger.info("Got %d instances from EC2 in region %s", len(instances), region)
             EC2db.sync_instances_db(region, instances)
 
         instances = GCE().list_all_instances()
-        logger.info('Got {} instances from GCE'.format(len(instances)))
+        logger.info("Got %d instances from GCE", len(instances))
         gce.sync_instances_db(instances)
 
         with update_mutex:

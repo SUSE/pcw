@@ -36,7 +36,7 @@ def send_leftover_notification(request):
             j['tags']['openqa_created_by'],
             i.age_formated(),
             request.build_absolute_uri(reverse(views.delete, args=[i.id]))
-            ])
+        ])
 
     if num_new == 0:
         return
@@ -63,7 +63,7 @@ To: {_to}
 
 {message}
 '''.format(subject=subject, _from=sender_email, _to=receiver_email, message=message)
-    logger.info("Send Email To:'{}' Subject:'[Openqa-Cloud-Watch] {}'".format(receiver_email, subject))
+    logger.info("Send Email To:'%s' Subject:'[Openqa-Cloud-Watch] %s'", receiver_email, subject)
     server = smtplib.SMTP(smtp_server, port)
     server.ehlo()
     server.sendmail(sender_email, receiver_email.split(','), email)

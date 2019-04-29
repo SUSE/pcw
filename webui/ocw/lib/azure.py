@@ -9,6 +9,7 @@ from azure.mgmt.compute import ComputeManagementClient
 from msrest.exceptions import AuthenticationError
 from ..lib import db
 import time
+import logging
 
 
 class Azure:
@@ -17,11 +18,13 @@ class Azure:
     __compute_mgmt_client = None
     __sp_credentials = None
     __resource_mgmt_client = None
+    __logger = None
 
     def __new__(cls):
         if Azure.__instance is None:
             Azure.__instance = object.__new__(cls)
             Azure.__instance.__credentials = AzureCredential()
+            Azure.__instance.__logger = logging.getLogger(__name__)
 
         Azure.__instance.check_credentials()
         return Azure.__instance
@@ -38,8 +41,9 @@ class Azure:
             try:
                 self.sp_credentials()
                 return True
-            except AuthenticationError as e:
-                print('ServicePrincipalCredentials failed (attemp:{}) - {}'.format(i, str(e)))
+            except AuthenticationError:
+                self.__logger.info("check_credentials failed (attemp:%d) - for client_id %s should expire at %s",
+                                   i, self.__credentials.getData('client_id'), self.__credentials.auth_expire)
                 time.sleep(1)
         raise AuthenticationError("Invalid Azure credentials")
 
@@ -75,12 +79,12 @@ class Azure:
 
 def _instance_to_json(i):
     info = {
-            'tags': i.tags,
-            'name': i.name,
-            'id': i.id,
-            'type': i.type,
-            'location': i.location
-          }
+        'tags': i.tags,
+        'name': i.name,
+        'id': i.id,
+        'type': i.type,
+        'location': i.location
+    }
     if (i.tags is not None and 'openqa_created_date' in i.tags):
         info['launch_time'] = i.tags.get('openqa_created_date')
     return info
@@ -94,10 +98,10 @@ def sync_instances_db(instances):
 
     for i in instances:
         db.update_or_create_instance(
-                provider=ProviderChoice.AZURE,
-                instance_id=i.name,
-                region=i.location,
-                csp_info=_instance_to_json(i))
+            provider=ProviderChoice.AZURE,
+            instance_id=i.name,
+            region=i.location,
+            csp_info=_instance_to_json(i))
 
     o = Instance.objects
     o = o.filter(provider=ProviderChoice.AZURE, active=False)
