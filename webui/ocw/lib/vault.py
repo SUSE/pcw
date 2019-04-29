@@ -25,8 +25,14 @@ class Vault:
     def revoke(self):
         if self.auth_json is None:
             return
-        self.httpPost('/v1/sys/leases/revoke', {'lease_id': self.auth_json['lease_id']}, self.getClientToken())
-        self.auth_json = None
+        try:
+            self.httpPost('/v1/sys/leases/revoke', {'lease_id': self.auth_json['lease_id']}, self.getClientToken())
+        except ConnectionError as e:
+            # NoSuchEntity errors expected on revoke they just mean that Vault already did what we asking for
+            if "NoSuchEntity:" not in str(e):
+                raise e
+        finally:
+            self.auth_json = None
 
     def getClientToken(self):
         if self.client_token is None:
