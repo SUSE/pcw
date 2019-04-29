@@ -84,9 +84,9 @@ def __update_run():
         with update_mutex:
             update_date = datetime.now(timezone.utc)
 
-    except Exception:
+    except Exception as e:
         logger.exception("Update failed!")
-        send_mail('[Openqa-Cloud-Watch] Exception on Update', traceback.format_exc())
+        send_mail(type(e).__name__ + ' on Update', traceback.format_exc())
 
 
 def start_update():

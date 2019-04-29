@@ -41,7 +41,7 @@ def send_leftover_notification(request):
     if num_new == 0:
         return
 
-    subject = cfg.get(['notify', 'subject'], '[Openqa-Cloud-Watch] CSP left overs')
+    subject = cfg.get(['notify', 'subject'], 'CSP left overs')
     send_mail(subject, table.draw())
     o.update(notified=True)
 
@@ -56,14 +56,14 @@ def send_mail(subject, message):
     sender_email = cfg.get(['notify', 'from'])
     receiver_email = cfg.get(['notify', 'to'])
     email = '''\
-Subject: {subject}
+Subject: [Openqa-Cloud-Watch] {subject}
 From: {_from}
 To: {_to}
 
 
 {message}
 '''.format(subject=subject, _from=sender_email, _to=receiver_email, message=message)
-    logger.info("Send Email To:'{}' Subject:'{}'".format(receiver_email, subject))
+    logger.info("Send Email To:'{}' Subject:'[Openqa-Cloud-Watch] {}'".format(receiver_email, subject))
     server = smtplib.SMTP(smtp_server, port)
     server.ehlo()
     server.sendmail(sender_email, receiver_email.split(','), email)
