@@ -11,6 +11,7 @@ class Vault:
     client_token = None
     auth_json = None
     auth_expire = None
+    extra_time = 600
 
     def __init__(self):
         cfg = ConfigFile()
@@ -74,7 +75,7 @@ class Vault:
     def isExpired(self):
         if self.auth_expire is None:
             return True
-        return self.auth_expire < datetime.today()
+        return self.auth_expire < datetime.today() - timedelta(seconds=self.extra_time)
 
     def renew(self):
         self.revoke()

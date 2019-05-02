@@ -1,6 +1,7 @@
 import boto3
 import time
 from .vault import EC2Credential
+import logging
 
 
 class EC2:
@@ -10,11 +11,13 @@ class EC2:
     __ec2_resource = dict()
     __ec2_client = dict()
     __credentials = None
+    __logging = None
 
     def __new__(cls):
         if EC2.__instance is None:
             EC2.__instance = object.__new__(cls)
             EC2.__instance.__credentials = EC2Credential()
+            EC2.__instance.__logging = logging.getLogger(__name__)
 
         EC2.__instance.check_credentials()
         return EC2.__instance
@@ -34,10 +37,11 @@ class EC2:
             try:
                 self.list_regions()
                 return True
-            except Exception as e:
-                print('CredentialsError (attemp:{}) - {}'.format(i, str(e)))
+            except Exception:
+                self.__logging.info("check_credentials (attemp:%d) with key %s expiring at %s ",
+                                    i, self.__key, self.__credentials.auth_expire)
                 time.sleep(1)
-        raise Exception("Invalid EC2 credentials")
+        self.list_regions()
 
     def ec2_resource(self, region='eu-central-1'):
         if region not in self.__ec2_resource:
