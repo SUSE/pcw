@@ -9,6 +9,7 @@ from tempfile import NamedTemporaryFile
 
 class Vault:
     client_token = None
+    client_token_expire = None
     auth_json = None
     auth_expire = None
     extra_time = 600
@@ -36,10 +37,17 @@ class Vault:
             self.auth_json = None
 
     def getClientToken(self):
-        if self.client_token is None:
+        if self.isClientTokenExpired():
             r = self.httpPost('/v1/auth/userpass/login/' + self.user, data={'password': self.password})
-            self.client_token = {'X-Vault-Token': r.json()['auth']['client_token']}
+            j = r.json()
+            self.client_token = {'X-Vault-Token': j['auth']['client_token']}
+            self.client_token_expire = datetime.today() + timedelta(seconds=j['auth']['lease_duration'])
         return self.client_token
+
+    def isClientTokenExpired(self):
+        if self.client_token is None:
+            return True
+        return self.client_token_expire < datetime.today() + timedelta(seconds=self.extra_time)
 
     def httpGet(self, path):
         try:
