@@ -5,7 +5,7 @@ import logging
 
 
 class EC2:
-    __instance = None
+    __instances = dict()
     __key = None
     __secret = None
     __ec2_resource = dict()
@@ -13,14 +13,14 @@ class EC2:
     __credentials = None
     __logging = None
 
-    def __new__(cls):
-        if EC2.__instance is None:
-            EC2.__instance = object.__new__(cls)
-            EC2.__instance.__credentials = EC2Credential()
-            EC2.__instance.__logging = logging.getLogger(__name__)
+    def __new__(cls, vault_namespace):
+        if vault_namespace not in EC2.__instances:
+            EC2.__instances[vault_namespace] = object.__new__(cls)
+            EC2.__instances[vault_namespace].__credentials = EC2Credential(vault_namespace)
+            EC2.__instances[vault_namespace].__logging = logging.getLogger(__name__)
 
-        EC2.__instance.check_credentials()
-        return EC2.__instance
+        EC2.__instances[vault_namespace].check_credentials()
+        return EC2.__instances[vault_namespace]
 
     def check_credentials(self):
         if self.__credentials.isExpired():

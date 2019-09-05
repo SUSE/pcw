@@ -13,21 +13,21 @@ import logging
 
 
 class Azure:
-    __instance = None
+    __instances = dict()
     __credentials = None
     __compute_mgmt_client = None
     __sp_credentials = None
     __resource_mgmt_client = None
     __logger = None
 
-    def __new__(cls):
-        if Azure.__instance is None:
-            Azure.__instance = object.__new__(cls)
-            Azure.__instance.__credentials = AzureCredential()
-            Azure.__instance.__logger = logging.getLogger(__name__)
+    def __new__(cls, vault_namespace):
+        if vault_namespace not in Azure.__instances:
+            Azure.__instances[vault_namespace] = object.__new__(cls)
+            Azure.__instances[vault_namespace].__credentials = AzureCredential(vault_namespace)
+            Azure.__instances[vault_namespace].__logger = logging.getLogger(__name__)
 
-        Azure.__instance.check_credentials()
-        return Azure.__instance
+        Azure.__instances[vault_namespace].check_credentials()
+        return Azure.__instances[vault_namespace]
 
     def subscription(self):
         return self.__credentials.getData('subscription_id')
@@ -91,9 +91,9 @@ def _instance_to_json(i):
 
 
 @transaction.atomic
-def sync_instances_db(instances):
+def sync_instances_db(instances, vault_namespace):
     o = Instance.objects
-    o = o.filter(provider=ProviderChoice.AZURE)
+    o = o.filter(provider=ProviderChoice.AZURE, vault_namespace=vault_namespace)
     o = o.update(active=False)
 
     for i in instances:
@@ -101,7 +101,8 @@ def sync_instances_db(instances):
             provider=ProviderChoice.AZURE,
             instance_id=i.name,
             region=i.location,
-            csp_info=_instance_to_json(i))
+            csp_info=_instance_to_json(i),
+            vault_namespace=vault_namespace)
 
     o = Instance.objects
     o = o.filter(provider=ProviderChoice.AZURE, active=False)

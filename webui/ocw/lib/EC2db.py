@@ -35,9 +35,9 @@ def _instance_to_json(i):
 
 
 @transaction.atomic
-def sync_instances_db(region, instances):
+def sync_instances_db(region, instances, vault_namespace):
     o = Instance.objects
-    o = o.filter(region=region, provider=ProviderChoice.EC2)
+    o = o.filter(region=region, provider=ProviderChoice.EC2, vault_namespace=vault_namespace)
     o = o.update(active=False)
 
     for i in instances:
@@ -45,7 +45,8 @@ def sync_instances_db(region, instances):
                 provider=ProviderChoice.EC2,
                 instance_id=i.instance_id,
                 region=region,
-                csp_info=_instance_to_json(i))
+                csp_info=_instance_to_json(i),
+                vault_namespace=vault_namespace)
 
     o = Instance.objects
     o = o.filter(region=region, provider=ProviderChoice.EC2, active=False)
