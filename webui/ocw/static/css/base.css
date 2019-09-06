@@ -7,3 +7,9 @@
     text-align: right;
     padding: 3px;
 }
+.page-header div.logo {
+    margin-left: 3px;
+}
+.page-header div.logo h1 {
+    margin:0 0 3 0;
+}
