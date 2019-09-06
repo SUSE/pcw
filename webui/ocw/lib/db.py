@@ -72,18 +72,24 @@ def __update_run():
 
         logger.info("Check vault_namespace: %s", vault_namespace)
         try:
-            instances = Azure(vault_namespace).list_resource_groups()
-            logger.info("Got %d resources groups from Azure", len(instances))
-            azure.sync_instances_db(instances, vault_namespace)
+            providers = cfg.getList(['vault.namespace.{}'.format(vault_namespace), 'providers'],
+                                    ['ec2', 'azure', 'gce'])
 
-            for region in cfg.getList(['ec2', 'regions'], EC2(vault_namespace).list_regions()):
-                instances = EC2(vault_namespace).list_instances(region=region)
-                logger.info("Got %d instances from EC2 in region %s", len(instances), region)
-                EC2db.sync_instances_db(region, instances, vault_namespace)
+            if 'azure' in providers:
+                instances = Azure(vault_namespace).list_resource_groups()
+                logger.info("Got %d resources groups from Azure", len(instances))
+                azure.sync_instances_db(instances, vault_namespace)
 
-            instances = GCE(vault_namespace).list_all_instances()
-            logger.info("Got %d instances from GCE", len(instances))
-            gce.sync_instances_db(instances, vault_namespace)
+            if 'ec2' in providers:
+                for region in cfg.getList(['ec2', 'regions'], EC2(vault_namespace).list_regions()):
+                    instances = EC2(vault_namespace).list_instances(region=region)
+                    logger.info("Got %d instances from EC2 in region %s", len(instances), region)
+                    EC2db.sync_instances_db(region, instances, vault_namespace)
+
+            if 'gce' in providers:
+                instances = GCE(vault_namespace).list_all_instances()
+                logger.info("Got %d instances from GCE", len(instances))
+                gce.sync_instances_db(instances, vault_namespace)
 
             with update_mutex:
                 update_date = datetime.now(timezone.utc)
