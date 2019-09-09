@@ -37,6 +37,15 @@ cat > /etc/pcw.ini << EOT
 url = https://publiccloud.your.vault.server/vault
 user = Your_VAULT_USER
 password = VAULT_USER_PASSWORD
+namespaces = VAULT_NAMESPACE, VAULT_NAMESPACE_2, ...
+
+[vault.namespace.XXX]
+# XXX is the name of a namespace given in vault.namespaces
+# provider should be ec2, azure or csp
+providers = csp1[, csp2]...
+
+[ec2]
+regions = eu-north-1, ap-south-1, eu-west-3, ...
 
 # Add this section to enable email notification for left overs
 [notify]

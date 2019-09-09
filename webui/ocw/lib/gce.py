@@ -9,16 +9,16 @@ from ..lib import db
 
 
 class GCE:
-    __instance = None
+    __instances = dict()
     __credentials = None
     __compute_clinet = None
     __project = None
 
-    def __new__(cls):
-        if GCE.__instance is None:
-            GCE.__instance = object.__new__(cls)
-            GCE.__instance.__credentials = GCECredential()
-        return GCE.__instance
+    def __new__(cls, vault_namespace):
+        if vault_namespace not in GCE.__instances:
+            GCE.__instances[vault_namespace] = object.__new__(cls)
+            GCE.__instances[vault_namespace].__credentials = GCECredential(vault_namespace)
+        return GCE.__instances[vault_namespace]
 
     def compute_client(self):
         if self.__credentials.isExpired():
@@ -43,9 +43,9 @@ class GCE:
 
     def list_all_instances(self):
         result = []
-        for region in GCE().list_regions():
-            for zone in GCE().list_zones(region):
-                result += GCE().list_instances(zone=zone)
+        for region in self.list_regions():
+            for zone in self.list_zones(region):
+                result += self.list_instances(zone=zone)
         return result
 
     def list_regions(self):
@@ -91,9 +91,9 @@ def _instance_to_json(i):
 
 
 @transaction.atomic
-def sync_instances_db(instances):
+def sync_instances_db(instances, vault_namespace):
     o = Instance.objects
-    o = o.filter(provider=ProviderChoice.GCE)
+    o = o.filter(provider=ProviderChoice.GCE, vault_namespace=vault_namespace)
     o = o.update(active=False)
 
     for i in instances:
@@ -101,7 +101,8 @@ def sync_instances_db(instances):
                 provider=ProviderChoice.GCE,
                 instance_id=i['id'],
                 region=GCE.url_to_name(i['zone']),
-                csp_info=_instance_to_json(i))
+                csp_info=_instance_to_json(i),
+                vault_namespace=vault_namespace)
 
     o = Instance.objects
     o = o.filter(provider=ProviderChoice.GCE, active=False)

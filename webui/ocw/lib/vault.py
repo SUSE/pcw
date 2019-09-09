@@ -14,10 +14,11 @@ class Vault:
     auth_expire = None
     extra_time = 600
 
-    def __init__(self):
+    def __init__(self, vault_namespace):
         cfg = ConfigFile()
         self.url = cfg.get(['vault', 'url'])
         self.user = cfg.get(['vault', 'user'])
+        self.namespace = vault_namespace
         self.password = cfg.get(['vault', 'password'])
         self.certificate_dir = cfg.get(['vault', 'cert_dir'], '/etc/ssl/certs')
 
@@ -96,8 +97,8 @@ class AzureCredential(Vault):
 
     def getCredentials(self):
 
-        path = '/v1/azure/creds/openqa-role'
-        path_kv = '/v1/secret/azure/openqa-role'
+        path = '/v1/{}/azure/creds/openqa-role'.format(self.namespace)
+        path_kv = '/v1/{}/secret/azure/openqa-role'.format(self.namespace)
         creds = self.httpGet(path).json()
         data = self.httpGet(path_kv).json()['data']
         for k, v in data.items():
@@ -110,7 +111,7 @@ class EC2Credential(Vault):
     ''' Known data fields: access_key, secret_key '''
 
     def getCredentials(self):
-        path = '/v1/aws/creds/openqa-role'
+        path = '/v1/{}/aws/creds/openqa-role'.format(self.namespace)
         return self.httpGet(path).json()
 
 
@@ -120,7 +121,7 @@ class GCECredential(Vault):
     cred_file = None
 
     def getCredentials(self):
-        path = '/v1/gcp/key/openqa-role'
+        path = '/v1/{}/gcp/key/openqa-role'.format(self.namespace)
         creds = self.httpGet(path).json()
         if 'errors' in creds:
             raise Exception(",".join(creds['errors']))

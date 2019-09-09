@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 @transaction.atomic
-def update_or_create_instance(provider, instance_id, region, csp_info):
+def update_or_create_instance(provider, instance_id, region, csp_info, vault_namespace):
     t_now = timezone.now()
     logger.debug("Update/Create instance %s:%s @ %s\n\t%s", provider, instance_id, region, csp_info)
     if Instance.objects.filter(provider=provider, instance_id=instance_id).exists():
@@ -39,6 +39,7 @@ def update_or_create_instance(provider, instance_id, region, csp_info):
     else:
         o = Instance(
             provider=provider,
+            vault_namespace=vault_namespace,
             first_seen=dateutil.parser.parse(csp_info.get('launch_time', str(t_now))),
             last_seen=t_now,
             instance_id=instance_id,
@@ -67,26 +68,35 @@ def __update_run():
     Instance.state is used to reflect the "local" state, e.g. if someone triggered a delete, the
     state will moved to DELETING. If the instance is gone from CSP, the state will set to DELETED.
     '''
-    try:
-        instances = Azure().list_resource_groups()
-        logger.info("Got %d resources groups from Azure", len(instances))
-        azure.sync_instances_db(instances)
+    for vault_namespace in cfg.getList(['vault', 'namespaces'], ['']):
 
-        for region in cfg.getList(['ec2', 'regions'], EC2().list_regions()):
-            instances = EC2().list_instances(region=region)
-            logger.info("Got %d instances from EC2 in region %s", len(instances), region)
-            EC2db.sync_instances_db(region, instances)
+        logger.info("Check vault_namespace: %s", vault_namespace)
+        try:
+            providers = cfg.getList(['vault.namespace.{}'.format(vault_namespace), 'providers'],
+                                    ['ec2', 'azure', 'gce'])
 
-        instances = GCE().list_all_instances()
-        logger.info("Got %d instances from GCE", len(instances))
-        gce.sync_instances_db(instances)
+            if 'azure' in providers:
+                instances = Azure(vault_namespace).list_resource_groups()
+                logger.info("Got %d resources groups from Azure", len(instances))
+                azure.sync_instances_db(instances, vault_namespace)
 
-        with update_mutex:
-            update_date = datetime.now(timezone.utc)
+            if 'ec2' in providers:
+                for region in cfg.getList(['ec2', 'regions'], EC2(vault_namespace).list_regions()):
+                    instances = EC2(vault_namespace).list_instances(region=region)
+                    logger.info("Got %d instances from EC2 in region %s", len(instances), region)
+                    EC2db.sync_instances_db(region, instances, vault_namespace)
 
-    except Exception as e:
-        logger.exception("Update failed!")
-        send_mail(type(e).__name__ + ' on Update', traceback.format_exc())
+            if 'gce' in providers:
+                instances = GCE(vault_namespace).list_all_instances()
+                logger.info("Got %d instances from GCE", len(instances))
+                gce.sync_instances_db(instances, vault_namespace)
+
+            with update_mutex:
+                update_date = datetime.now(timezone.utc)
+
+        except Exception as e:
+            logger.exception("Update failed!")
+            send_mail(type(e).__name__ + ' on Update', traceback.format_exc())
 
 
 def start_update():

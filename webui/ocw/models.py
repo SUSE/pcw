@@ -42,6 +42,7 @@ class Instance(models.Model):
                              help_text='Local computed state of that Instance')
     instance_id = models.CharField(max_length=200, unique=True)
     region = models.CharField(max_length=64, default='')
+    vault_namespace = models.CharField(max_length=64, default='')
     csp_info = models.TextField(default='')
     notified = models.BooleanField(default=False)
 
