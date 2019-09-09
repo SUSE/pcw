@@ -2,16 +2,22 @@
 {% load bootstrap3 %}
 <html>
     <head>
-        <title>Openqa-CloudWatch</title>
+        <title>OpenQA-CloudWatch</title>
         {% bootstrap_css %}
         <link rel="stylesheet" href="{% static 'css/base.css' %}">
+        <script async defer src="https://buttons.github.io/buttons.js"></script>
     </head>
     <body>
         {% bootstrap_javascript jquery=1 %}
         <div class="page-header">
           <div class="row">
             <div class="col-sm-6">
-              <h1>Openqa-CloudWatch</h1>
+              <div class="logo">
+                <h1>OpenQA-CloudWatch</h1>
+                <a class="github-button" href="https://github.com/cfconrad/pcw/subscription"aria-label="Watch cfconrad/pcw on GitHub">Watch</a>
+                <a class="github-button" href="https://github.com/cfconrad/pcw/fork" data-icon="octicon-repo-forked" aria-label="Fork cfconrad/pcw on GitHub" >Fork</a>
+                <a class="github-button" href="https://github.com/cfconrad/pcw/issues" data-icon="octicon-issue-opened" data-show-count="true" aria-label="Issue cfconrad/pcw on GitHub">Issue</a>
+              </div>
             </div>
             <div class="col-sm-6">
               <div class="small-info"></div>
