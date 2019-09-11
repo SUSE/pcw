@@ -1,11 +1,6 @@
 from .vault import GCECredential
 import googleapiclient.discovery
 from google.oauth2 import service_account
-from ..models import Instance
-from ..models import ProviderChoice
-from ..models import StateChoice
-from django.db import transaction
-from ..lib import db
 
 
 class GCE:
@@ -71,39 +66,3 @@ class GCE:
     @staticmethod
     def url_to_name(url):
         return url[url.rindex('/')+1:]
-
-
-def _instance_to_json(i):
-    info = {
-            'tags': {m['key']: m['value'] for m in i['metadata']['items']} if 'items' in i['metadata'] else {},
-            'name': i['name'],
-            'id': i['id'],
-            'machineType': GCE.url_to_name(i['machineType']),
-            'zone': GCE.url_to_name(i['zone']),
-            'status': i['status'],
-            'launch_time': i['creationTimestamp'],
-            'creation_time': i['creationTimestamp'],
-          }
-    if 'openqa_created_date' in info['tags']:
-        info['launch_time'] = info['tags']['openqa_created_date']
-    info['tags'].pop('sshKeys', '')
-    return info
-
-
-@transaction.atomic
-def sync_instances_db(instances, vault_namespace):
-    o = Instance.objects
-    o = o.filter(provider=ProviderChoice.GCE, vault_namespace=vault_namespace)
-    o = o.update(active=False)
-
-    for i in instances:
-        db.update_or_create_instance(
-                provider=ProviderChoice.GCE,
-                instance_id=i['id'],
-                region=GCE.url_to_name(i['zone']),
-                csp_info=_instance_to_json(i),
-                vault_namespace=vault_namespace)
-
-    o = Instance.objects
-    o = o.filter(provider=ProviderChoice.GCE, active=False)
-    o = o.update(state=StateChoice.DELETED)

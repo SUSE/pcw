@@ -5,3 +5,5 @@ venv/
 tags
 webui/db.sqlite3
 *.egg-info/
+.cache
+webui/nginx/static/
