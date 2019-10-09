@@ -23,7 +23,7 @@ def send_leftover_notification(request):
 
     table = Texttable(max_width=0)
     table.set_deco(Texttable.HEADER)
-    table.header(['Provider', 'id', 'Created-By', 'Age', 'Delete'])
+    table.header(['Provider', 'id', 'Created-By', 'Namespace', 'Age', 'Delete'])
     for i in o:
         if i.notified is False:
             num_new += 1
@@ -34,6 +34,7 @@ def send_leftover_notification(request):
             i.provider,
             i.instance_id,
             j['tags']['openqa_created_by'],
+            i.vault_namespace,
             i.age_formated(),
             request.build_absolute_uri(reverse(views.delete, args=[i.id]))
         ])
@@ -42,7 +43,13 @@ def send_leftover_notification(request):
         return
 
     subject = cfg.get(['notify', 'subject'], 'CSP left overs')
-    send_mail(subject, table.draw())
+    body = '''\
+Message from {url}
+
+
+{table}
+'''.format(table=table.draw(), url=request.build_absolute_uri('/'))
+    send_mail(subject, body)
     o.update(notified=True)
 
 
@@ -59,7 +66,6 @@ def send_mail(subject, message):
 Subject: [Openqa-Cloud-Watch] {subject}
 From: {_from}
 To: {_to}
-
 
 {message}
 '''.format(subject=subject, _from=sender_email, _to=receiver_email, message=message)
