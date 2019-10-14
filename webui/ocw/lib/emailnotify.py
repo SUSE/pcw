@@ -40,13 +40,12 @@ def send_leftover_notification(request):
                  csp_info__icontains='openqa_created_by',
                  age__gt=timedelta(hours=int(cfg.get(['notify', 'age-hours'], 12))))
 
-    if o.filter(notified=True).count == 0:
+    if o.filter(notified=False).count() == 0:
         return
 
     subject = cfg.get(['notify', 'subject'], 'CSP left overs')
     body_prefix = "Message from {url}\n\n".format(url=request.build_absolute_uri('/'))
     send_mail(subject, body_prefix + draw_instance_table(request, o))
-    o.update(notified=True)
 
     # Handle namespaces
     namespaces = list(dict.fromkeys([i.vault_namespace for i in o]))
@@ -56,8 +55,12 @@ def send_leftover_notification(request):
             continue
         receiver_email = cfg.get(cfg_path)
         namespace_objects = o.filter(vault_namespace=namespace)
+        if namespace_objects.filter(notified=False).count() == 0:
+            continue
         send_mail(subject, body_prefix + draw_instance_table(request, namespace_objects),
                   receiver_email=receiver_email)
+
+    o.update(notified=True)
 
 
 def send_mail(subject, message, receiver_email=None):
