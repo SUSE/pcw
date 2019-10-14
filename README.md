@@ -54,6 +54,11 @@ smtp-port = PORT_NUMER
 to = RECEIPE_ADDRESS1[, RECEIPE_ADDRESS2]
 from = FROM_ADDRESS
 age-hours = NUMBER_OF_HOURS_TO_COUNT_AS_LEFT_OVER
+
+[notify.namespace.XXX]
+# Optional section to set a specific receiver of left over notifications for
+# a defined vault namespace. XXX should be replaced with the vault namespace
+to = RECEIPE_ADDRESS_NS_1[, RECEIPE_ADDRESS_NS_2]
 EOT
 
 python manage.py migrate
