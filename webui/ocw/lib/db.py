@@ -178,6 +178,7 @@ def __update_run():
                 instances = [azure_to_local_instance(i, vault_namespace) for i in instances]
                 logger.info("Got %d resources groups from Azure", len(instances))
                 sync_csp_to_local_db(instances, ProviderChoice.AZURE, vault_namespace)
+                Azure(vault_namespace).cleanup_all()
 
             if 'ec2' in providers:
                 instances = []

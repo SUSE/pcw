@@ -1,8 +1,16 @@
 from ..lib.vault import AzureCredential
+from webui.settings import ConfigFile
 from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
+from azure.mgmt.storage import StorageManagementClient
+from azure.storage.blob import BlockBlobService
 from msrest.exceptions import AuthenticationError
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
+from distutils.version import LooseVersion
+import re
 import time
 import logging
 
@@ -71,3 +79,86 @@ class Azure:
 
     def delete_resource(self, resource_id):
         return self.resource_mgmt_client().resource_groups.delete(resource_id)
+
+    def cleanup_all(self):
+        ''' Cleanup all autodateed data which might created during automated tests.'''
+        cfg = ConfigFile()
+        resourcegroup = cfg.get(
+                ['cleanup.namespace.{}'.format(self.__credentials.namespace), 'azure-storage-resourcegroup'],
+                cfg.get(['cleanup', 'azure-storage-resourcegroup'], 'openqa-upload'))
+        storage_account = cfg.get(
+                ['cleanup.namespace.{}'.format(self.__credentials.namespace), 'azure-storage-account-name'],
+                cfg.get(['cleanup', 'azure-storage-account-name'], 'openqa'))
+        storage_client = StorageManagementClient(self.sp_credentials(), self.subscription())
+        storage_keys = storage_client.storage_accounts.list_keys(resourcegroup, storage_account)
+        storage_keys = [v.value for v in storage_keys.keys]
+        block_blob_service = BlockBlobService(account_name='openqa', account_key=storage_keys[0])
+
+        containers = block_blob_service.list_containers()
+        for c in containers:
+            self.__logger.debug('Found container {}'.format(c.name))
+            if (re.match('^bootdiagnostics-', c.name)):
+                self.cleanup_bootdiagnostics_container(block_blob_service, c)
+            if (c.name == 'sle-images'):
+                self.cleanup_sle_images_container(block_blob_service, c)
+
+    def cleanup_bootdiagnostics_container(self, bbsrv, container):
+        timeout = datetime.now(timezone.utc) + timedelta(seconds=60*60*24)
+        last_modified = container.properties.last_modified
+        generator = bbsrv.list_blobs(container.name)
+        for blob in generator:
+            if (last_modified < blob.properties.last_modified):
+                last_modified = blob.properties.last_modified
+        if (timeout > last_modified):
+            self.__logger.info("[Azure] Delete container {}".format(container.name))
+            if not bbsrv.delete_container(container.name):
+                self.__logger.error("Failed to delete container {}".format(container.name))
+
+    def cleanup_sle_images_container(self, bbsrv, container):
+        generator = bbsrv.list_blobs(container.name)
+        images = dict()
+        for img in generator:
+            self.__logger.debug('Found image {}'.format(img.name))
+            # SLES12-SP5-Azure.x86_64-0.9.1-SAP-BYOS-Build3.3.vhd
+            regex = re.compile(r"""
+                               SLES
+                               (?P<version>\d+(-SP\d+)?)
+                               -Azure\.
+                               (?P<arch>[^-]+)
+                               -
+                               (?P<kiwi>\d+\.\d+\.\d+)
+                               -
+                               (?P<flavor>[-\w]+)
+                               -
+                               Build(?P<build>\d+\.\d+)
+                               \.vhd
+                               """,
+                               re.X)
+            m = re.match(regex, img.name)
+            if (m):
+                key = '-'.join([m.group('version'), m.group('flavor'), m.group('arch')])
+                if key not in images:
+                    images[key] = list()
+
+                images[key].append({
+                        'build': "-".join([m.group('kiwi'), m.group('build')]),
+                        'name': img.name,
+                        'last_modified': img.properties.last_modified,
+                        })
+            else:
+                self.__logger.error("Unable to parse image name '{}'".format(img.name))
+
+        for key in images:
+            images[key].sort(key=lambda x: LooseVersion(x['build']))
+
+        cfg = ConfigFile()
+        self.url = cfg.get(['vault', 'url'])
+        max_images_per_flavor = cfg.get(['cleanup', 'max-images-per-flavor'], 1)
+        max_images_age_hours = cfg.get(['cleanup', 'max-images-age-hours'], 24 * 31)
+        for img_list in images.values():
+            for i in range(0, len(img_list)):
+                img = img_list[i]
+                if i < len(img_list) - max_images_per_flavor \
+                        or img['last_modified'] < datetime.now(timezone.utc) - timedelta(hours=max_images_age_hours):
+                    self.__logger.info("[Azure] Delete image '{}'".format(img['name']))
+                    bbsrv.delete_blob(container.name, img['name'], snapshot=None)
