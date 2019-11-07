@@ -1,4 +1,5 @@
 import configparser
+import re
 
 """
 Django settings for webui project.
@@ -196,6 +197,10 @@ class ConfigFile:
 
     def getList(self, name, default=[]):
         return [i.strip() for i in self.get(name, ','.join(default)).split(',')]
+
+    def getBoolean(self, name, default=False):
+        value = self.get(name, default)
+        return re.match('^(?i)(true|on|1|yes)$', value)
 
     def has(self, name):
         try:

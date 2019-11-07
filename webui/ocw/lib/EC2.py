@@ -23,7 +23,7 @@ class EC2:
         return EC2.__instances[vault_namespace]
 
     def check_credentials(self):
-        if self.__credentials.isExpired():
+        if self.__credentials.isValid():
             self.__credentials.renew()
             self.__key = None
             self.__secret = None
@@ -39,7 +39,7 @@ class EC2:
                 return True
             except Exception:
                 self.__logging.info("check_credentials (attemp:%d) with key %s expiring at %s ",
-                                    i, self.__key, self.__credentials.auth_expire)
+                                    i, self.__key, self.__credentials.getAuthExpire())
                 time.sleep(1)
         self.list_regions()
 
