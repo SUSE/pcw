@@ -41,7 +41,7 @@ namespaces = VAULT_NAMESPACE, VAULT_NAMESPACE_2, ...
 
 [vault.namespace.XXX]
 # XXX is the name of a namespace given in vault.namespaces
-# provider should be ec2, azure or csp
+# provider should be ec2, azure or gcp
 providers = csp1[, csp2]...
 
 [ec2]
@@ -59,6 +59,18 @@ age-hours = NUMBER_OF_HOURS_TO_COUNT_AS_LEFT_OVER
 # Optional section to set a specific receiver of left over notifications for
 # a defined vault namespace. XXX should be replaced with the vault namespace
 to = RECEIPE_ADDRESS_NS_1[, RECEIPE_ADDRESS_NS_2]
+
+
+[cleanup]
+# Specifiy how many images per flavor get keept
+max-images-per-flavor = 1
+# Max age of an image file
+max-images-age-hours = 744
+
+[cleanup.namespace.XXX]
+azure-storage-resourcegroup=openqa-upload
+azure-storage-account-name=openqa
+
 EOT
 
 python manage.py migrate
