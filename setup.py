@@ -14,5 +14,6 @@ setup(
             'oauth2client',
             'google-api-python-client',
             'google-cloud-storage',
+            'python-dateutil',
             ],
 )

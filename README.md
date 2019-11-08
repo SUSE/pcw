@@ -38,6 +38,9 @@ url = https://publiccloud.your.vault.server/vault
 user = Your_VAULT_USER
 password = VAULT_USER_PASSWORD
 namespaces = VAULT_NAMESPACE, VAULT_NAMESPACE_2, ...
+# Use this option only during development! When enabled last response from
+# vault is stored in a file 'auth.json'. The file is located in '/tmp/pcw'
+use-file-cache = False
 
 [vault.namespace.XXX]
 # XXX is the name of a namespace given in vault.namespaces

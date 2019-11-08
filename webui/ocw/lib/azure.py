@@ -28,7 +28,7 @@ class Azure:
         return self.__credentials.getData('subscription_id')
 
     def check_credentials(self):
-        if self.__credentials.isExpired():
+        if self.__credentials.isValid():
             self.__sp_credentials = None
             self.__credentials.renew()
 
@@ -38,7 +38,8 @@ class Azure:
                 return True
             except AuthenticationError:
                 self.__logger.info("check_credentials failed (attemp:%d) - for client_id %s should expire at %s",
-                                   i, self.__credentials.getData('client_id'), self.__credentials.auth_expire)
+                                   i, self.__credentials.getData('client_id'),
+                                   self.__credentials.getAuthExpire())
                 time.sleep(1)
         raise AuthenticationError("Invalid Azure credentials")
 

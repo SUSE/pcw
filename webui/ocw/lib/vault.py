@@ -4,14 +4,19 @@ import json
 from webui.settings import ConfigFile
 from datetime import datetime
 from datetime import timedelta
+import dateutil.parser
 from tempfile import NamedTemporaryFile
+from pathlib import Path
+import logging
+import os
+
+logger = logging.getLogger(__name__)
 
 
 class Vault:
     client_token = None
     client_token_expire = None
     auth_json = None
-    auth_expire = None
     extra_time = 600
 
     def __init__(self, vault_namespace):
@@ -74,21 +79,64 @@ class Vault:
         raise NotImplementedError
 
     def getData(self, name=None):
-        if self.auth_json is None:
+        use_file_cache = ConfigFile().getBoolean(['vault', 'use-file-cache'])
+        if self.auth_json is None and use_file_cache:
+            self.auth_json = self.loadAuthCache()
+        if self.isValid():
             self.auth_json = self.getCredentials()
-            self.auth_expire = datetime.today() + timedelta(seconds=self.auth_json['lease_duration'])
+            expire = datetime.today() + timedelta(seconds=self.auth_json['lease_duration'])
+            self.auth_json['auth_expire'] = expire.isoformat()
+            if use_file_cache:
+                self.saveAuthCache()
         if name is None:
             return self.auth_json['data']
         return self.auth_json['data'][name]
 
-    def isExpired(self):
-        if self.auth_expire is None:
+    def getAuthExpire(self):
+        if self.auth_json is None:
+            return None
+        return dateutil.parser.isoparse(self.auth_json['auth_expire'])
+
+    def isValid(self):
+        if self.auth_json is None:
             return True
-        return self.auth_expire < datetime.today() + timedelta(seconds=self.extra_time)
+        expire = dateutil.parser.isoparse(self.auth_json['auth_expire'])
+        return expire < datetime.today() + timedelta(seconds=self.extra_time)
 
     def renew(self):
         self.revoke()
         self.getData()
+
+    def createAuthCachePath(self):
+        oldmask = os.umask(0o077)
+        path = Path('/tmp/pcw/{}/{}'.format(self.__class__.__name__, self.namespace))
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        f = path.joinpath('auth.json')
+        f.touch(mode=0o600, exist_ok=True)
+        os.umask(oldmask)
+        return f
+
+    def loadAuthCache(self):
+        try:
+            authcachepath = self.createAuthCachePath()
+            if authcachepath.stat().st_size == 0:
+                return None
+            with authcachepath.open() as f:
+                logger.info("Try loading auth cache from file {}".format(f.name))
+                return json.loads(f.read())
+        except json.decoder.JSONDecodeError:
+            logger.warning("Failed to load auth cache file")
+        except Exception:
+            logger.exception("Failed to load auth cache")
+        return None
+
+    def saveAuthCache(self):
+        try:
+            with self.createAuthCachePath().open('w') as f:
+                logger.info("Write auth cache to file {}".format(f.name))
+                f.write(json.dumps(self.auth_json))
+        except Exception:
+            logger.exception("Failed to save auth cache")
 
 
 class AzureCredential(Vault):

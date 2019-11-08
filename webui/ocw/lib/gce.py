@@ -16,7 +16,7 @@ class GCE:
         return GCE.__instances[vault_namespace]
 
     def compute_client(self):
-        if self.__credentials.isExpired():
+        if self.__credentials.isValid():
             self.__credentials.renew()
             self.__compute_clinet = None
         self.__project = self.__credentials.getPrivateKeyData()['project_id']
