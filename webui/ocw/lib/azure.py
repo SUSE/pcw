@@ -1,5 +1,5 @@
+from .provider import Provider
 from ..lib.vault import AzureCredential
-from webui.settings import ConfigFile
 from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
@@ -15,7 +15,7 @@ import time
 import logging
 
 
-class Azure:
+class Azure(Provider):
     __instances = dict()
     __credentials = None
     __compute_mgmt_client = None
@@ -82,13 +82,8 @@ class Azure:
 
     def cleanup_all(self):
         ''' Cleanup all autodateed data which might created during automated tests.'''
-        cfg = ConfigFile()
-        resourcegroup = cfg.get(
-                ['cleanup.namespace.{}'.format(self.__credentials.namespace), 'azure-storage-resourcegroup'],
-                cfg.get(['cleanup', 'azure-storage-resourcegroup'], 'openqa-upload'))
-        storage_account = cfg.get(
-                ['cleanup.namespace.{}'.format(self.__credentials.namespace), 'azure-storage-account-name'],
-                cfg.get(['cleanup', 'azure-storage-account-name'], 'openqa'))
+        resourcegroup = self.cfgGet('cleanup', 'azure-storage-resourcegroup')
+        storage_account = self.cfgGet('cleanup', 'azure-storage-account-name')
         storage_client = StorageManagementClient(self.sp_credentials(), self.subscription())
         storage_keys = storage_client.storage_accounts.list_keys(resourcegroup, storage_account)
         storage_keys = [v.value for v in storage_keys.keys]
@@ -103,7 +98,7 @@ class Azure:
                 self.cleanup_sle_images_container(block_blob_service, c)
 
     def cleanup_bootdiagnostics_container(self, bbsrv, container):
-        timeout = datetime.now(timezone.utc) + timedelta(seconds=60*60*24)
+        timeout = datetime.now(timezone.utc) + timedelta(hours=24)
         last_modified = container.properties.last_modified
         generator = bbsrv.list_blobs(container.name)
         for blob in generator:
@@ -151,14 +146,11 @@ class Azure:
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))
 
-        cfg = ConfigFile()
-        self.url = cfg.get(['vault', 'url'])
-        max_images_per_flavor = cfg.get(['cleanup', 'max-images-per-flavor'], 1)
-        max_images_age_hours = cfg.get(['cleanup', 'max-images-age-hours'], 24 * 31)
+        max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
+        max_images_age = datetime.now(timezone.utc) - timedelta(hours=self.cfgGet('cleanup', 'max-images-age-hours'))
         for img_list in images.values():
             for i in range(0, len(img_list)):
                 img = img_list[i]
-                if i < len(img_list) - max_images_per_flavor \
-                        or img['last_modified'] < datetime.now(timezone.utc) - timedelta(hours=max_images_age_hours):
+                if (i < len(img_list) - max_images_per_flavor or img['last_modified'] < max_images_age):
                     self.__logger.info("[Azure] Delete image '{}'".format(img['name']))
                     bbsrv.delete_blob(container.name, img['name'], snapshot=None)
