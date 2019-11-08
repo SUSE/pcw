@@ -187,6 +187,7 @@ def __update_run():
                     instances += [ec2_to_local_instance(i, vault_namespace, region) for i in instances_csp]
                     logger.info("Got %d instances from EC2 in region %s", len(instances), region)
                 sync_csp_to_local_db(instances, ProviderChoice.EC2, vault_namespace)
+                EC2(vault_namespace).cleanup_all()
 
             if 'gce' in providers:
                 instances = GCE(vault_namespace).list_all_instances()
