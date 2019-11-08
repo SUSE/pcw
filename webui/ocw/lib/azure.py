@@ -1,5 +1,5 @@
+from .provider import Provider
 from ..lib.vault import AzureCredential
-from webui.settings import ConfigFile
 from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
@@ -15,7 +15,7 @@ import time
 import logging
 
 
-class Azure:
+class Azure(Provider):
     __instances = dict()
     __credentials = None
     __compute_mgmt_client = None
@@ -82,13 +82,8 @@ class Azure:
 
     def cleanup_all(self):
         ''' Cleanup all autodateed data which might created during automated tests.'''
-        cfg = ConfigFile()
-        resourcegroup = cfg.get(
-                ['cleanup.namespace.{}'.format(self.__credentials.namespace), 'azure-storage-resourcegroup'],
-                cfg.get(['cleanup', 'azure-storage-resourcegroup'], 'openqa-upload'))
-        storage_account = cfg.get(
-                ['cleanup.namespace.{}'.format(self.__credentials.namespace), 'azure-storage-account-name'],
-                cfg.get(['cleanup', 'azure-storage-account-name'], 'openqa'))
+        resourcegroup = self.cfgGet('cleanup', 'azure-storage-resourcegroup')
+        storage_account = self.cfgGet('cleanup', 'azure-storage-account-name')
         storage_client = StorageManagementClient(self.sp_credentials(), self.subscription())
         storage_keys = storage_client.storage_accounts.list_keys(resourcegroup, storage_account)
         storage_keys = [v.value for v in storage_keys.keys]
@@ -151,10 +146,8 @@ class Azure:
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))
 
-        cfg = ConfigFile()
-        self.url = cfg.get(['vault', 'url'])
-        max_images_per_flavor = cfg.get(['cleanup', 'max-images-per-flavor'], 1)
-        max_images_age_hours = cfg.get(['cleanup', 'max-images-age-hours'], 24 * 31)
+        max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
+        max_images_age_hours = self.cfgGet('cleanup', 'max-images-age-hours')
         for img_list in images.values():
             for i in range(0, len(img_list)):
                 img = img_list[i]

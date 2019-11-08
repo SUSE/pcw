@@ -193,6 +193,7 @@ def __update_run():
                 instances = [gce_to_local_instance(i, vault_namespace) for i in instances]
                 logger.info("Got %d instances from GCE", len(instances))
                 sync_csp_to_local_db(instances, ProviderChoice.GCE, vault_namespace)
+                GCE(vault_namespace).cleanup_all()
 
             with update_mutex:
                 update_date = timezone.now()
