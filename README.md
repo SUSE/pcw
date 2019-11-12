@@ -65,7 +65,7 @@ to = RECEIPE_ADDRESS_NS_1[, RECEIPE_ADDRESS_NS_2]
 
 
 [cleanup]
-# Specifiy how many images per flavor get keept
+# Specify how many images per flavor get kept
 max-images-per-flavor = 1
 # Max age of an image file
 max-images-age-hours = 744
