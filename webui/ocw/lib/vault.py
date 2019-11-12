@@ -14,9 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 class Vault:
-    client_token = None
-    client_token_expire = None
-    auth_json = None
     extra_time = 600
 
     def __init__(self, vault_namespace):
@@ -26,6 +23,9 @@ class Vault:
         self.namespace = vault_namespace
         self.password = cfg.get(['vault', 'password'])
         self.certificate_dir = cfg.get(['vault', 'cert_dir'], '/etc/ssl/certs')
+        self.auth_json = None
+        self.client_token = None
+        self.client_token_expire = None
 
     def __del__(self):
         self.revoke()

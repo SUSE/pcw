@@ -15,16 +15,15 @@ logger = logging.getLogger(__name__)
 
 class EC2(Provider):
     __instances = dict()
-    __key = None
-    __secret = None
-    __ec2_resource = dict()
-    __ec2_client = dict()
-    __credentials = None
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in EC2.__instances:
-            EC2.__instances[vault_namespace] = object.__new__(cls)
-            EC2.__instances[vault_namespace].__credentials = EC2Credential(vault_namespace)
+            EC2.__instances[vault_namespace] = self = object.__new__(cls)
+            self.__credentials = EC2Credential(vault_namespace)
+            self.__ec2_client = dict()
+            self.__ec2_resource = dict()
+            self.__secret = None
+            self.__key = None
 
         EC2.__instances[vault_namespace].check_credentials()
         return EC2.__instances[vault_namespace]

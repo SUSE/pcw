@@ -15,14 +15,13 @@ logger = logging.getLogger(__name__)
 
 class GCE(Provider):
     __instances = dict()
-    __credentials = None
-    __compute_client = None
-    __project = None
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in GCE.__instances:
-            GCE.__instances[vault_namespace] = object.__new__(cls)
-            GCE.__instances[vault_namespace].__credentials = GCECredential(vault_namespace)
+            GCE.__instances[vault_namespace] = self = object.__new__(cls)
+            self.__credentials = GCECredential(vault_namespace)
+            self.__compute_client = None
+            self.__project = None
         return GCE.__instances[vault_namespace]
 
     def compute_client(self):
