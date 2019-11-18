@@ -1,12 +1,10 @@
 from django.shortcuts import redirect
 from django.http import HttpResponseForbidden
-from django.http import HttpResponse
 from django_tables2 import SingleTableView
 from .lib.azure import Azure
 from .lib.EC2 import EC2
 from .lib.gce import GCE
 from .lib import db
-from .lib import emailnotify
 from .models import Instance
 from .models import ProviderChoice
 from .models import StateChoice
@@ -50,12 +48,6 @@ def update_status(request):
                   })
 
     return redirect('instances')
-
-
-def cron(request):
-    update(request)
-    emailnotify.send_leftover_notification(request)
-    return HttpResponse('Done...')
 
 
 @login_required

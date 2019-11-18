@@ -33,6 +33,11 @@ source env/bin/activate
 cd webui
 
 cat > /etc/pcw.ini << EOT
+[default]
+# Your base url used to create links in email notifications. If it isn't
+# present, the first entry of settings.ALLOWED_HOSTS is used.
+base-url = https://publiccloud.qa.suse.de
+
 [vault]
 url = https://publiccloud.your.vault.server/vault
 user = Your_VAULT_USER
@@ -44,7 +49,7 @@ use-file-cache = False
 
 [vault.namespace.XXX]
 # XXX is the name of a namespace given in vault.namespaces
-# provider should be ec2, azure or csp
+# provider should be ec2, azure or gce
 providers = csp1[, csp2]...
 
 [ec2]
@@ -62,6 +67,18 @@ age-hours = NUMBER_OF_HOURS_TO_COUNT_AS_LEFT_OVER
 # Optional section to set a specific receiver of left over notifications for
 # a defined vault namespace. XXX should be replaced with the vault namespace
 to = RECEIPE_ADDRESS_NS_1[, RECEIPE_ADDRESS_NS_2]
+
+
+[cleanup]
+# Specify how many images per flavor get kept
+max-images-per-flavor = 1
+# Max age of an image file
+max-images-age-hours = 744
+
+[cleanup.namespace.XXX]
+azure-storage-resourcegroup=openqa-upload
+azure-storage-account-name=openqa
+
 EOT
 
 python manage.py migrate

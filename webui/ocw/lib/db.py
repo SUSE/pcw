@@ -6,19 +6,18 @@ from django.db import transaction
 from django.utils import timezone
 import json
 import dateutil.parser
-from threading import Thread
-from threading import Lock
-from .emailnotify import send_mail
+from .emailnotify import send_mail, send_leftover_notification
 import traceback
 import logging
 from .azure import Azure
 from .EC2 import EC2
 from .gce import GCE
+from datetime import datetime
+from ocw.apps import getScheduler
 
-update_thread = None
-update_date = None
-update_mutex = Lock()
 logger = logging.getLogger(__name__)
+__running = False
+__last_update = None
 
 
 @transaction.atomic
@@ -158,14 +157,15 @@ def gce_to_local_instance(instance, vault_namespace):
     )
 
 
-def __update_run():
+def update_run():
     '''
     Each update is using Instance.active to mark the model is still availalbe on CSP.
     Instance.state is used to reflect the "local" state, e.g. if someone triggered a delete, the
     state will moved to DELETING. If the instance is gone from CSP, the state will set to DELETED.
     '''
+    global __running, __last_update
+    __running = True
     cfg = ConfigFile()
-    global update_date, update_mutex
     for vault_namespace in cfg.getList(['vault', 'namespaces'], ['']):
 
         logger.info("Check vault_namespace: %s", vault_namespace)
@@ -193,33 +193,33 @@ def __update_run():
                 logger.info("Got %d instances from GCE", len(instances))
                 sync_csp_to_local_db(instances, ProviderChoice.GCE, vault_namespace)
 
-            with update_mutex:
-                update_date = timezone.now()
-
         except Exception as e:
             logger.exception("Update failed!")
             send_mail(type(e).__name__ + ' on Update', traceback.format_exc())
 
+    send_leftover_notification()
+    __running = False
+    __last_update = datetime.now(timezone.utc)
 
-def start_update():
-    global update_thread, update_mutex
-
-    with update_mutex:
-        if update_thread and update_thread.is_alive():
-            return False
-
-        update_thread = Thread(target=__update_run)
-        update_thread.start()
-    return True
+    if not getScheduler().get_job('update_db'):
+        init_cron()
 
 
 def is_updating():
-    global update_thread, update_mutex
-    with update_mutex:
-        return update_thread and update_thread.is_alive()
+    global __running
+    return __running
 
 
 def last_update():
-    global update_mutex
-    with update_mutex:
-        return update_date.isoformat() if update_date is not None else ''
+    global __last_update
+    return __last_update if __last_update is not None else ''
+
+
+def start_update():
+    global __running
+    if not __running:
+        getScheduler().get_job('update_db').reschedule(trigger='date', run_date=datetime.now(timezone.utc))
+
+
+def init_cron():
+    getScheduler().add_job(update_run, trigger='interval', minutes=1, id='update_db')

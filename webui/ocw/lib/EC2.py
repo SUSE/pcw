@@ -1,23 +1,30 @@
-import boto3
-import time
+from .provider import Provider
 from .vault import EC2Credential
+from distutils.version import LooseVersion
+from dateutil.parser import parse
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
+import boto3
+import re
+import time
 import logging
 
+logger = logging.getLogger(__name__)
 
-class EC2:
+
+class EC2(Provider):
     __instances = dict()
     __key = None
     __secret = None
     __ec2_resource = dict()
     __ec2_client = dict()
     __credentials = None
-    __logging = None
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in EC2.__instances:
             EC2.__instances[vault_namespace] = object.__new__(cls)
             EC2.__instances[vault_namespace].__credentials = EC2Credential(vault_namespace)
-            EC2.__instances[vault_namespace].__logging = logging.getLogger(__name__)
 
         EC2.__instances[vault_namespace].check_credentials()
         return EC2.__instances[vault_namespace]
@@ -38,8 +45,8 @@ class EC2:
                 self.list_regions()
                 return True
             except Exception:
-                self.__logging.info("check_credentials (attemp:%d) with key %s expiring at %s ",
-                                    i, self.__key, self.__credentials.getAuthExpire())
+                logger.info("check_credentials (attemp:%d) with key %s expiring at %s ",
+                            i, self.__key, self.__credentials.getAuthExpire())
                 time.sleep(1)
         self.list_regions()
 
@@ -67,3 +74,50 @@ class EC2:
 
     def delete_instance(self, instance_id):
         self.ec2_resource().instances.filter(InstanceIds=[instance_id]).terminate()
+
+    def cleanup_all(self):
+        response = self.ec2_client().describe_images(Owners=['self'])
+        images = dict()
+        for img in response['Images']:
+            # 'CreationDate': '2019-10-22T20:40:45.000Z',
+            # 'ImageId': 'ami-00d30c03d17d3db69',
+            # 'Name': 'openqa-SLES12-SP5-EC2.x86_64-0.9.1-BYOS-Build1.55.raw.xz'
+            logger.debug("[EC2] Found image '{}'".format(img['Name']))
+            regex = re.compile(r'''^openqa-SLES
+                            (?P<version>\d+(-SP\d+)?)
+                            -EC2\.
+                            (?P<arch>[^-]+)
+                            -
+                            (?P<kiwi>\d+\.\d+\.\d+)
+                            -
+                            (?P<flavor>(BYOS|On-Demand))
+                            -Build
+                            (?P<build>\d+\.\d+)
+                            \.raw\.xz
+                            ''', re.RegexFlag.X)
+            m = re.match(regex, img['Name'])
+            if m:
+                key = '-'.join([m.group('version'), m.group('flavor'), m.group('arch')])
+                if key not in images:
+                    images[key] = list()
+
+                images[key].append({
+                    'build': "-".join([m.group('kiwi'), m.group('build')]),
+                    'name': img['Name'],
+                    'creation_datetime':  parse(img['CreationDate']),
+                    'id': img['ImageId'],
+                    })
+            else:
+                logger.error("Unable to parse image name '{}'".format(img['Name']))
+
+        for key in images:
+            images[key].sort(key=lambda x: LooseVersion(x['build']))
+
+        max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
+        max_images_age = datetime.now(timezone.utc) - timedelta(hours=self.cfgGet('cleanup', 'max-images-age-hours'))
+        for img_list in images.values():
+            for i in range(0, len(img_list)):
+                img = img_list[i]
+                if (i < len(img_list) - max_images_per_flavor or img['creation_datetime'] < max_images_age):
+                    logger.info("[EC2] Delete image '{}' (ami:{})".format(img['name'], img['id']))
+                    self.ec2_client().deregister_image(ImageId=img['id'], DryRun=False)
