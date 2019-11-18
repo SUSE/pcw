@@ -15,5 +15,6 @@ setup(
             'google-api-python-client',
             'google-cloud-storage',
             'python-dateutil',
+            'apscheduler',
             ],
 )

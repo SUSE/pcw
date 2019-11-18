@@ -33,6 +33,11 @@ source env/bin/activate
 cd webui
 
 cat > /etc/pcw.ini << EOT
+[default]
+# Your base url used to create links in email notifications. If it isn't
+# present, the first entry of settings.ALLOWED_HOSTS is used.
+base-url = https://publiccloud.qa.suse.de
+
 [vault]
 url = https://publiccloud.your.vault.server/vault
 user = Your_VAULT_USER

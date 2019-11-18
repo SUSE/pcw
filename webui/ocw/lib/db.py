@@ -6,16 +6,18 @@ from django.db import transaction
 from django.utils import timezone
 import json
 import dateutil.parser
-from .emailnotify import send_mail
+from .emailnotify import send_mail, send_leftover_notification
 import traceback
 import logging
 from .azure import Azure
 from .EC2 import EC2
 from .gce import GCE
-from ocw.lib.cron import CronLoop, CronJob
-from datetime import timedelta
+from datetime import datetime
+from ocw.apps import getScheduler
 
 logger = logging.getLogger(__name__)
+__running = False
+__last_update = None
 
 
 @transaction.atomic
@@ -155,12 +157,14 @@ def gce_to_local_instance(instance, vault_namespace):
     )
 
 
-def update_run(arg):
+def update_run():
     '''
     Each update is using Instance.active to mark the model is still availalbe on CSP.
     Instance.state is used to reflect the "local" state, e.g. if someone triggered a delete, the
     state will moved to DELETING. If the instance is gone from CSP, the state will set to DELETED.
     '''
+    global __running, __last_update
+    __running = True
     cfg = ConfigFile()
     for vault_namespace in cfg.getList(['vault', 'namespaces'], ['']):
 
@@ -193,19 +197,29 @@ def update_run(arg):
             logger.exception("Update failed!")
             send_mail(type(e).__name__ + ' on Update', traceback.format_exc())
 
+    send_leftover_notification()
+    __running = False
+    __last_update = datetime.now(timezone.utc)
+
+    if not getScheduler().get_job('update_db'):
+        init_cron()
+
 
 def is_updating():
-    return CronLoop().findJob('update_db').isRunning()
+    global __running
+    return __running
 
 
 def last_update():
-    dt = CronLoop().findJob('update_db').lastStop()
-    return dt.isoformat() if dt is not None else ''
+    global __last_update
+    return __last_update if __last_update is not None else ''
 
 
 def start_update():
-    CronLoop().findJob('update_db').forceRun()
+    global __running
+    if not __running:
+        getScheduler().get_job('update_db').reschedule(trigger='date', run_date=datetime.now(timezone.utc))
 
 
 def init_cron():
-    CronLoop().addJob(CronJob('update_db', update_run, timedelta(seconds=30)))
+    getScheduler().add_job(update_run, trigger='interval', minutes=1, id='update_db')

@@ -3,15 +3,14 @@ from ocw.lib.azure import Azure
 from ocw.lib.EC2 import EC2
 from ocw.lib.gce import GCE
 from ocw.lib.emailnotify import send_mail
-from ocw.lib.cron import CronLoop, CronJob
-from datetime import timedelta
 import logging
 import traceback
+from ocw.apps import getScheduler
 
 logger = logging.getLogger(__name__)
 
 
-def cleanup_run(arg):
+def cleanup_run():
     cfg = ConfigFile()
     for vault_namespace in cfg.getList(['vault', 'namespaces'], ['']):
         try:
@@ -32,4 +31,4 @@ def cleanup_run(arg):
 
 
 def init_cron():
-    CronLoop().addJob(CronJob('cleanup_all', cleanup_run, timedelta(hours=1)))
+    getScheduler().add_job(cleanup_run, trigger='interval', minutes=60, id='cleanup_all')

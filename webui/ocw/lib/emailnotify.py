@@ -1,4 +1,5 @@
 from webui.settings import ConfigFile
+from webui.settings import build_absolute_uri
 from ..models import Instance
 from datetime import timedelta
 from texttable import Texttable
@@ -6,12 +7,12 @@ from django.urls import reverse
 import json
 import smtplib
 import logging
+from ocw import views
 
 logger = logging.getLogger(__name__)
 
 
-def draw_instance_table(request, objects):
-    from .. import views
+def draw_instance_table(objects):
 
     table = Texttable(max_width=0)
     table.set_deco(Texttable.HEADER)
@@ -26,12 +27,12 @@ def draw_instance_table(request, objects):
             j['tags']['openqa_created_by'],
             i.vault_namespace,
             i.age_formated(),
-            request.build_absolute_uri(reverse(views.delete, args=[i.id]))
+            build_absolute_uri(reverse(views.delete, args=[i.id]))
         ])
     return table.draw()
 
 
-def send_leftover_notification(request):
+def send_leftover_notification():
     cfg = ConfigFile()
     if not cfg.has('notify'):
         return
@@ -44,8 +45,8 @@ def send_leftover_notification(request):
         return
 
     subject = cfg.get(['notify', 'subject'], 'CSP left overs')
-    body_prefix = "Message from {url}\n\n".format(url=request.build_absolute_uri('/'))
-    send_mail(subject, body_prefix + draw_instance_table(request, o))
+    body_prefix = "Message from {url}\n\n".format(url=build_absolute_uri())
+    send_mail(subject, body_prefix + draw_instance_table(o))
 
     # Handle namespaces
     namespaces = list(dict.fromkeys([i.vault_namespace for i in o]))
@@ -57,7 +58,7 @@ def send_leftover_notification(request):
         namespace_objects = o.filter(vault_namespace=namespace)
         if namespace_objects.filter(notified=False).count() == 0:
             continue
-        send_mail(subject, body_prefix + draw_instance_table(request, namespace_objects),
+        send_mail(subject, body_prefix + draw_instance_table(namespace_objects),
                   receiver_email=receiver_email)
 
     o.update(notified=True)

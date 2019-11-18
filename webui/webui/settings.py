@@ -209,3 +209,31 @@ class ConfigFile:
         except Exception:
             pass
         return False
+
+
+def build_absolute_uri(path=''):
+    ''' Create a absolute url from given path. You could use reverse() to create a path which points to a specific
+    view.
+    Parameters:
+    -----------
+    path : (optional) give the path which will appended to the base URL
+
+    Example:
+    --------
+         url = build_absolute_uri(reverse(views.delete, args=[i.id]))
+    '''
+    cfg = ConfigFile()
+    base_url = cfg.get(['default', 'base-url'], ALLOWED_HOSTS[0])
+
+    if not re.match('^http', base_url):
+        base_url = 'https://{}'.format(base_url)
+
+    base_url = re.sub('/+$', '', base_url)
+
+    if len(path) == 0:
+        return base_url
+
+    if not re.match('^/', path):
+        path = '/{}'.format(path)
+
+    return base_url + path
