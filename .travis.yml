@@ -7,4 +7,7 @@ install:
     - pip install .
     - pip install flake8
 
-script: flake8 webui
+script: 
+    - flake8 webui 
+    - flake8 ocw
+    - flake8 manage.py
