@@ -200,6 +200,8 @@ class ConfigFile:
 
     def getBoolean(self, name, default=False):
         value = self.get(name, default)
+        if isinstance(value, bool):
+            return value
         return re.match('^(?i)(true|on|1|yes)$', value)
 
     def has(self, name):
