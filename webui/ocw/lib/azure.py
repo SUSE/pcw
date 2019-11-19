@@ -14,20 +14,19 @@ import re
 import time
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 class Azure(Provider):
     __instances = dict()
-    __credentials = None
-    __compute_mgmt_client = None
-    __sp_credentials = None
-    __resource_mgmt_client = None
-    __logger = None
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in Azure.__instances:
-            Azure.__instances[vault_namespace] = object.__new__(cls)
-            Azure.__instances[vault_namespace].__credentials = AzureCredential(vault_namespace)
-            Azure.__instances[vault_namespace].__logger = logging.getLogger(__name__)
+            Azure.__instances[vault_namespace] = self = object.__new__(cls)
+            self.__credentials = AzureCredential(vault_namespace)
+            self.__compute_mgmt_client = None
+            self.__sp_credentials = None
+            self.__resource_mgmt_client = None
 
         Azure.__instances[vault_namespace].check_credentials()
         return Azure.__instances[vault_namespace]
@@ -45,9 +44,9 @@ class Azure(Provider):
                 self.sp_credentials()
                 return True
             except AuthenticationError:
-                self.__logger.info("check_credentials failed (attemp:%d) - for client_id %s should expire at %s",
-                                   i, self.__credentials.getData('client_id'),
-                                   self.__credentials.getAuthExpire())
+                logger.info("check_credentials failed (attemp:%d) - for client_id %s should expire at %s",
+                            i, self.__credentials.getData('client_id'),
+                            self.__credentials.getAuthExpire())
                 time.sleep(1)
         raise AuthenticationError("Invalid Azure credentials")
 
@@ -91,7 +90,7 @@ class Azure(Provider):
 
         containers = block_blob_service.list_containers()
         for c in containers:
-            self.__logger.debug('Found container {}'.format(c.name))
+            logger.debug('Found container {}'.format(c.name))
             if (re.match('^bootdiagnostics-', c.name)):
                 self.cleanup_bootdiagnostics_container(block_blob_service, c)
             if (c.name == 'sle-images'):
@@ -105,15 +104,15 @@ class Azure(Provider):
             if (last_modified < blob.properties.last_modified):
                 last_modified = blob.properties.last_modified
         if (timeout > last_modified):
-            self.__logger.info("[Azure] Delete container {}".format(container.name))
+            logger.info("[Azure] Delete container {}".format(container.name))
             if not bbsrv.delete_container(container.name):
-                self.__logger.error("Failed to delete container {}".format(container.name))
+                logger.error("Failed to delete container {}".format(container.name))
 
     def cleanup_sle_images_container(self, bbsrv, container):
         generator = bbsrv.list_blobs(container.name)
         images = dict()
         for img in generator:
-            self.__logger.debug('Found image {}'.format(img.name))
+            logger.debug('Found image {}'.format(img.name))
             # SLES12-SP5-Azure.x86_64-0.9.1-SAP-BYOS-Build3.3.vhd
             regex = re.compile(r"""
                                SLES
@@ -141,7 +140,7 @@ class Azure(Provider):
                         'last_modified': img.properties.last_modified,
                         })
             else:
-                self.__logger.error("Unable to parse image name '{}'".format(img.name))
+                logger.error("Unable to parse image name '{}'".format(img.name))
 
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))
@@ -152,5 +151,5 @@ class Azure(Provider):
             for i in range(0, len(img_list)):
                 img = img_list[i]
                 if (i < len(img_list) - max_images_per_flavor or img['last_modified'] < max_images_age):
-                    self.__logger.info("[Azure] Delete image '{}'".format(img['name']))
+                    logger.info("[Azure] Delete image '{}'".format(img['name']))
                     bbsrv.delete_blob(container.name, img['name'], snapshot=None)
