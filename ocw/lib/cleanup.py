@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def cleanup_run():
     cfg = ConfigFile()
-    for vault_namespace in cfg.getList(['vault', 'namespaces'], ['']):
+    for vault_namespace in cfg.getList(['cleanup', 'namespaces'], cfg.getList(['vault', 'namespaces'], [''])):
         try:
             providers = cfg.getList(['vault.namespace.{}'.format(vault_namespace), 'providers'],
                                     ['ec2', 'azure', 'gce'])

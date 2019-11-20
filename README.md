@@ -70,6 +70,9 @@ to = RECEIPE_ADDRESS_NS_1[, RECEIPE_ADDRESS_NS_2]
 
 
 [cleanup]
+# Specify with which namespace, we will do the cleanup. By default it is the
+# same list as defined with [vault]->namespaces
+namespaces = VAULT_NAMESPACE, VAULT_NAMESPACE_2, ...
 # Specify how many images per flavor get kept
 max-images-per-flavor = 1
 # Max age of an image file
