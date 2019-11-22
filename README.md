@@ -10,18 +10,12 @@ Currently only AWS is supported. In future I will extend it with Azure and GCE.
 ```
 virtualenv venv
 . venv/bin/activate
-pip install --editable .
+pip install -r requirements.txt
 ```
 
 ## Requirements
 
-* python3-virtualenv
-* boto3
-* azure
-* django
-* django-tables2
-* django-filter
-* django-bootstrap3
+ [Listed in requirements.txt](requirements.txt)
 
 
 ## Run django webui
@@ -29,8 +23,6 @@ pip install --editable .
 ```
 virtualenv env
 source env/bin/activate
-
-cd webui
 
 cat > /etc/pcw.ini << EOT
 [default]
