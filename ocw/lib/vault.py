@@ -58,22 +58,26 @@ class Vault:
     def httpGet(self, path):
         try:
             r = requests.get(self.url + path, headers=self.getClientToken(), verify=self.certificate_dir)
+            logger.debug("HTTP GET URL: {} || response status : {} || response : {}".format(
+                self.url + path, r.status_code, r.json()))
             if len(r.content) > 0 and 'errors' in r.json():
                 raise ConnectionError(",".join(r.json()['errors']))
             else:
                 return r
         except Exception as e:
-            raise ConnectionError('Connection failed - {}: {}'.format(type(e).__name__, str(e)))
+            raise ConnectionError('{}: {}'.format(type(e).__name__, str(e)))
 
     def httpPost(self, path, data, headers={}):
         try:
             r = requests.post(self.url + path, json=data, headers=headers, verify=self.certificate_dir)
+            logger.debug("HTTP GET URL: {} || response status : {} || response : {}".format(
+                self.url + path, r.status_code, r.json()))
             if len(r.content) > 0 and 'errors' in r.json():
                 raise ConnectionError(",".join(r.json()['errors']))
             else:
                 return r
         except Exception as e:
-            raise ConnectionError('Connection failed - {}: {}'.format(type(e).__name__, str(e)))
+            raise ConnectionError('{}: {}'.format(type(e).__name__, str(e)))
 
     def getCredentials(self):
         raise NotImplementedError
