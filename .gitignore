@@ -6,4 +6,4 @@ tags
 db.sqlite3
 *.egg-info/
 .cache
-nginx/static/
+static/
