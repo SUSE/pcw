@@ -1,5 +1,5 @@
 {% load static %}
-{% load bootstrap3 %}
+{% load bootstrap4 %}
 <html>
     <head>
         <title>OpenQA-CloudWatch</title>
@@ -22,10 +22,10 @@
             <div class="col-sm-6">
               <div class="small-info"></div>
               <ul class="list-inline" style="float:right;">
-                <li>
+                <li class="list-inline-item">
                 <div id="check_update_running"></div>
                 </li>
-                <li>
+                <li class="list-inline-item">
               {% if user.is_authenticated %}
                   <form method="post" action="{% url 'logout' %}">
                   {% csrf_token %}
