@@ -82,6 +82,8 @@ class GCE(Provider):
         request = self.compute_client().images().list(project=self.__project)
         while request is not None:
             response = request.execute()
+            if 'items' not in response:
+                break
             for image in response['items']:
                 logger.debug('Found image {}'.format(image['name']))
                 # creation:2019-11-04T14:23:06.372-08:00
