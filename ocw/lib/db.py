@@ -222,4 +222,4 @@ def start_update():
 
 
 def init_cron():
-    getScheduler().add_job(update_run, trigger='interval', minutes=1, id='update_db')
+    getScheduler().add_job(update_run, trigger='interval', minutes=5, id='update_db')
