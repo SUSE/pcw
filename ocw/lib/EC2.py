@@ -113,7 +113,8 @@ class EC2(Provider):
             images[key].sort(key=lambda x: LooseVersion(x['build']))
 
         max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
-        max_images_age = datetime.now(timezone.utc) - timedelta(hours=self.cfgGet('cleanup', 'max-images-age-hours'))
+        max_images_age = datetime.now(timezone.utc) - timedelta(hours=int(
+                                                                self.cfgGet('cleanup', 'max-images-age-hours')))
         for img_list in images.values():
             for i in range(0, len(img_list)):
                 img = img_list[i]
