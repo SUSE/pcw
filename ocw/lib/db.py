@@ -4,6 +4,7 @@ from ..models import StateChoice
 from ..models import ProviderChoice
 from django.db import transaction
 from django.utils import timezone
+import time
 import json
 import dateutil.parser
 from .emailnotify import send_mail, send_leftover_notification
@@ -157,6 +158,30 @@ def gce_to_local_instance(instance, vault_namespace):
     )
 
 
+def _update_provider(name, vault_namespace):
+    cfg = ConfigFile()
+
+    if 'azure' in name:
+        instances = Azure(vault_namespace).list_resource_groups()
+        instances = [azure_to_local_instance(i, vault_namespace) for i in instances]
+        logger.info("Got %d resources groups from Azure", len(instances))
+        sync_csp_to_local_db(instances, ProviderChoice.AZURE, vault_namespace)
+
+    if 'ec2' in name:
+        instances = []
+        for region in cfg.getList(['ec2', 'regions'], EC2(vault_namespace).list_regions()):
+            instances_csp = EC2(vault_namespace).list_instances(region=region)
+            instances += [ec2_to_local_instance(i, vault_namespace, region) for i in instances_csp]
+            logger.info("Got %d instances from EC2 in region %s", len(instances), region)
+        sync_csp_to_local_db(instances, ProviderChoice.EC2, vault_namespace)
+
+    if 'gce' in name:
+        instances = GCE(vault_namespace).list_all_instances()
+        instances = [gce_to_local_instance(i, vault_namespace) for i in instances]
+        logger.info("Got %d instances from GCE", len(instances))
+        sync_csp_to_local_db(instances, ProviderChoice.GCE, vault_namespace)
+
+
 def update_run():
     '''
     Each update is using Instance.active to mark the model is still availalbe on CSP.
@@ -166,40 +191,32 @@ def update_run():
     global __running, __last_update
     __running = True
     cfg = ConfigFile()
+    max_retries = 3
+    error_occured = False
+
     for vault_namespace in cfg.getList(['vault', 'namespaces'], ['']):
-
-        logger.info("Check vault_namespace: %s", vault_namespace)
-        try:
-            providers = cfg.getList(['vault.namespace.{}'.format(vault_namespace), 'providers'],
-                                    ['ec2', 'azure', 'gce'])
-
-            if 'azure' in providers:
-                instances = Azure(vault_namespace).list_resource_groups()
-                instances = [azure_to_local_instance(i, vault_namespace) for i in instances]
-                logger.info("Got %d resources groups from Azure", len(instances))
-                sync_csp_to_local_db(instances, ProviderChoice.AZURE, vault_namespace)
-
-            if 'ec2' in providers:
-                instances = []
-                for region in cfg.getList(['ec2', 'regions'], EC2(vault_namespace).list_regions()):
-                    instances_csp = EC2(vault_namespace).list_instances(region=region)
-                    instances += [ec2_to_local_instance(i, vault_namespace, region) for i in instances_csp]
-                    logger.info("Got %d instances from EC2 in region %s", len(instances), region)
-                sync_csp_to_local_db(instances, ProviderChoice.EC2, vault_namespace)
-
-            if 'gce' in providers:
-                instances = GCE(vault_namespace).list_all_instances()
-                instances = [gce_to_local_instance(i, vault_namespace) for i in instances]
-                logger.info("Got %d instances from GCE", len(instances))
-                sync_csp_to_local_db(instances, ProviderChoice.GCE, vault_namespace)
-
-        except Exception as e:
-            logger.exception("Update failed!")
-            send_mail(type(e).__name__ + ' on Update', traceback.format_exc())
+        for provider in cfg.getList(['vault.namespace.{}'.format(vault_namespace), 'providers'],
+                                    ['ec2', 'azure', 'gce']):
+            logger.info("Check provider %s in vault_namespace %s", provider, vault_namespace)
+            email_text = set()
+            for n in range(max_retries):
+                try:
+                    _update_provider(provider, vault_namespace)
+                except Exception:
+                    logger.exception("Update failed for {} in namespace {}".format(provider, vault_namespace))
+                    email_text.add(traceback.format_exc())
+                    time.sleep(5)
+                else:
+                    break
+            else:
+                error_occured = True
+                send_mail('Error on update {} in namespace {}'.format(provider, vault_namespace),
+                          "\n{}\n".format('#'*79).join(email_text))
 
     send_leftover_notification()
     __running = False
-    __last_update = datetime.now(timezone.utc)
+    if not error_occured:
+        __last_update = datetime.now(timezone.utc)
 
     if not getScheduler().get_job('update_db'):
         init_cron()
