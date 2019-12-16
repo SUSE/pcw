@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.com/cfconrad/pcw.svg?branch=master)](https://travis-ci.com/cfconrad/pcw)
+[![codecov](https://codecov.io/gh/cfconrad/pcw/branch/master/graph/badge.svg)](https://codecov.io/gh/cfconrad/pcw)
+
 # Public cloud Helper
 
 This script should help with my common tasks for CSP (Cloud service Providers).
