@@ -7,12 +7,15 @@ import webui
 import json
 import base64
 from uuid import uuid4
+from pathlib import Path, PurePath
 
 
 # Global test data
 namespace = 'test-qa'
 host = 'http://foo.bar'
 leases = list()
+working_dir = Path(PurePath(Path(__file__).absolute()).parent)
+authfile = Path(working_dir / 'auth.json')
 
 
 def random_id(): return str(uuid4())
@@ -29,6 +32,7 @@ class MockResponse:
 
 
 def mock_post(url, **kwargs):
+    global leases
     if (url.startswith('{}/v1/auth/userpass/login/'.format(host))):
         username = url[38:]
         password = kwargs['json']['password']
@@ -42,9 +46,7 @@ def mock_post(url, **kwargs):
             leases.remove(lease_id)
             return MockResponse(status_code=200)
         else:
-            return MockResponse({'errors': ['Some other Error', 'NoSuchEntity', 'Error msg 2']}, 404)
-
-    return MockResponse(status_code=404)
+            return MockResponse({'errors': ['Some other Error', 'NoSuchEntity:', 'Error msg 2']}, 404)
 
 
 def mock_get(url, **kwargs):
@@ -106,7 +108,7 @@ ceaccount.com"
 
 
 def set_pcw_ini():
-    webui.settings.CONFIG_FILE = 'tests/pcw.ini'
+    webui.settings.CONFIG_FILE = working_dir / 'pcw.ini'
     with open(webui.settings.CONFIG_FILE, "w") as f:
         f.write("""
 [vault]
@@ -142,6 +144,10 @@ def test_Vault(monkeypatch):
         v.user = 'Not_existing_user'
         v.getClientToken()
 
+    with pytest.raises(NotImplementedError):
+        v = Vault(namespace)
+        v.getCredentials()
+
 
 def test_AzureCredential(monkeypatch):
     set_pcw_ini()
@@ -156,10 +162,43 @@ def test_AzureCredential(monkeypatch):
 
     client_id = az.getData()['client_id']
     assert client_id == az.getData()['client_id']
+    assert az.getAuthExpire() > datetime.today()
 
     az.renew()
     assert client_id != az.getData()['client_id']
     az.revoke()
+
+
+def test_Vault_revoke(monkeypatch):
+    global leases
+    set_pcw_ini()
+    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(requests, "get", mock_get)
+
+    az = AzureCredential(namespace)
+    az.getData()
+    leases = list()
+    az.revoke()
+
+    az = AzureCredential(namespace)
+    az.getData()
+    with pytest.raises(ConnectionError):
+        monkeypatch.setattr(requests, 'post', lambda x: 1/0)
+        az.revoke()
+
+
+def test_Vault_invalid_namespace(monkeypatch):
+    set_pcw_ini()
+
+    def with_errors(*args, **kargs):
+        return MockResponse({'errors': ['bla CLEMIX', 'blub']}, status_code=404)
+
+    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(requests, 'get', with_errors)
+
+    az = AzureCredential("does_not_exists")
+    with pytest.raises(ConnectionError):
+        az.getData()
 
 
 def test_EC2Credential(monkeypatch):
@@ -178,6 +217,7 @@ def test_EC2Credential(monkeypatch):
 
     ec2.renew()
     assert access_key != ec2.getData()['access_key']
+    ec2.revoke()
     ec2.revoke()
 
 
@@ -198,3 +238,86 @@ def test_GCECredential(monkeypatch):
     gce.renew()
     assert private_key_id != gce.getData()['private_key_id']
     gce.revoke()
+    gce.revoke()
+
+    file_a = gce.writetofile()
+    file_a_content = ''
+    with open(file_a, 'r') as f:
+        file_a_content = f.read()
+
+    assert gce.getPrivateKeyData() == json.loads(file_a_content)
+
+    file_b = gce.writetofile()
+    file_b_content = ''
+    with open(file_b, 'r') as f:
+        file_b_content = f.read()
+
+    assert file_b_content == file_a_content
+    assert gce._getAuthCacheFile() == Path('/tmp/pcw/GCECredential/{}/auth.json'.format(namespace))
+
+
+def init_use_file_cache_test(monkeypatch):
+    global authfile
+    webui.settings.CONFIG_FILE = working_dir / 'pcw.ini'
+    with open(webui.settings.CONFIG_FILE, "w") as f:
+        f.write("""
+[vault]
+url = {}
+user = devel
+password = sag_ich_nicht
+use-file-cache = True
+        """.format(host))
+
+    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(requests, "get", mock_get)
+    monkeypatch.setattr(Vault, "_getAuthCacheFile", lambda x: working_dir / 'auth.json')
+    if authfile.exists():
+        authfile.unlink()
+
+
+def test_Vault_use_file_cache(monkeypatch):
+
+    def test_use_file_cache(monkeypatch, cred_class):
+        global authfile
+        init_use_file_cache_test(monkeypatch)
+        assert not authfile.exists()
+
+        cred = cred_class(namespace)
+        cred.getData()
+        assert authfile.exists()
+        assert cred.auth_json == json.loads(authfile.read_text())
+
+        cred_2 = cred_class(namespace)
+        cred_2.getData()
+        assert cred_2.auth_json == json.loads(authfile.read_text())
+        assert cred_2.auth_json == cred.auth_json
+
+        cred.renew()
+
+        assert cred.auth_json == json.loads(authfile.read_text())
+        assert cred_2.auth_json != json.loads(authfile.read_text())
+        assert authfile.exists()
+
+        del cred_2
+        del cred
+        assert authfile.exists()
+
+    test_use_file_cache(monkeypatch, AzureCredential)
+    test_use_file_cache(monkeypatch, EC2Credential)
+    test_use_file_cache(monkeypatch, GCECredential)
+
+
+def test_Vault_use_file_cache_errors(monkeypatch):
+    global authfile
+    init_use_file_cache_test(monkeypatch)
+
+    with open(authfile, "w") as f:
+        f.write('THIS_IS_NOT_JSON!!')
+
+    assert authfile.exists()
+    v = Vault(namespace)
+    assert v.loadAuthCache() is None
+
+    authfile.chmod(0o000)
+    assert v.loadAuthCache() is None
+    v.saveAuthCache()

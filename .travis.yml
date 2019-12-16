@@ -1,3 +1,6 @@
+# Disable sudo to speed up the build
+sudo: false
+
 language: python
 
 python:
@@ -6,10 +9,13 @@ python:
 install:
     - pip install -r requirements.txt
     - pip install flake8
-    - pip install pytest
+    - pip install pytest pytest-cov codecov
 
 script:
     - flake8 webui
     - flake8 ocw
     - flake8 manage.py
-    - pytest .
+    - pytest --cov=./
+
+after_success:
+    - codecov

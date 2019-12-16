@@ -70,7 +70,7 @@ class Vault:
     def httpPost(self, path, data, headers={}):
         try:
             r = requests.post(self.url + path, json=data, headers=headers, verify=self.certificate_dir)
-            logger.debug("HTTP GET URL: {} || response status : {} || response : {}".format(
+            logger.debug("HTTP POST URL: {} || response status : {} || response : {}".format(
                 self.url + path, r.status_code, r.json()))
             if len(r.content) > 0 and 'errors' in r.json():
                 raise ConnectionError(",".join(r.json()['errors']))
@@ -108,14 +108,19 @@ class Vault:
         return expire < datetime.today() + timedelta(seconds=self.extra_time)
 
     def renew(self):
+        if ConfigFile().getBoolean(['vault', 'use-file-cache']) and self._getAuthCacheFile().exists():
+            self._getAuthCacheFile().unlink()
         self.revoke()
         self.getData()
 
+    def _getAuthCacheFile(self):
+        return Path('/tmp/pcw/{}/{}/auth.json'.format(self.__class__.__name__, self.namespace))
+
     def createAuthCachePath(self):
         oldmask = os.umask(0o077)
-        path = Path('/tmp/pcw/{}/{}'.format(self.__class__.__name__, self.namespace))
+        path = self._getAuthCacheFile().parent
         path.mkdir(mode=0o700, parents=True, exist_ok=True)
-        f = path.joinpath('auth.json')
+        f = self._getAuthCacheFile()
         f.touch(mode=0o600, exist_ok=True)
         os.umask(oldmask)
         return f
@@ -175,8 +180,6 @@ class GCECredential(Vault):
     def getCredentials(self):
         path = '/v1/{}/gcp/key/openqa-role'.format(self.namespace)
         creds = self.httpGet(path).json()
-        if 'errors' in creds:
-            raise Exception(",".join(creds['errors']))
         cred_file = json.loads(base64.b64decode(creds['data']['private_key_data']).decode(encoding='UTF-8'))
         for k, v in cred_file.items():
             if k not in creds['data']:
