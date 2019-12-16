@@ -1,0 +1,200 @@
+from ocw.lib.vault import Vault, AzureCredential, EC2Credential, GCECredential
+from datetime import datetime
+from datetime import timedelta
+import pytest
+import requests
+import webui
+import json
+import base64
+from uuid import uuid4
+
+
+# Global test data
+namespace = 'test-qa'
+host = 'http://foo.bar'
+leases = list()
+
+
+def random_id(): return str(uuid4())
+
+
+class MockResponse:
+    def __init__(self, json_response={}, status_code=200):
+        self.json_response = json_response
+        self.content = json.dumps(json_response)
+        self.status_code = status_code
+
+    def json(self):
+        return self.json_response
+
+
+def mock_post(url, **kwargs):
+    if (url.startswith('{}/v1/auth/userpass/login/'.format(host))):
+        username = url[38:]
+        password = kwargs['json']['password']
+        if (username == 'devel' and password == 'sag_ich_nicht'):
+            return MockResponse({'auth': {'client_token': 'TOTAL_SECRET_TOKEN', 'lease_duration': 60*15}})
+        return MockResponse({'errors': ['Unknown user']}, status_code=401)
+
+    if (url.startswith('{}/v1/sys/leases/revoke'.format(host))):
+        lease_id = kwargs['json']['lease_id']
+        if (lease_id in leases):
+            leases.remove(lease_id)
+            return MockResponse(status_code=200)
+        else:
+            return MockResponse({'errors': ['Some other Error', 'NoSuchEntity', 'Error msg 2']}, 404)
+
+    return MockResponse(status_code=404)
+
+
+def mock_get(url, **kwargs):
+    if(url.startswith('{}/v1/{}/azure/creds/openqa-role'.format(host, namespace))):
+
+        lease_id = "azure/creds/openqa-role/{}".format(random_id())
+        leases.append(lease_id)
+        return MockResponse({
+            "lease_id": lease_id,
+            "lease_duration": 3600,
+            "data": {"client_id": random_id(), "client_secret": random_id()},
+            })
+    elif(url.startswith('{}/v1/{}/secret/azure/openqa-role'.format(host, namespace))):
+        return MockResponse({
+            "data": {
+                "subscription_id": "XXXXX-5127-52311-31221-XXXXXXXXX",
+                "tenant_id": "XXXXXXX-ba41-4412-a321-XXXXXXXX"
+                }
+            })
+    elif(url.startswith('{}/v1/{}/aws/creds/openqa-role'.format(host, namespace))):
+        lease_id = "aws/creds/openqa-role/{}".format(random_id())
+        leases.append(lease_id)
+        return MockResponse({
+            "lease_id": lease_id,
+            "lease_duration": 3600,
+            "data": {
+                "access_key": random_id(),
+                "secret_key": random_id(),
+                "security_token": None
+              }
+            })
+
+    elif(url.startswith('{}/v1/{}/gcp/key/openqa-role'.format(host, namespace))):
+        keydata = """{{
+  "type": "service_account",
+  "project_id": "pcw",
+  "private_key_id": "{}",
+  "private_key": "{}",
+  "client_email": "vaultopenqa-role-XXXXXXX@pcw.iam.gserviceaccount.com",
+  "client_id": "{}",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/vaultopenqa-role-XXXXXXX%40pcw.iam.gservi\
+ceaccount.com"
+}}""".format(random_id(), random_id(), random_id())
+
+        lease_id = "gcp/key/openqa-role/{}".format(random_id())
+        leases.append(lease_id)
+        return MockResponse({
+            "lease_id": lease_id,
+            "lease_duration": 3600,
+            "data": {
+                "key_algorithm": "KEY_ALG_RSA_2048",
+                "key_type": "TYPE_GOOGLE_CREDENTIALS_FILE",
+                "private_key_data": base64.b64encode(keydata.encode('UTF-8')).decode(encoding='UTF-8')
+              }
+            })
+
+
+def set_pcw_ini():
+    webui.settings.CONFIG_FILE = 'tests/pcw.ini'
+    with open(webui.settings.CONFIG_FILE, "w") as f:
+        f.write("""
+[vault]
+url = {}
+user = devel
+password = sag_ich_nicht
+        """.format(host))
+
+
+def test_Vault(monkeypatch):
+    set_pcw_ini()
+    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(requests, "get", mock_get)
+
+    v = Vault(namespace)
+    assert v.url == 'http://foo.bar'
+    assert v.user == 'devel'
+    assert v.password == 'sag_ich_nicht'
+    assert v.namespace == namespace
+
+    assert v.getClientToken() == {'X-Vault-Token': 'TOTAL_SECRET_TOKEN'}
+    assert v.client_token_expire > (datetime.today() + timedelta(seconds=5))
+
+    id_token = id(v.getClientToken())
+    assert id_token == id(v.getClientToken())
+
+    # fake client_token_expire to get new token
+    v.client_token_expire = datetime.today()
+    assert id_token != id(v.getClientToken())
+
+    with pytest.raises(ConnectionError):
+        v = Vault(namespace)
+        v.user = 'Not_existing_user'
+        v.getClientToken()
+
+
+def test_AzureCredential(monkeypatch):
+    set_pcw_ini()
+    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(requests, "get", mock_get)
+
+    az = AzureCredential(namespace)
+    assert az.getAuthExpire() is None
+    az.revoke()
+    assert az.isClientTokenExpired() is True
+    assert az.isValid() is True
+
+    client_id = az.getData()['client_id']
+    assert client_id == az.getData()['client_id']
+
+    az.renew()
+    assert client_id != az.getData()['client_id']
+    az.revoke()
+
+
+def test_EC2Credential(monkeypatch):
+    set_pcw_ini()
+    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(requests, "get", mock_get)
+
+    ec2 = EC2Credential(namespace)
+    assert ec2.getAuthExpire() is None
+    ec2.revoke()
+    assert ec2.isClientTokenExpired() is True
+    assert ec2.isValid() is True
+
+    access_key = ec2.getData()['access_key']
+    assert access_key == ec2.getData()['access_key']
+
+    ec2.renew()
+    assert access_key != ec2.getData()['access_key']
+    ec2.revoke()
+
+
+def test_GCECredential(monkeypatch):
+    set_pcw_ini()
+    monkeypatch.setattr(requests, "post", mock_post)
+    monkeypatch.setattr(requests, "get", mock_get)
+
+    gce = GCECredential(namespace)
+    assert gce.getAuthExpire() is None
+    gce.revoke()
+    assert gce.isClientTokenExpired() is True
+    assert gce.isValid() is True
+
+    private_key_id = gce.getPrivateKeyData()['private_key_id']
+    assert private_key_id == gce.getData()['private_key_id']
+
+    gce.renew()
+    assert private_key_id != gce.getData()['private_key_id']
+    gce.revoke()

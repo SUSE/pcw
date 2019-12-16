@@ -169,10 +169,10 @@ class ConfigFile:
     filename = None
     config = None
 
-    def __new__(cls, filename=CONFIG_FILE):
+    def __new__(cls, filename=None):
         if ConfigFile.__instance is None:
             ConfigFile.__instance = object.__new__(cls)
-        ConfigFile.__instance.filename = filename
+        ConfigFile.__instance.filename = filename or CONFIG_FILE
         return ConfigFile.__instance
 
     def check_file(self):
