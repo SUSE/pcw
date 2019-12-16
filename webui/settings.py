@@ -202,7 +202,7 @@ class ConfigFile:
         value = self.get(name, default)
         if isinstance(value, bool):
             return value
-        return re.match('^(?i)(true|on|1|yes)$', value)
+        return re.match('^(true|on|1|yes)$', value, flags=re.IGNORECASE)
 
     def has(self, name):
         try:
