@@ -1,12 +1,11 @@
 [![Build Status](https://travis-ci.com/cfconrad/pcw.svg?branch=master)](https://travis-ci.com/cfconrad/pcw)
 [![codecov](https://codecov.io/gh/cfconrad/pcw/branch/master/graph/badge.svg)](https://codecov.io/gh/cfconrad/pcw)
 
-# Public cloud Helper
+# OpenQA Public cloud Helper
 
-This script should help with my common tasks for CSP (Cloud service Providers).
-
-Currently only AWS is supported. In future I will extend it with Azure and GCE.
-
+A web app which monitor, display and delete CSPs. It try to identify left over
+instances and also perform some cleanup task. For instance it delete old custom
+uploaded images.
 
 ## Installation
 
@@ -86,4 +85,13 @@ python manage.py runserver
 ```
 => http://127.0.0.1:8000/
 
+## Codecov
+
+Running codecov locally require installation of `pytest pytest-cov codecov`.
+Then you can run it with
+```
+BROWSER=$(xdg-settings get default-web-browser)
+pytest -v --cov=./ --cov-report=html && $BROWSER htmlcov/index.html
+```
+and explore the results in your browser
 
