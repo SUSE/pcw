@@ -6,8 +6,8 @@ import requests
 import webui
 import json
 import base64
-from uuid import uuid4
 from pathlib import Path, PurePath
+from faker import Faker
 
 
 # Global test data
@@ -16,10 +16,7 @@ host = 'http://foo.bar'
 leases = list()
 working_dir = Path(PurePath(Path(__file__).absolute()).parent)
 authfile = Path(working_dir / 'auth.json')
-
-
-def random_id(): return str(uuid4())
-
+fake = Faker()
 
 class MockResponse:
     def __init__(self, json_response={}, status_code=200):
@@ -52,32 +49,32 @@ def mock_post(url, **kwargs):
 def mock_get(url, **kwargs):
     if(url.startswith('{}/v1/{}/azure/creds/openqa-role'.format(host, namespace))):
 
-        lease_id = "azure/creds/openqa-role/{}".format(random_id())
+        lease_id = "azure/creds/openqa-role/{}".format(fake.uuid4())
         leases.append(lease_id)
         return MockResponse({
             "lease_id": lease_id,
             "lease_duration": 3600,
-            "data": {"client_id": random_id(), "client_secret": random_id()},
-            })
+            "data": {"client_id": fake.uuid4(), "client_secret": fake.uuid4()},
+        })
     elif(url.startswith('{}/v1/{}/secret/azure/openqa-role'.format(host, namespace))):
         return MockResponse({
             "data": {
                 "subscription_id": "XXXXX-5127-52311-31221-XXXXXXXXX",
                 "tenant_id": "XXXXXXX-ba41-4412-a321-XXXXXXXX"
-                }
-            })
+            }
+        })
     elif(url.startswith('{}/v1/{}/aws/creds/openqa-role'.format(host, namespace))):
-        lease_id = "aws/creds/openqa-role/{}".format(random_id())
+        lease_id = "aws/creds/openqa-role/{}".format(fake.uuid4())
         leases.append(lease_id)
         return MockResponse({
             "lease_id": lease_id,
             "lease_duration": 3600,
             "data": {
-                "access_key": random_id(),
-                "secret_key": random_id(),
+                "access_key": fake.uuid4(),
+                "secret_key": fake.uuid4(),
                 "security_token": None
-              }
-            })
+            }
+        })
 
     elif(url.startswith('{}/v1/{}/gcp/key/openqa-role'.format(host, namespace))):
         keydata = """{{
@@ -92,9 +89,9 @@ def mock_get(url, **kwargs):
   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/vaultopenqa-role-XXXXXXX%40pcw.iam.gservi\
 ceaccount.com"
-}}""".format(random_id(), random_id(), random_id())
+}}""".format(fake.uuid4(), fake.uuid4(), fake.uuid4())
 
-        lease_id = "gcp/key/openqa-role/{}".format(random_id())
+        lease_id = "gcp/key/openqa-role/{}".format(fake.uuid4())
         leases.append(lease_id)
         return MockResponse({
             "lease_id": lease_id,
@@ -103,8 +100,8 @@ ceaccount.com"
                 "key_algorithm": "KEY_ALG_RSA_2048",
                 "key_type": "TYPE_GOOGLE_CREDENTIALS_FILE",
                 "private_key_data": base64.b64encode(keydata.encode('UTF-8')).decode(encoding='UTF-8')
-              }
-            })
+            }
+        })
 
 
 def set_pcw_ini():
