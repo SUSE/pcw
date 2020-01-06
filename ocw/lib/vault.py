@@ -41,11 +41,14 @@ class Vault:
                 raise e
         finally:
             self.auth_json = None
+            self.client_token = None
+            self.client_token_expire = None
 
     def getClientToken(self):
         if self.isClientTokenExpired():
-            r = self.httpPost('/v1/auth/userpass/login/' + self.user, data={'password': self.password})
-            j = r.json()
+            self.client_token = None
+            self.client_token_expire = None
+            j = self.httpPost('/v1/auth/userpass/login/' + self.user, data={'password': self.password}).json()
             self.client_token = {'X-Vault-Token': j['auth']['client_token']}
             self.client_token_expire = datetime.today() + timedelta(seconds=j['auth']['lease_duration'])
         return self.client_token
@@ -54,6 +57,16 @@ class Vault:
         if self.client_token is None:
             return True
         return self.client_token_expire < datetime.today() + timedelta(seconds=self.extra_time)
+
+    def renewClientToken(self, increment):
+        if self.isClientTokenExpired():
+            return
+        j = self.httpPost('/v1/auth/token/renew-self', headers=self.getClientToken(),
+                          data={'increment': "{}s".format(increment)}).json()
+        self.client_token_expire = datetime.today() + timedelta(seconds=j['auth']['lease_duration'])
+        if 'warnings' in j:
+            for w in j['warnings']:
+                logger.warning("[{}][{}] {}".format(self.namespace, self.__class__.__name__, w))
 
     def httpGet(self, path):
         try:
@@ -90,6 +103,8 @@ class Vault:
             self.auth_json = self.getCredentials()
             expire = datetime.today() + timedelta(seconds=self.auth_json['lease_duration'])
             self.auth_json['auth_expire'] = expire.isoformat()
+            if expire > self.client_token_expire:
+                self.renewClientToken(self.auth_json['lease_duration'])
             if use_file_cache:
                 self.saveAuthCache()
         if name is None:
