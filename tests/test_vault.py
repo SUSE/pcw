@@ -14,9 +14,11 @@ from faker import Faker
 namespace = 'test-qa'
 host = 'http://foo.bar'
 leases = list()
+tokens = list()
 working_dir = Path(PurePath(Path(__file__).absolute()).parent)
 authfile = Path(working_dir / 'auth.json')
 fake = Faker()
+
 
 class MockResponse:
     def __init__(self, json_response={}, status_code=200):
@@ -34,8 +36,12 @@ def mock_post(url, **kwargs):
         username = url[38:]
         password = kwargs['json']['password']
         if (username == 'devel' and password == 'sag_ich_nicht'):
-            return MockResponse({'auth': {'client_token': 'TOTAL_SECRET_TOKEN', 'lease_duration': 60*15}})
+            client_token = fake.uuid4()
+            tokens.append(client_token)
+            return MockResponse({'auth': {'client_token': client_token, 'lease_duration': 60*15}})
         return MockResponse({'errors': ['Unknown user']}, status_code=401)
+
+    assert kwargs['headers']['X-Vault-Token'] == tokens[-1]
 
     if (url.startswith('{}/v1/sys/leases/revoke'.format(host))):
         lease_id = kwargs['json']['lease_id']
@@ -45,10 +51,21 @@ def mock_post(url, **kwargs):
         else:
             return MockResponse({'errors': ['Some other Error', 'NoSuchEntity:', 'Error msg 2']}, 404)
 
+    if (url == '{}/v1/auth/token/renew-self'.format(host)):
+        increment = kwargs['json']['increment']
+        response = {'auth': {'client_token': kwargs['headers']['X-Vault-Token'], 'lease_duration': 666}}
+
+        if increment == "{}s".format(60 * 60 * 666):
+            response['warnings'] = ["TTL of \"666h0m0s\" exceeded the effective max_ttl of \"5h0m0s\";" +
+                                    " TTL value is capped accordingly"]
+            response['auth']['lease_duration'] = 60 * 60 * 5
+            return MockResponse(response)
+        return MockResponse(response)
+
 
 def mock_get(url, **kwargs):
+    assert kwargs['headers']['X-Vault-Token'] == tokens[-1]
     if(url.startswith('{}/v1/{}/azure/creds/openqa-role'.format(host, namespace))):
-
         lease_id = "azure/creds/openqa-role/{}".format(fake.uuid4())
         leases.append(lease_id)
         return MockResponse({
@@ -126,7 +143,7 @@ def test_Vault(monkeypatch):
     assert v.password == 'sag_ich_nicht'
     assert v.namespace == namespace
 
-    assert v.getClientToken() == {'X-Vault-Token': 'TOTAL_SECRET_TOKEN'}
+    assert v.getClientToken()['X-Vault-Token'] == tokens[-1]
     assert v.client_token_expire > (datetime.today() + timedelta(seconds=5))
 
     id_token = id(v.getClientToken())
@@ -144,6 +161,12 @@ def test_Vault(monkeypatch):
     with pytest.raises(NotImplementedError):
         v = Vault(namespace)
         v.getCredentials()
+
+    v = Vault(namespace)
+    assert v.renewClientToken(42) is None
+    v.getClientToken()
+    v.renewClientToken(42)
+    v.renewClientToken(666 * 60 * 60)
 
 
 def test_AzureCredential(monkeypatch):
