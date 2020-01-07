@@ -1,3 +1,4 @@
+-e .
 boto3
 azure
 uwsgi
@@ -10,5 +11,8 @@ texttable
 oauth2client
 google-api-python-client
 google-cloud-storage
+pytest
+pytest-django
 python-dateutil
 apscheduler
+faker
