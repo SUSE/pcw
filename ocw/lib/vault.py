@@ -64,7 +64,7 @@ class Vault:
         j = self.httpPost('/v1/auth/token/renew-self', headers=self.getClientToken(),
                           data={'increment': "{}s".format(increment)}).json()
         self.client_token_expire = datetime.today() + timedelta(seconds=j['auth']['lease_duration'])
-        if 'warnings' in j:
+        if 'warnings' in j and j['warnings'] is not None:
             for w in j['warnings']:
                 logger.warning("[{}][{}] {}".format(self.namespace, self.__class__.__name__, w))
 

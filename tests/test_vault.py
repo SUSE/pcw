@@ -55,6 +55,10 @@ def mock_post(url, **kwargs):
         increment = kwargs['json']['increment']
         response = {'auth': {'client_token': kwargs['headers']['X-Vault-Token'], 'lease_duration': 666}}
 
+        if increment == "{}s".format(60 * 60 * 55):
+            response['warnings'] = None
+            return MockResponse(response)
+
         if increment == "{}s".format(60 * 60 * 666):
             response['warnings'] = ["TTL of \"666h0m0s\" exceeded the effective max_ttl of \"5h0m0s\";" +
                                     " TTL value is capped accordingly"]
@@ -167,6 +171,7 @@ def test_Vault(monkeypatch):
     v.getClientToken()
     v.renewClientToken(42)
     v.renewClientToken(666 * 60 * 60)
+    v.renewClientToken(55 * 60 * 60)
 
 
 def test_AzureCredential(monkeypatch):
