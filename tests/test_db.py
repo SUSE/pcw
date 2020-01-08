@@ -1,36 +1,21 @@
 import pytest
+import json
+from ocw.lib.db import ec2_to_local_instance
 from ocw.lib.db import ec2_to_json
+from ocw.lib.db import azure_to_json
+from ocw.lib.db import azure_to_local_instance
+from ocw.lib.db import gce_to_json
+from ocw.models import ProviderChoice
+from ocw.models import StateChoice
+from ocw.lib.gce import GCE
+from tests.generators import ec2_instance_mock
+from tests.generators import azure_instance_mock
+from tests.generators import gce_instance_mock
 from faker import Faker
+from datetime import datetime
+import dateutil.parser
 
 fake = Faker()
-
-
-class ec2_meta_mock:
-    def __init__(self):
-        self.data = fake.uuid4()
-
-
-class ec2_image_mock:
-    def __init__(self):
-        self.image_id = fake.uuid4()
-        self.meta = ec2_meta_mock()
-        self.name = fake.uuid4()
-
-
-class ec2_instance_mock:
-    def __init__(self):
-        self.state = {'Name': fake.uuid4()}
-        self.image_id = fake.uuid4()
-        self.instance_lifecycle = fake.uuid4()
-        self.instance_type = fake.uuid4()
-        self.kernel_id = fake.uuid4()
-        self.launch_time = fake.future_date()
-        self.public_ip_address = fake.uuid4()
-        self.security_groups = [{'GroupName': fake.uuid4()}, {'GroupName': fake.uuid4()}]
-        self.sriov_net_support = fake.uuid4()
-        self.tags = [{'Key': fake.uuid4(), 'Value': fake.uuid4()}]
-        self.state_reason = {'Message': fake.uuid4()}
-        self.image = ec2_image_mock()
 
 
 def test_ec2_to_json():
@@ -72,3 +57,87 @@ def test_ec2_to_json_image_with_meta():
     test_instance = ec2_instance_mock()
     result = ec2_to_json(test_instance)
     assert result['image']['name'] == test_instance.image.name
+
+
+def test_ec2_to_local_instance():
+    test_instance = ec2_instance_mock()
+    test_vault_namespace = fake.uuid4()
+    test_region = fake.uuid4()
+
+    result = ec2_to_local_instance(test_instance, test_vault_namespace, test_region)
+
+    assert result.provider == ProviderChoice.EC2
+    assert result.vault_namespace == test_vault_namespace
+    assert result.first_seen == test_instance.launch_time
+    assert result.instance_id == test_instance.instance_id
+    assert result.state == StateChoice.ACTIVE
+    assert result.region == test_region
+    json.loads(result.csp_info)
+
+
+def test_azure_to_json():
+    test_instance = azure_instance_mock()
+    result = azure_to_json(test_instance)
+
+    assert result['tags'] == test_instance.tags
+    assert result['name'] == test_instance.name
+    assert result['id'] == test_instance.id
+    assert result['type'] == test_instance.type
+    assert result['location'] == test_instance.location
+    assert 'launch_time' not in result
+
+
+def test_azure_to_json_launch_time():
+    test_instance = azure_instance_mock()
+    test_time = datetime.now()
+    test_instance.tags = {'openqa_created_date': test_time}
+    result = azure_to_json(test_instance)
+    assert result['launch_time'] == test_time
+
+
+def test_azure_to_local_instance():
+    test_instance = azure_instance_mock()
+    test_instance.tags = {'openqa_created_date': str(datetime.now())}
+    test_vault_namespace = fake.uuid4()
+    result = azure_to_local_instance(test_instance, test_vault_namespace)
+
+    assert result.provider == ProviderChoice.AZURE
+    assert result.vault_namespace == test_vault_namespace
+    assert result.first_seen == dateutil.parser.parse(test_instance.tags.get('openqa_created_date'))
+    assert result.instance_id == test_instance.name
+    assert result.region == test_instance.location
+    json.loads(result.csp_info)
+
+
+def test_gce_to_json():
+    test_instance = gce_instance_mock()
+    result = gce_to_json(test_instance)
+
+    assert result['name'] == test_instance['name']
+    assert result['id'] == test_instance['id']
+    assert result['machineType'] == GCE.url_to_name(test_instance['machineType'])
+    assert result['zone'] == GCE.url_to_name(test_instance['zone'])
+    assert result['status'] == test_instance['status']
+    assert result['launch_time'] == test_instance['creationTimestamp']
+    assert result['creation_time'] == test_instance['creationTimestamp']
+    assert len(result['tags']) == 0
+    assert 'sshKeys' not in result['tags']
+
+
+def test_gce_to_json_metadata_items():
+    test_instance = gce_instance_mock()
+    test_items = [{'key': fake.uuid4(), 'value': fake.uuid4()}, {'key': fake.uuid4(), 'value': fake.uuid4()}]
+    test_instance['metadata'] = {'items': test_items}
+    result = gce_to_json(test_instance)
+
+    assert len(result['tags']) == 2
+
+
+def test_gce_to_json_launch_time():
+    test_instance = gce_instance_mock()
+    test_time = datetime.now()
+    test_items = [{'key': 'openqa_created_date', 'value': test_time}]
+    test_instance['metadata'] = {'items': test_items}
+    result = gce_to_json(test_instance)
+
+    assert result['launch_time'] == test_time
