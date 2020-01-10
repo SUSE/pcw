@@ -8,7 +8,7 @@ import json
 import base64
 from pathlib import Path, PurePath
 from faker import Faker
-
+from requests.exceptions import HTTPError
 
 # Global test data
 namespace = 'test-qa'
@@ -21,13 +21,21 @@ fake = Faker()
 
 
 class MockResponse:
-    def __init__(self, json_response={}, status_code=200):
-        self.json_response = json_response
-        self.content = json.dumps(json_response)
+    def __init__(self, json_response=None, status_code=200, content_type='application/json', url='not_given', text=""):
         self.status_code = status_code
+        if json_response is not None:
+            text = json.dumps(json_response)
+        self.content = text
+        self.text = text
+        self.headers = {'content-type': content_type}
+        self.url = url
 
     def json(self):
-        return self.json_response
+        return json.loads(self.text)
+
+    def raise_for_status(self):
+        if 400 <= self.status_code < 600:
+            raise HTTPError('raise_for_status - status_code:{}'.format(self.status_code))
 
 
 def mock_post(url, **kwargs):
@@ -38,18 +46,19 @@ def mock_post(url, **kwargs):
         if (username == 'devel' and password == 'sag_ich_nicht'):
             client_token = fake.uuid4()
             tokens.append(client_token)
-            return MockResponse({'auth': {'client_token': client_token, 'lease_duration': 60*15}})
-        return MockResponse({'errors': ['Unknown user']}, status_code=401)
+            return MockResponse({'auth': {'client_token': client_token, 'lease_duration': 60*15}}, url=url)
+        return MockResponse({'errors': ['Unknown user']}, status_code=401, url=url)
 
-    assert kwargs['headers']['X-Vault-Token'] == tokens[-1]
+    if kwargs['headers']['X-Vault-Token'] != tokens[-1]:
+        return MockResponse(status_code=403, url=url)
 
     if (url.startswith('{}/v1/sys/leases/revoke'.format(host))):
         lease_id = kwargs['json']['lease_id']
         if (lease_id in leases):
             leases.remove(lease_id)
-            return MockResponse(status_code=200)
+            return MockResponse(text="", status_code=204, url=url)
         else:
-            return MockResponse({'errors': ['Some other Error', 'NoSuchEntity:', 'Error msg 2']}, 404)
+            return MockResponse({'errors': ['Some other Error', 'NoSuchEntity:', 'Error msg 2']}, 404, url=url)
 
     if (url == '{}/v1/auth/token/renew-self'.format(host)):
         increment = kwargs['json']['increment']
@@ -63,12 +72,13 @@ def mock_post(url, **kwargs):
             response['warnings'] = ["TTL of \"666h0m0s\" exceeded the effective max_ttl of \"5h0m0s\";" +
                                     " TTL value is capped accordingly"]
             response['auth']['lease_duration'] = 60 * 60 * 5
-            return MockResponse(response)
-        return MockResponse(response)
+            return MockResponse(response, url=url)
+        return MockResponse(response, url=url)
 
 
 def mock_get(url, **kwargs):
-    assert kwargs['headers']['X-Vault-Token'] == tokens[-1]
+    if kwargs['headers']['X-Vault-Token'] != tokens[-1]:
+        return MockResponse(status_code=403, url=url)
     if(url.startswith('{}/v1/{}/azure/creds/openqa-role'.format(host, namespace))):
         lease_id = "azure/creds/openqa-role/{}".format(fake.uuid4())
         leases.append(lease_id)
@@ -150,12 +160,12 @@ def test_Vault(monkeypatch):
     assert v.getClientToken()['X-Vault-Token'] == tokens[-1]
     assert v.client_token_expire > (datetime.today() + timedelta(seconds=5))
 
-    id_token = id(v.getClientToken())
-    assert id_token == id(v.getClientToken())
+    id_token = v.getClientToken()
+    assert id_token == v.getClientToken()
 
     # fake client_token_expire to get new token
     v.client_token_expire = datetime.today()
-    assert id_token != id(v.getClientToken())
+    assert id_token != v.getClientToken()
 
     with pytest.raises(ConnectionError):
         v = Vault(namespace)
@@ -207,9 +217,33 @@ def test_Vault_revoke(monkeypatch):
 
     az = AzureCredential(namespace)
     az.getData()
+    monkeypatch.setattr(requests, 'post', lambda *args, **kwargs: 1/0)
+    az.revoke()
+    assert az.auth_json is None
+    assert az.client_token is None
+    assert az.client_token_expire is None
+
+
+def test_http_response_no_json(monkeypatch):
+    az = AzureCredential(namespace)
+    monkeypatch.setattr(requests, "post", lambda *args, **kwargs: MockResponse(content_type='html/text'))
     with pytest.raises(ConnectionError):
-        monkeypatch.setattr(requests, 'post', lambda x: 1/0)
-        az.revoke()
+        az.httpPost('foobar', data={})
+
+    monkeypatch.setattr(requests, "get", lambda *args, **kwargs: MockResponse(content_type='html/text'))
+    with pytest.raises(ConnectionError):
+        az.httpGet('foobar')
+
+
+def test_http_response_with_json_error(monkeypatch):
+    az = AzureCredential(namespace)
+    monkeypatch.setattr(requests, "post", lambda *args, **kwargs: MockResponse(json_response={'errors': ['err1']}))
+    with pytest.raises(ConnectionError):
+        az.httpPost('foobar', data={})
+
+    monkeypatch.setattr(requests, "get", lambda *args, **kwargs: MockResponse(json_response={'errors': ['err1']}))
+    with pytest.raises(ConnectionError):
+        az.httpGet('foobar')
 
 
 def test_Vault_invalid_namespace(monkeypatch):

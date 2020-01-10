@@ -9,6 +9,7 @@ from tempfile import NamedTemporaryFile
 from pathlib import Path
 import logging
 import os
+import inspect
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +36,8 @@ class Vault:
             return
         try:
             self.httpPost('/v1/sys/leases/revoke', {'lease_id': self.auth_json['lease_id']}, self.getClientToken())
-        except ConnectionError as e:
-            # NoSuchEntity errors expected on revoke they just mean that Vault already did what we asking for
-            if "NoSuchEntity:" not in str(e):
-                raise e
+        except ConnectionError:
+            logger.exception("Failed to revoke!")
         finally:
             self.auth_json = None
             self.client_token = None
@@ -48,7 +47,7 @@ class Vault:
         if self.isClientTokenExpired():
             self.client_token = None
             self.client_token_expire = None
-            j = self.httpPost('/v1/auth/userpass/login/' + self.user, data={'password': self.password}).json()
+            j = self.httpPost('/v1/auth/userpass/login/' + self.user, data={'password': self.password})
             self.client_token = {'X-Vault-Token': j['auth']['client_token']}
             self.client_token_expire = datetime.today() + timedelta(seconds=j['auth']['lease_duration'])
         return self.client_token
@@ -62,33 +61,37 @@ class Vault:
         if self.isClientTokenExpired():
             return
         j = self.httpPost('/v1/auth/token/renew-self', headers=self.getClientToken(),
-                          data={'increment': "{}s".format(increment)}).json()
+                          data={'increment': "{}s".format(increment)})
         self.client_token_expire = datetime.today() + timedelta(seconds=j['auth']['lease_duration'])
         if 'warnings' in j and j['warnings'] is not None:
             for w in j['warnings']:
                 logger.warning("[{}][{}] {}".format(self.namespace, self.__class__.__name__, w))
 
+    def __commonHttpRequestHandling(self, response):
+        logger.debug("[{}] {} URL: {} || response status : {} || response : {}".format(
+            self.namespace, inspect.stack()[1].function, response.url, response.status_code, response.text))
+        response.raise_for_status()
+        if 'json' not in response.headers['content-type']:
+            raise ConnectionError('Unexpected response content-type: {}'.format(response.headers['content-type']))
+        if len(response.content) > 0:
+            json = response.json()
+            if 'errors' in json:
+                raise ConnectionError(",".join(json['errors']))
+            return json
+        else:
+            return {}
+
     def httpGet(self, path):
         try:
             r = requests.get(self.url + path, headers=self.getClientToken(), verify=self.certificate_dir)
-            logger.debug("HTTP GET URL: {} || response status : {} || response : {}".format(
-                self.url + path, r.status_code, r.json()))
-            if len(r.content) > 0 and 'errors' in r.json():
-                raise ConnectionError(",".join(r.json()['errors']))
-            else:
-                return r
+            return self.__commonHttpRequestHandling(r)
         except Exception as e:
             raise ConnectionError('{}: {}'.format(type(e).__name__, str(e)))
 
     def httpPost(self, path, data, headers={}):
         try:
             r = requests.post(self.url + path, json=data, headers=headers, verify=self.certificate_dir)
-            logger.debug("HTTP POST URL: {} || response status : {} || response : {}".format(
-                self.url + path, r.status_code, r.json()))
-            if len(r.content) > 0 and 'errors' in r.json():
-                raise ConnectionError(",".join(r.json()['errors']))
-            else:
-                return r
+            return self.__commonHttpRequestHandling(r)
         except Exception as e:
             raise ConnectionError('{}: {}'.format(type(e).__name__, str(e)))
 
@@ -171,8 +174,8 @@ class AzureCredential(Vault):
 
         path = '/v1/{}/azure/creds/openqa-role'.format(self.namespace)
         path_kv = '/v1/{}/secret/azure/openqa-role'.format(self.namespace)
-        creds = self.httpGet(path).json()
-        data = self.httpGet(path_kv).json()['data']
+        creds = self.httpGet(path)
+        data = self.httpGet(path_kv)['data']
         for k, v in data.items():
             creds['data'][k] = v
 
@@ -184,7 +187,7 @@ class EC2Credential(Vault):
 
     def getCredentials(self):
         path = '/v1/{}/aws/creds/openqa-role'.format(self.namespace)
-        return self.httpGet(path).json()
+        return self.httpGet(path)
 
 
 class GCECredential(Vault):
@@ -194,7 +197,7 @@ class GCECredential(Vault):
 
     def getCredentials(self):
         path = '/v1/{}/gcp/key/openqa-role'.format(self.namespace)
-        creds = self.httpGet(path).json()
+        creds = self.httpGet(path)
         cred_file = json.loads(base64.b64decode(creds['data']['private_key_data']).decode(encoding='UTF-8'))
         for k, v in cred_file.items():
             if k not in creds['data']:
