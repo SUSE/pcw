@@ -1,5 +1,8 @@
 import configparser
 import re
+import os
+import hashlib
+import logging.config
 
 """
 Django settings for webui project.
@@ -12,9 +15,6 @@ https://docs.djangoproject.com/en/2.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/2.1/ref/settings/
 """
-
-import os
-import logging.config
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -165,7 +165,7 @@ logging.config.dictConfig({
 
 class ConfigFile:
     __instance = None
-    __file_mtime = None
+    __file_hash = None
     filename = None
     config = None
 
@@ -175,9 +175,17 @@ class ConfigFile:
         ConfigFile.__instance.filename = filename or CONFIG_FILE
         return ConfigFile.__instance
 
+    def get_hash(self):
+        with open(self.filename, 'r') as f:
+            h = hashlib.sha256()
+            h.update(f.read().encode('utf-8'))
+            return h.hexdigest()
+        return None
+
     def check_file(self):
-        if self.__file_mtime is None or self.__file_mtime != os.path.getmtime(self.filename):
-            self.__file_mtime = os.path.getmtime(self.filename)
+        file_hash = self.get_hash()
+        if self.__file_hash is None or self.__file_hash != file_hash:
+            self.__file_hash = file_hash
             self.config = configparser.ConfigParser()
             self.config.read(self.filename)
 

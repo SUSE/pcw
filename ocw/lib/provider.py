@@ -19,6 +19,6 @@ class Provider:
         e = mapping[key]
         namespace_section = '{}.namespace.{}'.format(section, self.__namespace)
         cfg = ConfigFile()
-        return cfg.get(
+        return type(e['default'])(cfg.get(
                 [namespace_section, field],
-                cfg.get([section, field], e['default']))
+                cfg.get([section, field], e['default'])))
