@@ -1,13 +1,7 @@
 from django.shortcuts import redirect
-from django.http import HttpResponseForbidden
 from django_tables2 import SingleTableView
-from .lib.azure import Azure
-from .lib.EC2 import EC2
-from .lib.gce import GCE
 from .lib import db
 from .models import Instance
-from .models import ProviderChoice
-from .models import StateChoice
 from .tables import InstanceTable
 from .tables import InstanceFilter
 from django.contrib.auth.decorators import login_required
@@ -53,19 +47,5 @@ def update_status(request):
 @login_required
 def delete(request, key_id=None):
     o = Instance.objects.get(id=key_id)
-    if 'openqa_created_by' not in o.csp_info:
-        return HttpResponseForbidden('This instance isn\'t managed by openqa')
-
-    if (o.provider == ProviderChoice.AZURE):
-        Azure(o.vault_namespace).delete_resource(o.instance_id)
-    elif (o.provider == ProviderChoice.EC2):
-        EC2(o.vault_namespace).delete_instance(o.instance_id)
-    elif (o.provider == ProviderChoice.GCE):
-        GCE(o.vault_namespace).delete_instance(o.instance_id, o.region)
-    else:
-        raise NotImplementedError(
-                "Provider({}).delete() isn't implementd".format(o.provider))
-
-    o.state = StateChoice.DELETING
-    o.save()
+    db.delete_instance(o)
     return redirect('update')

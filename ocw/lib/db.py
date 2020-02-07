@@ -3,6 +3,7 @@ from ..models import Instance
 from ..models import StateChoice
 from ..models import ProviderChoice
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 import time
 import json
@@ -14,6 +15,7 @@ from .azure import Azure
 from .EC2 import EC2
 from .gce import GCE
 from datetime import datetime
+from datetime import timedelta
 from ocw.apps import getScheduler
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,7 @@ def sync_csp_to_local_db(pc_instances, provider, vault_namespace):
                 first_seen=i.first_seen,
                 instance_id=i.instance_id,
                 state=StateChoice.ACTIVE,
+                ttl=i.ttl,
                 region=i.region
             )
         o.csp_info = i.csp_info
@@ -100,7 +103,8 @@ def ec2_to_local_instance(instance, vault_namespace, region):
         instance_id=instance.instance_id,
         state=StateChoice.ACTIVE,
         region=region,
-        csp_info=json.dumps(csp_info, ensure_ascii=False)
+        csp_info=json.dumps(csp_info, ensure_ascii=False),
+        ttl=timedelta(seconds=int(csp_info['tags'].get('openqa_ttl', 0))),
     )
 
 
@@ -125,7 +129,8 @@ def azure_to_local_instance(instance, vault_namespace):
         first_seen=dateutil.parser.parse(csp_info.get('launch_time', str(timezone.now()))),
         instance_id=instance.name,
         region=instance.location,
-        csp_info=json.dumps(csp_info, ensure_ascii=False)
+        csp_info=json.dumps(csp_info, ensure_ascii=False),
+        ttl=timedelta(seconds=int(csp_info['tags'].get('openqa_ttl', 0))),
     )
 
 
@@ -154,7 +159,8 @@ def gce_to_local_instance(instance, vault_namespace):
         first_seen=dateutil.parser.parse(csp_info.get('launch_time', str(timezone.now()))),
         instance_id=instance['id'],
         region=GCE.url_to_name(instance['zone']),
-        csp_info=json.dumps(csp_info, ensure_ascii=False)
+        csp_info=json.dumps(csp_info, ensure_ascii=False),
+        ttl=timedelta(seconds=int(csp_info['tags'].get('openqa_ttl', 0))),
     )
 
 
@@ -213,6 +219,7 @@ def update_run():
                 send_mail('Error on update {} in namespace {}'.format(provider, vault_namespace),
                           "\n{}\n".format('#'*79).join(email_text))
 
+    auto_delete_instances()
     send_leftover_notification()
     __running = False
     if not error_occured:
@@ -220,6 +227,51 @@ def update_run():
 
     if not getScheduler().get_job('update_db'):
         init_cron()
+
+
+def is_delete_instance_allowed(instance):
+    return 'openqa_created_by' in instance.csp_info
+
+
+def delete_instance(instance):
+    if not is_delete_instance_allowed(instance):
+        raise PermissionError('This instance isn\'t managed by openqa - csp_info: {}'.format(instance.csp_info))
+
+    logger.debug("[{}][{}] Delete instance {}".format(
+                instance.provider, instance.vault_namespace, instance.instance_id))
+    if (instance.provider == ProviderChoice.AZURE):
+        Azure(instance.vault_namespace).delete_resource(instance.instance_id)
+    elif (instance.provider == ProviderChoice.EC2):
+        EC2(instance.vault_namespace).delete_instance(instance.instance_id)
+    elif (instance.provider == ProviderChoice.GCE):
+        GCE(instance.vault_namespace).delete_instance(instance.instance_id, instance.region)
+    else:
+        raise NotImplementedError(
+                "Provider({}).delete() isn't implementd".format(instance.provider))
+
+    instance.state = StateChoice.DELETING
+    instance.save()
+
+
+def auto_delete_instances():
+    cfg = ConfigFile()
+    for vault_namespace in cfg.getList(['vault', 'namespaces'], ['']):
+        o = Instance.objects
+        o = o.filter(state=StateChoice.ACTIVE, vault_namespace=vault_namespace,
+                     ttl__gt=timedelta(0), age__gte=F('ttl'), csp_info__icontains='openqa_created_by')
+        email_text = set()
+        for i in o:
+            logger.info("[{}][{}] TTL expire for instance {}".format(i.provider, i.vault_namespace, i.instance_id))
+            try:
+                delete_instance(i)
+            except Exception:
+                msg = "[{}][{}] Deleting instance ({}) failed".format(i.provider, i.vault_namespace, i.instance_id)
+                logger.exception(msg)
+                email_text.add("{}\n\n{}".format(msg, traceback.format_exc()))
+
+        if len(email_text) > 0:
+            send_mail('[{}] Error on auto deleting instance(s)'.format(vault_namespace),
+                      "\n{}\n".format('#'*79).join(email_text))
 
 
 def is_updating():
