@@ -74,40 +74,77 @@ class EC2(Provider):
     def delete_instance(self, instance_id):
         self.ec2_resource().instances.filter(InstanceIds=[instance_id]).terminate()
 
+    def parse_image_name(self, img_name):
+        regexes = [
+                   # openqa-SLES12-SP5-EC2.x86_64-0.9.1-BYOS-Build1.55.raw.xz
+                   re.compile(r'''^openqa-SLES
+                              (?P<version>\d+(-SP\d+)?)
+                              -(?P<flavor>EC2)
+                              \.
+                              (?P<arch>[^-]+)
+                              -
+                              (?P<kiwi>\d+\.\d+\.\d+)
+                              -
+                              (?P<type>(BYOS|On-Demand))
+                              -Build
+                              (?P<build>\d+\.\d+)
+                              \.raw\.xz
+                              ''', re.RegexFlag.X),
+                   # openqa-SLES15-SP2.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
+                   # openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
+                   # openqa-SLES15-SP2.aarch64-0.9.3-EC2-HVM-Build1.49.raw.xz'
+                   re.compile(r'''^openqa-SLES
+                              (?P<version>\d+(-SP\d+)?)
+                              (-(?P<type>[^\.]+))?
+                              \.
+                              (?P<arch>[^-]+)
+                              -
+                              (?P<kiwi>\d+\.\d+\.\d+)
+                              -
+                              (?P<flavor>EC2[-\w]+)
+                              -Build
+                              (?P<build>\d+\.\d+)
+                              \.raw\.xz
+                              ''', re.RegexFlag.X),
+                   # openqa-SLES12-SP4-EC2-HVM-BYOS.x86_64-0.9.2-Build2.56.raw.xz'
+                   re.compile(r'''^openqa-SLES
+                              (?P<version>\d+(-SP\d+)?)
+                              -
+                              (?P<flavor>EC2[^\.]+)
+                              \.
+                              (?P<arch>[^-]+)
+                              -
+                              (?P<kiwi>\d+\.\d+\.\d+)
+                              -
+                              Build
+                              (?P<build>\d+\.\d+)
+                              \.raw\.xz
+                              ''', re.RegexFlag.X)
+                   ]
+        return self.parse_image_name_helper(img_name, regexes)
+
     def cleanup_all(self):
         response = self.ec2_client().describe_images(Owners=['self'])
         images = dict()
         for img in response['Images']:
-            # 'CreationDate': '2019-10-22T20:40:45.000Z',
-            # 'ImageId': 'ami-00d30c03d17d3db69',
-            # 'Name': 'openqa-SLES12-SP5-EC2.x86_64-0.9.1-BYOS-Build1.55.raw.xz'
+            # img is in the format described here:
+            # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.describe_images
             logger.debug("[EC2] Found image '{}'".format(img['Name']))
-            regex = re.compile(r'''^openqa-SLES
-                            (?P<version>\d+(-SP\d+)?)
-                            -EC2\.
-                            (?P<arch>[^-]+)
-                            -
-                            (?P<kiwi>\d+\.\d+\.\d+)
-                            -
-                            (?P<flavor>(BYOS|On-Demand))
-                            -Build
-                            (?P<build>\d+\.\d+)
-                            \.raw\.xz
-                            ''', re.RegexFlag.X)
-            m = re.match(regex, img['Name'])
+            m = self.parse_image_name(img['Name'])
             if m:
-                key = '-'.join([m.group('version'), m.group('flavor'), m.group('arch')])
+                key = m['key']
                 if key not in images:
                     images[key] = list()
 
                 images[key].append({
-                    'build': "-".join([m.group('kiwi'), m.group('build')]),
+                    'build': m['build'],
                     'name': img['Name'],
                     'creation_datetime':  parse(img['CreationDate']),
                     'id': img['ImageId'],
                     })
             else:
-                logger.error("Unable to parse image name '{}'".format(img['Name']))
+                logger.error("[EC2][{}] Unable to parse image name '{}'".format(
+                    self.__credentials.namespace, img['Name']))
 
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))

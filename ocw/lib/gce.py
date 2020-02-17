@@ -77,6 +77,40 @@ class GCE(Provider):
     def url_to_name(url):
         return url[url.rindex('/')+1:]
 
+    def parse_image_name(self, img_name):
+        regexes = [
+            # sles12-sp5-gce-x8664-0-9-1-byos-build1-56
+            re.compile(r'''^sles
+                    (?P<version>\d+(-sp\d+)?)
+                    -
+                    (?P<flavor>gce)
+                    -
+                    (?P<arch>[^-]+)
+                    -
+                    (?P<kiwi>\d+-\d+-\d+)
+                    -
+                    (?P<type>(byos|on-demand))
+                    -build
+                    (?P<build>\d+-\d+)
+                    ''', re.RegexFlag.X),
+            # sles15-sp2-byos-x8664-0-9-3-gce-build1-10
+            # sles15-sp2-x8664-0-9-3-gce-build1-10
+            re.compile(r'''^sles
+                    (?P<version>\d+(-sp\d+)?)
+                    (-(?P<type>\w+))?
+                    -
+                    (?P<arch>[^-]+)
+                    -
+                    (?P<kiwi>\d+-\d+-\d+)
+                    -
+                    (?P<flavor>gce)
+                    -
+                    build
+                    (?P<build>\d+-\d+)
+                    ''', re.RegexFlag.X)
+            ]
+        return self.parse_image_name_helper(img_name, regexes)
+
     def cleanup_all(self):
         images = dict()
         request = self.compute_client().images().list(project=self.__project)
@@ -88,30 +122,20 @@ class GCE(Provider):
                 logger.debug('Found image {}'.format(image['name']))
                 # creation:2019-11-04T14:23:06.372-08:00
                 # name:sles12-sp5-gce-x8664-0-9-1-byos-build1-56
-                regex = re.compile(r'''^sles
-                            (?P<version>\d+(-sp\d+)?)
-                            -gce-
-                            (?P<arch>[^-]+)
-                            -
-                            (?P<kiwi>\d+-\d+-\d+)
-                            -
-                            (?P<flavor>(byos|on-demand))
-                            -build
-                            (?P<build>\d+-\d+)
-                            ''', re.RegexFlag.X)
-                m = re.match(regex, image['name'])
+                m = self.parse_image_name(image['name'])
                 if m:
-                    key = '-'.join([m.group('version'), m.group('flavor'), m.group('arch')])
+                    key = m['key']
                     if key not in images:
                         images[key] = list()
 
                     images[key].append({
-                        'build': "-".join([m.group('kiwi'), m.group('build')]),
+                        'build': m['build'],
                         'name': image['name'],
                         'creation_datetime':  parse(image['creationTimestamp']),
                         })
                 else:
-                    logger.error("Unable to parse image name '{}'".format(image['name']))
+                    logger.error("[GCE][{}] Unable to parse image name '{}'".format(
+                        self.__credentials.namespace, image['name']))
 
             request = self.compute_client().images().list_next(previous_request=request, previous_response=response)
 
