@@ -108,39 +108,63 @@ class Azure(Provider):
             if not bbsrv.delete_container(container.name):
                 logger.error("Failed to delete container {}".format(container.name))
 
+    def parse_image_name(self, img_name):
+        regexes = [
+            # SLES12-SP5-Azure.x86_64-0.9.1-SAP-BYOS-Build3.3.vhd
+            re.compile(r"""
+                       SLES
+                       (?P<version>\d+(-SP\d+)?)
+                       -Azure\.
+                       (?P<arch>[^-]+)
+                       -
+                       (?P<kiwi>\d+\.\d+\.\d+)
+                       -
+                       (?P<flavor>[-\w]+)
+                       -
+                       Build(?P<build>\d+\.\d+)
+                       \.vhd
+                       """,
+                       re.X),
+
+            # SLES15-SP2-BYOS.x86_64-0.9.3-Azure-Build1.10.vhd
+            # SLES15-SP2.x86_64-0.9.3-Azure-Basic-Build1.11.vhd
+            # SLES15-SP2-SAP-BYOS.x86_64-0.9.2-Azure-Build1.9.vhd
+            re.compile(r"""
+                       SLES
+                       (?P<version>\d+(-SP\d+)?)
+                       (-(?P<type>[^\.]+))?\.
+                       (?P<arch>[^-]+)
+                       -
+                       (?P<kiwi>\d+\.\d+\.\d+)
+                       -
+                       (?P<flavor>Azure[-\w]*)
+                       -
+                       Build(?P<build>\d+\.\d+)
+                       \.vhd
+                       """,
+                       re.X)
+            ]
+        return self.parse_image_name_helper(img_name, regexes)
+
     def cleanup_sle_images_container(self, bbsrv, container):
         generator = bbsrv.list_blobs(container.name)
         images = dict()
         for img in generator:
             logger.debug('Found image {}'.format(img.name))
-            # SLES12-SP5-Azure.x86_64-0.9.1-SAP-BYOS-Build3.3.vhd
-            regex = re.compile(r"""
-                               SLES
-                               (?P<version>\d+(-SP\d+)?)
-                               -Azure\.
-                               (?P<arch>[^-]+)
-                               -
-                               (?P<kiwi>\d+\.\d+\.\d+)
-                               -
-                               (?P<flavor>[-\w]+)
-                               -
-                               Build(?P<build>\d+\.\d+)
-                               \.vhd
-                               """,
-                               re.X)
-            m = re.match(regex, img.name)
+            m = self.parse_image_name(img.name)
             if (m):
-                key = '-'.join([m.group('version'), m.group('flavor'), m.group('arch')])
+                key = m['key']
                 if key not in images:
                     images[key] = list()
 
                 images[key].append({
-                        'build': "-".join([m.group('kiwi'), m.group('build')]),
+                        'build': m['build'],
                         'name': img.name,
                         'last_modified': img.properties.last_modified,
                         })
             else:
-                logger.error("Unable to parse image name '{}'".format(img.name))
+                logger.error("[Azure][{}] Unable to parse image name '{}'".format(
+                    self.__credentials.namespace, img.name))
 
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))
