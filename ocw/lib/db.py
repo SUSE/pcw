@@ -110,7 +110,7 @@ def ec2_to_local_instance(instance, vault_namespace, region):
 
 def azure_to_json(i):
     info = {
-        'tags': i.tags,
+        'tags': i.tags if i.tags else {},
         'name': i.name,
         'id': i.id,
         'type': i.type,
