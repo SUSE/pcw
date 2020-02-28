@@ -1,5 +1,8 @@
 from webui.settings import ConfigFile
 import re
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 
 
 class Provider:
@@ -9,11 +12,12 @@ class Provider:
 
     def cfgGet(self, section, field):
         mapping = {
-                'cleanup/max-images-per-flavor': {'default': 1},
-                'cleanup/max-images-age-hours': {'default': 24 * 31},
-                'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload'},
-                'cleanup/azure-storage-account-name': {'default': 'openqa'},
-                }
+            'cleanup/max-images-per-flavor': {'default': 1},
+            'cleanup/max-images-age-hours': {'default': 24 * 31},
+            'cleanup/min-image-age-hours': {'default': 24},
+            'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload'},
+            'cleanup/azure-storage-account-name': {'default': 'openqa'},
+        }
         key = '/'.join([section, field])
         if key not in mapping:
             raise LookupError("Missing {} in mapping list".format(key))
@@ -21,8 +25,19 @@ class Provider:
         namespace_section = '{}.namespace.{}'.format(section, self.__namespace)
         cfg = ConfigFile()
         return type(e['default'])(cfg.get(
-                [namespace_section, field],
-                cfg.get([section, field], e['default'])))
+            [namespace_section, field],
+            cfg.get([section, field], e['default'])))
+
+    def older_than_min_age(self, age):
+        return datetime.now(timezone.utc) > age + timedelta(hours=self.cfgGet('cleanup', 'min-image-age-hours'))
+
+    def needs_to_delete_image(self, order_number, image_date):
+        if self.older_than_min_age(image_date):
+            max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
+            max_image_age = image_date + timedelta(hours=self.cfgGet('cleanup', 'max-image-age-hours'))
+            return order_number > max_images_per_flavor or max_image_age < datetime.now(timezone.utc)
+        else:
+            return False
 
     def parse_image_name_helper(self, img_name, regex_s, group_key=['version', 'flavor', 'type', 'arch'],
                                 group_build=['kiwi', 'build']):
@@ -33,5 +48,5 @@ class Provider:
                 return {
                     'key': '-'.join([gdict[k] for k in group_key if k in gdict and gdict[k] is not None]),
                     'build': "-".join([gdict[k] for k in group_build if k in gdict and gdict[k] is not None]),
-                    }
+                }
         return None

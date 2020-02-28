@@ -4,9 +4,6 @@ import googleapiclient.discovery
 from google.oauth2 import service_account
 from dateutil.parser import parse
 import re
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 import logging
 from distutils.version import LooseVersion
 
@@ -108,7 +105,7 @@ class GCE(Provider):
                     build
                     (?P<build>\d+-\d+)
                     ''', re.RegexFlag.X)
-            ]
+        ]
         return self.parse_image_name_helper(img_name, regexes)
 
     def cleanup_all(self):
@@ -132,7 +129,7 @@ class GCE(Provider):
                         'build': m['build'],
                         'name': image['name'],
                         'creation_datetime':  parse(image['creationTimestamp']),
-                        })
+                    })
                 else:
                     logger.error("[GCE][{}] Unable to parse image name '{}'".format(
                         self.__credentials.namespace, image['name']))
@@ -142,12 +139,10 @@ class GCE(Provider):
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))
 
-        max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
-        max_images_age = datetime.now(timezone.utc) - timedelta(hours=self.cfgGet('cleanup', 'max-images-age-hours'))
         for img_list in images.values():
             for i in range(0, len(img_list)):
                 img = img_list[i]
-                if (i < len(img_list) - max_images_per_flavor or img['creation_datetime'] < max_images_age):
+                if (self.needs_to_delete(i, img['creation_datetime'])):
                     logger.info("[GCE] Delete image '{}'".format(img['name']))
                     request = self.compute_client().images().delete(project=self.__project, image=img['name'])
                     response = request.execute()
