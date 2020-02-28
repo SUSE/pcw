@@ -6,9 +6,6 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.storage import StorageManagementClient
 from azure.storage.blob import BlockBlobService
 from msrest.exceptions import AuthenticationError
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 from distutils.version import LooseVersion
 import re
 import time
@@ -97,13 +94,12 @@ class Azure(Provider):
                 self.cleanup_sle_images_container(block_blob_service, c)
 
     def cleanup_bootdiagnostics_container(self, bbsrv, container):
-        timeout = datetime.now(timezone.utc) + timedelta(hours=24)
         last_modified = container.properties.last_modified
         generator = bbsrv.list_blobs(container.name)
         for blob in generator:
             if (last_modified < blob.properties.last_modified):
                 last_modified = blob.properties.last_modified
-        if (timeout > last_modified):
+        if (self.older_min_age(last_modified)):
             logger.info("[Azure] Delete container {}".format(container.name))
             if not bbsrv.delete_container(container.name):
                 logger.error("Failed to delete container {}".format(container.name))
@@ -136,14 +132,13 @@ class Azure(Provider):
                        (?P<arch>[^-]+)
                        -
                        (?P<kiwi>\d+\.\d+\.\d+)
-                       -
-                       (?P<flavor>Azure[-\w]*)
+                       (-(?P<flavor>Azure[-\w]*))?
                        -
                        Build(?P<build>\d+\.\d+)
                        \.vhd
                        """,
                        re.X)
-            ]
+        ]
         return self.parse_image_name_helper(img_name, regexes)
 
     def cleanup_sle_images_container(self, bbsrv, container):
@@ -158,10 +153,10 @@ class Azure(Provider):
                     images[key] = list()
 
                 images[key].append({
-                        'build': m['build'],
-                        'name': img.name,
-                        'last_modified': img.properties.last_modified,
-                        })
+                    'build': m['build'],
+                    'name': img.name,
+                    'last_modified': img.properties.last_modified,
+                })
             else:
                 logger.error("[Azure][{}] Unable to parse image name '{}'".format(
                     self.__credentials.namespace, img.name))
@@ -169,11 +164,9 @@ class Azure(Provider):
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))
 
-        max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
-        max_images_age = datetime.now(timezone.utc) - timedelta(hours=self.cfgGet('cleanup', 'max-images-age-hours'))
         for img_list in images.values():
             for i in range(0, len(img_list)):
                 img = img_list[i]
-                if (i < len(img_list) - max_images_per_flavor or img['last_modified'] < max_images_age):
+                if (self.needs_to_delete(i, img['last_modified'])):
                     logger.info("[Azure] Delete image '{}'".format(img['name']))
                     bbsrv.delete_blob(container.name, img['name'], snapshot=None)

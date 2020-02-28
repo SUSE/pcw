@@ -2,9 +2,6 @@ from .provider import Provider
 from .vault import EC2Credential
 from distutils.version import LooseVersion
 from dateutil.parser import parse
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 import boto3
 import re
 import time
@@ -76,8 +73,8 @@ class EC2(Provider):
 
     def parse_image_name(self, img_name):
         regexes = [
-                   # openqa-SLES12-SP5-EC2.x86_64-0.9.1-BYOS-Build1.55.raw.xz
-                   re.compile(r'''^openqa-SLES
+            # openqa-SLES12-SP5-EC2.x86_64-0.9.1-BYOS-Build1.55.raw.xz
+            re.compile(r'''^openqa-SLES
                               (?P<version>\d+(-SP\d+)?)
                               -(?P<flavor>EC2)
                               \.
@@ -90,10 +87,10 @@ class EC2(Provider):
                               (?P<build>\d+\.\d+)
                               \.raw\.xz
                               ''', re.RegexFlag.X),
-                   # openqa-SLES15-SP2.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
-                   # openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
-                   # openqa-SLES15-SP2.aarch64-0.9.3-EC2-HVM-Build1.49.raw.xz'
-                   re.compile(r'''^openqa-SLES
+            # openqa-SLES15-SP2.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
+            # openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
+            # openqa-SLES15-SP2.aarch64-0.9.3-EC2-HVM-Build1.49.raw.xz'
+            re.compile(r'''^openqa-SLES
                               (?P<version>\d+(-SP\d+)?)
                               (-(?P<type>[^\.]+))?
                               \.
@@ -106,8 +103,8 @@ class EC2(Provider):
                               (?P<build>\d+\.\d+)
                               \.raw\.xz
                               ''', re.RegexFlag.X),
-                   # openqa-SLES12-SP4-EC2-HVM-BYOS.x86_64-0.9.2-Build2.56.raw.xz'
-                   re.compile(r'''^openqa-SLES
+            # openqa-SLES12-SP4-EC2-HVM-BYOS.x86_64-0.9.2-Build2.56.raw.xz'
+            re.compile(r'''^openqa-SLES
                               (?P<version>\d+(-SP\d+)?)
                               -
                               (?P<flavor>EC2[^\.]+)
@@ -120,7 +117,7 @@ class EC2(Provider):
                               (?P<build>\d+\.\d+)
                               \.raw\.xz
                               ''', re.RegexFlag.X)
-                   ]
+        ]
         return self.parse_image_name_helper(img_name, regexes)
 
     def cleanup_all(self):
@@ -141,7 +138,7 @@ class EC2(Provider):
                     'name': img['Name'],
                     'creation_datetime':  parse(img['CreationDate']),
                     'id': img['ImageId'],
-                    })
+                })
             else:
                 logger.error("[EC2][{}] Unable to parse image name '{}'".format(
                     self.__credentials.namespace, img['Name']))
@@ -149,11 +146,9 @@ class EC2(Provider):
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))
 
-        max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
-        max_images_age = datetime.now(timezone.utc) - timedelta(hours=self.cfgGet('cleanup', 'max-images-age-hours'))
         for img_list in images.values():
             for i in range(0, len(img_list)):
                 img = img_list[i]
-                if (i < len(img_list) - max_images_per_flavor or img['creation_datetime'] < max_images_age):
+                if (self.needs_to_delete(i, img['creation_datetime'])):
                     logger.info("[EC2] Delete image '{}' (ami:{})".format(img['name'], img['id']))
                     self.ec2_client().deregister_image(ImageId=img['id'], DryRun=False)
