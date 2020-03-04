@@ -99,7 +99,7 @@ class Azure(Provider):
         for blob in generator:
             if (last_modified < blob.properties.last_modified):
                 last_modified = blob.properties.last_modified
-        if (self.older_min_age(last_modified)):
+        if (self.older_than_min_age(last_modified)):
             logger.info("[Azure] Delete container {}".format(container.name))
             if not bbsrv.delete_container(container.name):
                 logger.error("Failed to delete container {}".format(container.name))
@@ -167,6 +167,6 @@ class Azure(Provider):
         for img_list in images.values():
             for i in range(0, len(img_list)):
                 img = img_list[i]
-                if (self.needs_to_delete(i, img['last_modified'])):
+                if (self.needs_to_delete_image(i, img['last_modified'])):
                     logger.info("[Azure] Delete image '{}'".format(img['name']))
                     bbsrv.delete_blob(container.name, img['name'], snapshot=None)
