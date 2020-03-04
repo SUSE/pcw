@@ -149,6 +149,6 @@ class EC2(Provider):
         for img_list in images.values():
             for i in range(0, len(img_list)):
                 img = img_list[i]
-                if (self.needs_to_delete(i, img['creation_datetime'])):
+                if (self.needs_to_delete_image(i, img['creation_datetime'])):
                     logger.info("[EC2] Delete image '{}' (ami:{})".format(img['name'], img['id']))
                     self.ec2_client().deregister_image(ImageId=img['id'], DryRun=False)

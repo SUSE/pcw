@@ -142,7 +142,7 @@ class GCE(Provider):
         for img_list in images.values():
             for i in range(0, len(img_list)):
                 img = img_list[i]
-                if (self.needs_to_delete(i, img['creation_datetime'])):
+                if (self.needs_to_delete_image(i, img['creation_datetime'])):
                     logger.info("[GCE] Delete image '{}'".format(img['name']))
                     request = self.compute_client().images().delete(project=self.__project, image=img['name'])
                     response = request.execute()

@@ -75,7 +75,7 @@ def test_older_than_min_age_older(monkeypatch):
     assert provider.older_than_min_age(datetime.now(timezone.utc) - timedelta(hours=25)) == True
 
 
-def test_older_min_age_younger(monkeypatch):
+def test_older_than_min_age_younger(monkeypatch):
     monkeypatch.setattr(Provider, 'cfgGet', lambda *args, **kwargs: 24)
     provider = Provider('testolderminage')
     assert provider.older_than_min_age(datetime.now(timezone.utc) - timedelta(hours=23)) == False
