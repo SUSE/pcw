@@ -13,7 +13,7 @@ class Provider:
     def cfgGet(self, section, field):
         mapping = {
             'cleanup/max-images-per-flavor': {'default': 1},
-            'cleanup/max-images-age-hours': {'default': 24 * 31},
+            'cleanup/max-image-age-hours': {'default': 24 * 31},
             'cleanup/min-image-age-hours': {'default': 24},
             'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload'},
             'cleanup/azure-storage-account-name': {'default': 'openqa'},

@@ -31,6 +31,8 @@ def test_cfgGet_with_defaults():
     provider = Provider('testns')
     assert provider.cfgGet('cleanup', 'max-images-per-flavor') == 1
     assert type(provider.cfgGet('cleanup', 'max-images-per-flavor')) is int
+    assert type(provider.cfgGet('cleanup', 'min-image-age-hours')) is int
+    assert type(provider.cfgGet('cleanup', 'max-image-age-hours')) is int
     assert provider.cfgGet('cleanup', 'azure-storage-resourcegroup') == 'openqa-upload'
     assert type(provider.cfgGet('cleanup', 'azure-storage-resourcegroup')) is str
 
