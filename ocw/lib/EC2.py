@@ -126,13 +126,14 @@ class EC2(Provider):
         for img in response['Images']:
             # img is in the format described here:
             # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.describe_images
-            logger.debug("[EC2] Found image '{}'".format(img['Name']))
             m = self.parse_image_name(img['Name'])
             if m:
                 key = m['key']
                 if key not in images:
                     images[key] = list()
 
+                logger.debug("[{}]Image {} is candidate for deletion with build {}".format(
+                    self.__credentials.namespace, img['Name'], m['build']))
                 images[key].append({
                     'build': m['build'],
                     'name': img['Name'],
@@ -140,8 +141,7 @@ class EC2(Provider):
                     'id': img['ImageId'],
                 })
             else:
-                logger.error("[EC2][{}] Unable to parse image name '{}'".format(
-                    self.__credentials.namespace, img['Name']))
+                logger.error("[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, img['Name']))
 
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))
