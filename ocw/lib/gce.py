@@ -116,7 +116,6 @@ class GCE(Provider):
             if 'items' not in response:
                 break
             for image in response['items']:
-                logger.debug('Found image {}'.format(image['name']))
                 # creation:2019-11-04T14:23:06.372-08:00
                 # name:sles12-sp5-gce-x8664-0-9-1-byos-build1-56
                 m = self.parse_image_name(image['name'])
@@ -125,13 +124,15 @@ class GCE(Provider):
                     if key not in images:
                         images[key] = list()
 
+                    logger.debug('[{}]Image {} is candidate for deletion with build {}'.format(
+                        self.__credentials.namespace, image['name'], m['build']))
                     images[key].append({
                         'build': m['build'],
                         'name': image['name'],
                         'creation_datetime':  parse(image['creationTimestamp']),
                     })
                 else:
-                    logger.error("[GCE][{}] Unable to parse image name '{}'".format(
+                    logger.error("[{}] Unable to parse image name '{}'".format(
                         self.__credentials.namespace, image['name']))
 
             request = self.compute_client().images().list_next(previous_request=request, previous_response=response)

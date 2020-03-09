@@ -145,21 +145,21 @@ class Azure(Provider):
         generator = bbsrv.list_blobs(container.name)
         images = dict()
         for img in generator:
-            logger.debug('Found image {}'.format(img.name))
             m = self.parse_image_name(img.name)
             if (m):
                 key = m['key']
                 if key not in images:
                     images[key] = list()
 
+                logger.debug('[{}]Image {} is candidate for deletion with build {} '.format(
+                    self.__credentials.namespace, img.name, m['build']))
                 images[key].append({
                     'build': m['build'],
                     'name': img.name,
                     'last_modified': img.properties.last_modified,
                 })
             else:
-                logger.error("[Azure][{}] Unable to parse image name '{}'".format(
-                    self.__credentials.namespace, img.name))
+                logger.error("[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, img.name))
 
         for key in images:
             images[key].sort(key=lambda x: LooseVersion(x['build']))
