@@ -35,9 +35,7 @@ class Provider:
         if self.older_than_min_age(image_date):
             max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
             max_image_age = image_date + timedelta(hours=self.cfgGet('cleanup', 'max-image-age-hours'))
-            # order_number is starting from 0 and max_images_per_flavor is **amount**
-            # so we need to increase order_number by 1 to be compare them
-            return order_number+1 > max_images_per_flavor or max_image_age < datetime.now(timezone.utc)
+            return order_number >= max_images_per_flavor or max_image_age < datetime.now(timezone.utc)
         else:
             return False
 

@@ -138,7 +138,7 @@ class GCE(Provider):
             request = self.compute_client().images().list_next(previous_request=request, previous_response=response)
 
         for key in images:
-            images[key].sort(key=lambda x: LooseVersion(x['build']))
+            images[key].sort(key=lambda x: LooseVersion(x['build']), reverse=True)
 
         for img_list in images.values():
             for i in range(0, len(img_list)):

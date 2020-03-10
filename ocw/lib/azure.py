@@ -162,7 +162,7 @@ class Azure(Provider):
                 logger.error("[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, img.name))
 
         for key in images:
-            images[key].sort(key=lambda x: LooseVersion(x['build']))
+            images[key].sort(key=lambda x: LooseVersion(x['build']), reverse=True)
 
         for img_list in images.values():
             for i in range(0, len(img_list)):
