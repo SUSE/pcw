@@ -4,26 +4,17 @@ import webui
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
+from .generators import mock_cfgGet
+from .generators import max_images_per_flavor
+from .generators import min_image_age_hours
 
 working_dir = Path(PurePath(Path(__file__).absolute()).parent)
 webui.settings.CONFIG_FILE = working_dir / 'pcw_test_provider.ini'
-min_image_age_hours = 7
-max_images_per_flavor = 10
-max_image_age_hours = 20
 
 
 def set_pcw_ini(add=''):
     with open(webui.settings.CONFIG_FILE, "w") as f:
         f.write(add)
-
-
-def mock_cfgGet(self, section, field):
-    if field == 'min-image-age-hours':
-        return min_image_age_hours
-    elif field == 'max-images-per-flavor':
-        return max_images_per_flavor
-    elif field == 'max-image-age-hours':
-        return max_image_age_hours
 
 
 def test_cfgGet_with_defaults():
