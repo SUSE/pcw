@@ -91,7 +91,7 @@ class Azure(Provider):
             if (re.match('^bootdiagnostics-', c.name)):
                 self.cleanup_bootdiagnostics_container(block_blob_service, c)
             if (c.name == 'sle-images'):
-                self.cleanup_sle_images_container(block_blob_service, c)
+                self.cleanup_sle_images_container(block_blob_service, c.name)
 
     def cleanup_bootdiagnostics_container(self, bbsrv, container):
         last_modified = container.properties.last_modified
@@ -141,8 +141,8 @@ class Azure(Provider):
         ]
         return self.parse_image_name_helper(img_name, regexes)
 
-    def cleanup_sle_images_container(self, bbsrv, container):
-        generator = bbsrv.list_blobs(container.name)
+    def cleanup_sle_images_container(self, bbsrv, container_name):
+        generator = bbsrv.list_blobs(container_name)
         images = dict()
         for img in generator:
             m = self.parse_image_name(img.name)
@@ -169,4 +169,4 @@ class Azure(Provider):
                 img = img_list[i]
                 if (self.needs_to_delete_image(i, img['last_modified'])):
                     logger.info("[Azure] Delete image '{}'".format(img['name']))
-                    bbsrv.delete_blob(container.name, img['name'], snapshot=None)
+                    bbsrv.delete_blob(container_name, img['name'], snapshot=None)

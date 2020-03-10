@@ -1,5 +1,26 @@
 from ocw.lib.azure import Azure
+from ocw.lib.provider import Provider
 from webui.settings import ConfigFile
+from azure.storage.blob import BlockBlobService
+from .generators import MockImage
+from .generators import generate_mocked_images_older_than
+from .generators import mock_cfgGet
+
+
+delete_calls = {'quantity': [], 'old': [], 'young': []}
+
+
+def delete_blob_mock(self, container_name, img_name, snapshot=None):
+    delete_calls[container_name].append(img_name)
+
+
+def list_blobs_mock(self, container_name):
+    if container_name == 'quantity':
+        return generate_mocked_images_older_than(8)
+    elif container_name == 'old':
+        return generate_mocked_images_older_than(25)
+    else:
+        return generate_mocked_images_older_than(1)
 
 
 def test_parse_image_name(monkeypatch):
@@ -35,3 +56,39 @@ def test_parse_image_name(monkeypatch):
     }
 
     assert az.parse_image_name('do not match') is None
+
+
+def test_cleanup_sle_images_container_too_many(monkeypatch):
+    test_name = 'quantity'
+    monkeypatch.setattr(Azure, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(BlockBlobService, 'list_blobs', list_blobs_mock)
+    monkeypatch.setattr(BlockBlobService, 'delete_blob', delete_blob_mock)
+    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    az = Azure('fake')
+    az.cleanup_sle_images_container(BlockBlobService(account_name='openqa', account_key='www'), test_name)
+    deleted = ['SLES15-SP2-Azure-HPC.x86_64-0.9.0-Build1.43.vhd', 'SLES15-SP2-Azure-HPC.x86_64-0.9.1-Build1.3.vhd',
+               'SLES15-SP2-BYOS.x86_64-0.9.3-Azure-Build2.36.vhd', 'SLES15-SP2-BYOS.x86_64-0.9.6-Azure-Build1.3.vhd']
+    for item in deleted:
+        assert item in delete_calls[test_name]
+
+
+def test_cleanup_sle_images_container_too_young(monkeypatch):
+    test_name = 'young'
+    monkeypatch.setattr(Azure, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(BlockBlobService, 'list_blobs', list_blobs_mock)
+    monkeypatch.setattr(BlockBlobService, 'delete_blob', delete_blob_mock)
+    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    az = Azure('fake')
+    az.cleanup_sle_images_container(BlockBlobService(account_name='openqa', account_key='www'), test_name)
+    assert len(delete_calls[test_name]) == 0
+
+
+def test_cleanup_sle_images_container_too_old(monkeypatch):
+    test_name = 'old'
+    monkeypatch.setattr(Azure, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(BlockBlobService, 'list_blobs', list_blobs_mock)
+    monkeypatch.setattr(BlockBlobService, 'delete_blob', delete_blob_mock)
+    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    az = Azure('fake')
+    az.cleanup_sle_images_container(BlockBlobService(account_name='openqa', account_key='www'), test_name)
+    assert len(delete_calls[test_name]) == 6
