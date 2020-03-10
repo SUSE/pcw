@@ -66,10 +66,10 @@ def test_cleanup_sle_images_container_too_many(monkeypatch):
     monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
     az = Azure('fake')
     az.cleanup_sle_images_container(BlockBlobService(account_name='openqa', account_key='www'), test_name)
-    deleted = ['SLES15-SP2-Azure-HPC.x86_64-0.9.0-Build1.43.vhd', 'SLES15-SP2-Azure-HPC.x86_64-0.9.1-Build1.3.vhd',
-               'SLES15-SP2-BYOS.x86_64-0.9.3-Azure-Build2.36.vhd', 'SLES15-SP2-BYOS.x86_64-0.9.6-Azure-Build1.3.vhd']
-    for item in deleted:
-        assert item in delete_calls[test_name]
+    assert delete_calls[test_name] == ['SLES15-SP2-Azure-HPC.x86_64-0.9.1-Build1.3.vhd',
+                                       'SLES15-SP2-Azure-HPC.x86_64-0.9.0-Build1.43.vhd',
+                                       'SLES15-SP2-BYOS.x86_64-0.9.6-Azure-Build1.3.vhd',
+                                       'SLES15-SP2-BYOS.x86_64-0.9.3-Azure-Build2.36.vhd']
 
 
 def test_cleanup_sle_images_container_too_young(monkeypatch):
