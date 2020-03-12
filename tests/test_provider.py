@@ -1,12 +1,14 @@
-from ocw.lib.provider import Provider
+from ocw.lib.provider import Provider, Image
 from pathlib import Path, PurePath
 import webui
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
+from tests import generators
 from .generators import mock_cfgGet
 from .generators import max_images_per_flavor
 from .generators import min_image_age_hours
+from .generators import max_image_age_hours
 
 working_dir = Path(PurePath(Path(__file__).absolute()).parent)
 webui.settings.CONFIG_FILE = working_dir / 'pcw_test_provider.ini'
@@ -83,3 +85,46 @@ def test_needs_to_delete_image(monkeypatch):
     assert provider.needs_to_delete_image(too_many_images, datetime.now(timezone.utc)) == False
     assert provider.needs_to_delete_image(too_many_images, older_than_min_age) == True
     assert provider.needs_to_delete_image(not_enough_images, older_than_min_age) == False
+
+
+def test_get_keeping_image_names(monkeypatch):
+    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    provider = Provider('testneedstodelete')
+
+    newer_then_min_age = datetime.now(timezone.utc)
+    older_then_min_age = datetime.now(timezone.utc) - timedelta(hours=min_image_age_hours+1)
+    older_then_max_age = datetime.now(timezone.utc) - timedelta(hours=max_image_age_hours+1)
+
+    generators.max_images_per_flavor = 1
+    images = [
+            Image('foo-A-0.0.1-0.1', 'A', '0.0.1-0.1', older_then_min_age),
+            Image('foo-A-0.0.1-0.2', 'A', '0.0.1-0.2', older_then_min_age),
+            ]
+    assert provider.get_keeping_image_names(images) == ['foo-A-0.0.1-0.2']
+
+    images = [
+            Image('foo-A-0.0.1-0.1', 'A', '0.0.1-0.1', older_then_min_age),
+            Image('foo-A-0.0.1-0.2', 'A', '0.0.1-0.2', older_then_max_age),
+            ]
+    assert provider.get_keeping_image_names(images) == []
+
+    images = [
+            Image('foo-A-0.0.1-0.1', 'A', '0.0.1-0.1', newer_then_min_age),
+            Image('foo-A-0.0.1-0.2', 'A', '0.0.1-0.2', older_then_min_age),
+            ]
+    assert provider.get_keeping_image_names(images) == ['foo-A-0.0.1-0.2', 'foo-A-0.0.1-0.1']
+
+    images = [
+            Image('foo-A-0.0.1-0.1', 'A', '0.0.1-0.1', older_then_min_age),
+            Image('foo-A-0.0.1-0.2', 'A', '0.0.1-0.2', older_then_min_age),
+            Image('foo-B-0.0.1-0.1', 'B', '0.0.1-0.1', older_then_min_age),
+            Image('foo-B-0.1.1-0.1', 'B', '0.1.1-0.1', older_then_min_age)
+            ]
+    assert provider.get_keeping_image_names(images) == ['foo-A-0.0.1-0.2', 'foo-B-0.1.1-0.1']
+
+    generators.max_images_per_flavor = 2
+    images = [
+            Image('foo-A-0.0.1-0.1', 'A', '0.0.1-0.1', older_then_min_age),
+            Image('foo-A-0.0.1-0.2', 'A', '0.0.1-0.2', older_then_min_age),
+            ]
+    assert provider.get_keeping_image_names(images) == ['foo-A-0.0.1-0.2', 'foo-A-0.0.1-0.1']

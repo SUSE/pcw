@@ -1,6 +1,5 @@
-from .provider import Provider
+from .provider import Provider, Image
 from .vault import EC2Credential
-from distutils.version import LooseVersion
 from dateutil.parser import parse
 import boto3
 import re
@@ -122,33 +121,21 @@ class EC2(Provider):
 
     def cleanup_all(self):
         response = self.ec2_client().describe_images(Owners=['self'])
-        images = dict()
+        images = list()
         for img in response['Images']:
             # img is in the format described here:
             # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.describe_images
             m = self.parse_image_name(img['Name'])
             if m:
-                key = m['key']
-                if key not in images:
-                    images[key] = list()
-
                 logger.debug("[{}]Image {} is candidate for deletion with build {}".format(
                     self.__credentials.namespace, img['Name'], m['build']))
-                images[key].append({
-                    'build': m['build'],
-                    'name': img['Name'],
-                    'creation_datetime':  parse(img['CreationDate']),
-                    'id': img['ImageId'],
-                })
+                images.append(Image(img['Name'], flavor=m['key'], build=m['build'], date=parse(img['CreationDate']),
+                                    img_id=img['id']))
             else:
                 logger.error("[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, img['Name']))
 
-        for key in images:
-            images[key].sort(key=lambda x: LooseVersion(x['build']), reverse=True)
+        keep_images = self.get_keeping_image_names(images)
 
-        for img_list in images.values():
-            for i in range(0, len(img_list)):
-                img = img_list[i]
-                if (self.needs_to_delete_image(i, img['creation_datetime'])):
-                    logger.info("[EC2] Delete image '{}' (ami:{})".format(img['name'], img['id']))
-                    self.ec2_client().deregister_image(ImageId=img['id'], DryRun=False)
+        for img in [i for i in images if i.name not in keep_images]:
+            logger.info("Delete image '{}' (ami:{})".format(img.name, img.id))
+            self.ec2_client().deregister_image(ImageId=img.id, DryRun=False)

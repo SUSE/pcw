@@ -15,7 +15,7 @@ class MockProperties:
 
 
 class MockImage:
-    def __init__(self, name, last_modified):
+    def __init__(self, name, last_modified=None):
         self.name = name
         self.properties = MockProperties(last_modified)
 
