@@ -26,6 +26,11 @@ def test_parse_image_name(monkeypatch):
             'build': '0-9-3-1-10'
             }
 
+    assert gce.parse_image_name('sles15-sp2-chost-byos-x8664-0-9-3-gce-build1-11') == {
+            'key': '15-sp2-gce-chost-byos-x8664',
+            'build': '0-9-3-1-11'
+            }
+
     assert gce.parse_image_name('do not match') is None
 
 

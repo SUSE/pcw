@@ -34,6 +34,11 @@ def test_parse_image_name(monkeypatch):
             'build': '0.9.2-2.56'
             }
 
+    assert ec2.parse_image_name('openqa-SLES15-SP2-CHOST-BYOS.x86_64-0.9.3-EC2-Build1.11.raw.xz') == {
+            'key': '15-SP2-EC2-CHOST-BYOS-x86_64',
+            'build': '0.9.3-1.11'
+            }
+
     assert ec2.parse_image_name('do not match') is None
 
 

@@ -97,7 +97,7 @@ class EC2(Provider):
                               -
                               (?P<kiwi>\d+\.\d+\.\d+)
                               -
-                              (?P<flavor>EC2[-\w]+)
+                              (?P<flavor>EC2[-\w]*)
                               -Build
                               (?P<build>\d+\.\d+)
                               \.raw\.xz

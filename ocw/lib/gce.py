@@ -93,7 +93,7 @@ class GCE(Provider):
             # sles15-sp2-x8664-0-9-3-gce-build1-10
             re.compile(r'''^sles
                     (?P<version>\d+(-sp\d+)?)
-                    (-(?P<type>\w+))?
+                    (-(?P<type>[-\w]+))?
                     -
                     (?P<arch>[^-]+)
                     -
