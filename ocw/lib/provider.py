@@ -3,6 +3,7 @@ import re
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from distutils.version import LooseVersion
 
 
 class Provider:
@@ -50,3 +51,33 @@ class Provider:
                     'build': "-".join([gdict[k] for k in group_build if k in gdict and gdict[k] is not None]),
                 }
         return None
+
+    def get_keeping_image_names(self, images):
+        images_by_flavor = dict()
+        for img in images:
+            if (img.flavor not in images_by_flavor):
+                images_by_flavor[img.flavor] = list()
+            images_by_flavor[img.flavor].append(img)
+
+        keep_images = list()
+        for img_list in [images_by_flavor[x] for x in sorted(images_by_flavor)]:
+            img_list.sort(key=lambda x: LooseVersion(x.build), reverse=True)
+            for i in range(0, len(img_list)):
+                img = img_list[i]
+                if (not self.needs_to_delete_image(i, img.date)):
+                    keep_images.append(img.name)
+
+        return keep_images
+
+
+class Image:
+
+    def __init__(self, name, flavor, build, date, img_id=None):
+        self.name = name
+        self.flavor = flavor
+        self.build = build
+        self.date = date
+        self.id = img_id if img_id else name
+
+    def __str__(self):
+        return "[{} {} {} {}]".format(self.name, self.flavor, self.build, self.date)

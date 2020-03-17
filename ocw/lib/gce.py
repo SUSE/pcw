@@ -1,11 +1,10 @@
 from .vault import GCECredential
-from .provider import Provider
+from .provider import Provider, Image
 import googleapiclient.discovery
 from google.oauth2 import service_account
 from dateutil.parser import parse
 import re
 import logging
-from distutils.version import LooseVersion
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +93,7 @@ class GCE(Provider):
             # sles15-sp2-x8664-0-9-3-gce-build1-10
             re.compile(r'''^sles
                     (?P<version>\d+(-sp\d+)?)
-                    (-(?P<type>\w+))?
+                    (-(?P<type>[-\w]+))?
                     -
                     (?P<arch>[^-]+)
                     -
@@ -109,7 +108,7 @@ class GCE(Provider):
         return self.parse_image_name_helper(img_name, regexes)
 
     def cleanup_all(self):
-        images = dict()
+        images = list()
         request = self.compute_client().images().list(project=self.__project)
         while request is not None:
             response = request.execute()
@@ -120,36 +119,25 @@ class GCE(Provider):
                 # name:sles12-sp5-gce-x8664-0-9-1-byos-build1-56
                 m = self.parse_image_name(image['name'])
                 if m:
-                    key = m['key']
-                    if key not in images:
-                        images[key] = list()
-
+                    images.append(Image(image['name'], flavor=m['key'], build=m['build'],
+                                        date=parse(image['creationTimestamp'])))
                     logger.debug('[{}]Image {} is candidate for deletion with build {}'.format(
                         self.__credentials.namespace, image['name'], m['build']))
-                    images[key].append({
-                        'build': m['build'],
-                        'name': image['name'],
-                        'creation_datetime':  parse(image['creationTimestamp']),
-                    })
                 else:
                     logger.error("[{}] Unable to parse image name '{}'".format(
                         self.__credentials.namespace, image['name']))
 
             request = self.compute_client().images().list_next(previous_request=request, previous_response=response)
 
-        for key in images:
-            images[key].sort(key=lambda x: LooseVersion(x['build']), reverse=True)
+        keep_images = self.get_keeping_image_names(images)
 
-        for img_list in images.values():
-            for i in range(0, len(img_list)):
-                img = img_list[i]
-                if (self.needs_to_delete_image(i, img['creation_datetime'])):
-                    logger.info("[GCE] Delete image '{}'".format(img['name']))
-                    request = self.compute_client().images().delete(project=self.__project, image=img['name'])
-                    response = request.execute()
-                    if 'error' in response:
-                        for e in response['error']['errors']:
-                            logger.error(e['message'])
-                    if 'warnings' in response:
-                        for w in response['warnings']:
-                            logger.error(w['message'])
+        for img in [i for i in images if i.name not in keep_images]:
+            logger.info("Delete image '{}'".format(img.name))
+            request = self.compute_client().images().delete(project=self.__project, image=img.name)
+            response = request.execute()
+            if 'error' in response:
+                for e in response['error']['errors']:
+                    logger.error(e['message'])
+            if 'warnings' in response:
+                for w in response['warnings']:
+                    logger.warning(w['message'])
