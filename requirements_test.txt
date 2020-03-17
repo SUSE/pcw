@@ -16,3 +16,7 @@ pytest-django
 python-dateutil
 apscheduler
 faker
+flake8
+pytest
+pytest-cov
+codecov

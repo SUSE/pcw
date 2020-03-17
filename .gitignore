@@ -10,3 +10,4 @@ static/
 .coverage
 tests/auth.json
 tests/pcw.ini
+htmlcov/*
