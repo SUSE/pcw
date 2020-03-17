@@ -7,13 +7,13 @@ from django.urls import reverse
 import json
 import smtplib
 import logging
-from ocw import views
 
 logger = logging.getLogger(__name__)
 
 
 def draw_instance_table(objects):
 
+    from ocw import views
     table = Texttable(max_width=0)
     table.set_deco(Texttable.HEADER)
     table.header(['Provider', 'id', 'Created-By', 'Namespace', 'Age', 'Delete'])
