@@ -130,7 +130,7 @@ class EC2(Provider):
                 logger.debug("[{}]Image {} is candidate for deletion with build {}".format(
                     self.__credentials.namespace, img['Name'], m['build']))
                 images.append(Image(img['Name'], flavor=m['key'], build=m['build'], date=parse(img['CreationDate']),
-                                    img_id=img['id']))
+                                    img_id=img['ImageId']))
             else:
                 logger.error("[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, img['Name']))
 

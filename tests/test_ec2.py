@@ -50,15 +50,15 @@ def test_cleanup_all(monkeypatch):
     response = {
             'Images': [
                 {'Name': 'SomeThingElse',
-                    'CreationDate': older_then_max_age, 'id': 0},
+                    'CreationDate': older_then_max_age, 'ImageId': 0},
                 {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz',
-                    'CreationDate': newer_then_min_age, 'id': 1},
+                    'CreationDate': newer_then_min_age, 'ImageId': 1},
                 {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.11.raw.xz',
-                    'CreationDate': older_then_min_age, 'id': 2},
+                    'CreationDate': older_then_min_age, 'ImageId': 2},
                 {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.12.raw.xz',
-                    'CreationDate': older_then_min_age, 'id': 3},
+                    'CreationDate': older_then_min_age, 'ImageId': 3},
                 {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.13.raw.xz',
-                    'CreationDate': older_then_max_age, 'id': 4},
+                    'CreationDate': older_then_max_age, 'ImageId': 4},
                 ]
             }
     deleted_images = list()
@@ -81,9 +81,9 @@ def test_cleanup_all(monkeypatch):
     response = {
             'Images': [
                 {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.12.raw.xz',
-                    'CreationDate': older_then_min_age, 'id': 3},
+                    'CreationDate': older_then_min_age, 'ImageId': 3},
                 {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.13.raw.xz',
-                    'CreationDate': older_then_min_age, 'id': 4},
+                    'CreationDate': older_then_min_age, 'ImageId': 4},
                 ]
             }
     ec2.cleanup_all()
