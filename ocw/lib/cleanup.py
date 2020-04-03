@@ -29,7 +29,7 @@ def cleanup_run():
 
             except Exception as e:
                 logger.exception("[{}] Cleanup failed!".format(vault_namespace))
-                send_mail(type(e).__name__ + ' on Cleanup', traceback.format_exc())
+                send_mail('{} on Cleanup in [{}]'.format(type(e).__name__, vault_namespace), traceback.format_exc())
 
 
 def init_cron():
