@@ -193,7 +193,7 @@ def test_AzureCredential(monkeypatch):
     assert az.getAuthExpire() is None
     az.revoke()
     assert az.isClientTokenExpired() is True
-    assert az.isValid() is True
+    assert az.isExpired() is True
 
     client_id = az.getData()['client_id']
     assert client_id == az.getData()['client_id']
@@ -269,7 +269,7 @@ def test_EC2Credential(monkeypatch):
     assert ec2.getAuthExpire() is None
     ec2.revoke()
     assert ec2.isClientTokenExpired() is True
-    assert ec2.isValid() is True
+    assert ec2.isExpired() is True
 
     access_key = ec2.getData()['access_key']
     assert access_key == ec2.getData()['access_key']
@@ -289,7 +289,7 @@ def test_GCECredential(monkeypatch):
     assert gce.getAuthExpire() is None
     gce.revoke()
     assert gce.isClientTokenExpired() is True
-    assert gce.isValid() is True
+    assert gce.isExpired() is True
 
     private_key_id = gce.getPrivateKeyData()['private_key_id']
     assert private_key_id == gce.getData()['private_key_id']

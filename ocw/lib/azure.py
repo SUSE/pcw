@@ -31,7 +31,7 @@ class Azure(Provider):
         return self.__credentials.getData('subscription_id')
 
     def check_credentials(self):
-        if self.__credentials.isValid():
+        if self.__credentials.isExpired():
             self.__sp_credentials = None
             self.__credentials.renew()
 
