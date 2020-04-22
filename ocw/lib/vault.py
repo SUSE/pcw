@@ -102,7 +102,7 @@ class Vault:
         use_file_cache = ConfigFile().getBoolean(['vault', 'use-file-cache'])
         if self.auth_json is None and use_file_cache:
             self.auth_json = self.loadAuthCache()
-        if self.isValid():
+        if self.isExpired():
             self.auth_json = self.getCredentials()
             expire = datetime.today() + timedelta(seconds=self.auth_json['lease_duration'])
             self.auth_json['auth_expire'] = expire.isoformat()
@@ -119,10 +119,10 @@ class Vault:
             return None
         return dateutil.parser.isoparse(self.auth_json['auth_expire'])
 
-    def isValid(self):
-        if self.auth_json is None:
+    def isExpired(self):
+        expire = self.getAuthExpire()
+        if expire is None:
             return True
-        expire = dateutil.parser.isoparse(self.auth_json['auth_expire'])
         return expire < datetime.today() + timedelta(seconds=self.extra_time)
 
     def renew(self):

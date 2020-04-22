@@ -25,7 +25,7 @@ class EC2(Provider):
         return EC2.__instances[vault_namespace]
 
     def check_credentials(self):
-        if self.__credentials.isValid():
+        if self.__credentials.isExpired():
             self.__credentials.renew()
             self.__key = None
             self.__secret = None

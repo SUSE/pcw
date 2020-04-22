@@ -4,7 +4,7 @@ from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.storage import StorageManagementClient
-from azure.storage.blob import BlockBlobService
+from azure.storage.blob.blockblobservice import BlockBlobService
 from msrest.exceptions import AuthenticationError
 import re
 import time
@@ -31,7 +31,7 @@ class Azure(Provider):
         return self.__credentials.getData('subscription_id')
 
     def check_credentials(self):
-        if self.__credentials.isValid():
+        if self.__credentials.isExpired():
             self.__sp_credentials = None
             self.__credentials.renew()
 

@@ -1,5 +1,9 @@
 boto3
-azure
+azure-common
+azure-mgmt-compute
+azure-mgmt-storage
+azure-mgmt-resource
+azure-storage
 uwsgi
 requests
 django
