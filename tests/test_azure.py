@@ -1,5 +1,6 @@
 from ocw.lib.azure import Azure
 from ocw.lib.provider import Provider
+from ocw.lib.vault import AzureCredential
 from webui.settings import ConfigFile
 from azure.storage.blob import BlockBlobService
 from datetime import datetime, timezone, timedelta
@@ -7,6 +8,8 @@ from .generators import MockImage
 from .generators import generate_mocked_images_older_than
 from .generators import mock_cfgGet
 from tests import generators
+from msrest.exceptions import AuthenticationError
+import time
 
 
 delete_calls = {'quantity': [], 'old': [], 'young': []}
@@ -237,3 +240,49 @@ def test_cleanup_bootdiagnostics(monkeypatch):
             'bootdiagnostics-A',
             'bootdiagnostics-B',
             ]
+
+
+def test_check_credentials(monkeypatch):
+    count_renew=0
+    count_list_resource_groups = 0
+    failed_list_resource_groups = 0
+
+    def mock_list_resource_groups(self):
+        nonlocal count_list_resource_groups
+        count_list_resource_groups = count_list_resource_groups + 1
+        if count_list_resource_groups > failed_list_resource_groups:
+            return True
+        raise AuthenticationError("OHA Mocked auth error")
+
+    def mock_renew(self):
+        nonlocal count_renew
+        count_renew = count_renew + 1
+
+    monkeypatch.setattr(Azure, 'list_resource_groups', mock_list_resource_groups)
+    monkeypatch.setattr(AzureCredential, 'renew', mock_renew)
+    monkeypatch.setattr(AzureCredential, 'isExpired', lambda self: False)
+    monkeypatch.setattr(AzureCredential, 'getData', lambda *args, **kwargs: "FOO")
+    monkeypatch.setattr(AzureCredential, 'getAuthExpire', lambda *args, **kwargs: "BAR")
+    monkeypatch.setattr(time, 'sleep', lambda *args, **kwargs: True)
+
+    az = Azure('fake')
+    assert count_renew == 0
+
+    count_list_resource_groups = 0
+    failed_list_resource_groups = 38
+    az = Azure('fake')
+    assert count_renew == 0
+
+    count_list_resource_groups = 0
+    failed_list_resource_groups = 39
+    az = Azure('fake')
+    assert count_renew == 1
+
+    count_list_resource_groups = 0
+    failed_list_resource_groups = 0
+    monkeypatch.setattr(AzureCredential, 'isExpired', lambda self: True)
+    az = Azure('fake')
+    assert count_renew == 2
+
+
+

@@ -32,19 +32,35 @@ class Azure(Provider):
 
     def check_credentials(self):
         if self.__credentials.isExpired():
-            self.__sp_credentials = None
-            self.__credentials.renew()
+            self.renew()
+            return self.__check_credentials()
 
+        try:
+            return self.__check_credentials()
+        except AuthenticationError:
+            self.renew()
+
+        return self.__check_credentials()
+
+    def __check_credentials(self, allow_recreation=True):
         for i in range(1, 40):
             try:
-                self.sp_credentials()
+                self.list_resource_groups()
                 return True
             except AuthenticationError:
-                logger.info("check_credentials failed (attemp:%d) - for client_id %s should expire at %s",
+                logger.info("Check credentials failed (attemp:%d) - client_id %s should expire at %s",
                             i, self.__credentials.getData('client_id'),
                             self.__credentials.getAuthExpire())
                 time.sleep(1)
         raise AuthenticationError("Invalid Azure credentials")
+
+    def renew(self):
+        self.__compute_mgmt_client = None
+        self.__sp_credentials = None
+        self.__resource_mgmt_client = None
+        logger.info("Renew credentials - current client_id %s should expire at %s",
+                    self.__credentials.getData('client_id'), self.__credentials.getAuthExpire())
+        self.__credentials.renew()
 
     def sp_credentials(self):
         if (self.__sp_credentials is None):
