@@ -7,6 +7,7 @@ fake = Faker()
 min_image_age_hours = 7
 max_images_per_flavor = 1
 max_image_age_hours = 20
+azure_storage_resourcegroup = 'openqa'
 
 
 class MockProperties:
@@ -27,6 +28,8 @@ def mock_cfgGet(self, section, field):
         return max_images_per_flavor
     elif field == 'max-image-age-hours':
         return max_image_age_hours
+    elif field == 'azure-storage-resourcegroup':
+        return azure_storage_resourcegroup
 
 
 class ec2_meta_mock:
@@ -78,14 +81,3 @@ def gce_instance_mock():
         'metadata': fake.uuid4(),
         'tags': {'sshKeys': fake.uuid4()}
     }
-
-
-def generate_mocked_images_older_than(hours):
-    last_modified = datetime.now(timezone.utc) - timedelta(hours=hours)
-    return [MockImage('SLES15-SP2-Azure-HPC.x86_64-0.9.0-Build1.43.vhd', last_modified),
-            MockImage('SLES15-SP2-Azure-HPC.x86_64-0.9.1-Build1.3.vhd', last_modified),
-            MockImage('SLES15-SP2-Azure-HPC.x86_64-0.9.1-Build1.7.vhd', last_modified),
-            MockImage('SLES15-SP2-BYOS.x86_64-0.9.3-Azure-Build2.36.vhd', last_modified),
-            MockImage('SLES15-SP2-BYOS.x86_64-0.9.6-Azure-Build1.3.vhd', last_modified),
-            MockImage('SLES15-SP2-BYOS.x86_64-0.9.6-Azure-Build1.9.vhd', last_modified)
-            ]

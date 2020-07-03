@@ -2,10 +2,9 @@ from ocw.lib.azure import Azure
 from ocw.lib.provider import Provider
 from ocw.lib.vault import AzureCredential
 from webui.settings import ConfigFile
-from azure.storage.blob import BlockBlobService
+from azure.storage.blob import BlobServiceClient
 from datetime import datetime, timezone, timedelta
 from .generators import MockImage
-from .generators import generate_mocked_images_older_than
 from .generators import mock_cfgGet
 from tests import generators
 from msrest.exceptions import AuthenticationError
@@ -32,6 +31,7 @@ def list_blobs_mock(self, container_name):
 
 def test_parse_image_name(monkeypatch):
     monkeypatch.setattr(Azure, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
     monkeypatch.setattr(ConfigFile, 'get', lambda *args, **kwargs: "FOOF")
     az = Azure('fake')
 
@@ -66,27 +66,29 @@ def test_parse_image_name(monkeypatch):
 
 
 def test_cleanup_sle_images_container(monkeypatch):
-    class FakeBlockBlobService:
+    class FakeContainerClient:
         deleted_blobs = list()
 
-        def list_blobs(self, container):
+        def list_blobs(self):
             return [
                     MockImage('SLES15-SP2-Azure-HPC.x86_64-0.9.0-Build1.43.vhd'),
                     MockImage('SLES15-SP2-Azure-HPC.x86_64-0.9.1-Build1.3.vhd'),
                     MockImage('YouWillNotGetMyBuildNumber'),
                 ]
 
-        def delete_blob(self, container_name, img_name,  snapshot):
+        def delete_blob(self, img_name, delete_snapshots):
             self.deleted_blobs.append(img_name)
 
+    fakecontainerclient = FakeContainerClient()
+
     monkeypatch.setattr(Azure, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(Azure, 'container_client',lambda *args, **kwargs: fakecontainerclient)
     monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
     az = Azure('fake')
-    bbsrv = FakeBlockBlobService()
     keep_images = ['SLES15-SP2-Azure-HPC.x86_64-0.9.1-Build1.3.vhd']
 
-    az.cleanup_sle_images_container(bbsrv, keep_images)
-    assert bbsrv.deleted_blobs == ['SLES15-SP2-Azure-HPC.x86_64-0.9.0-Build1.43.vhd']
+    az.cleanup_sle_images_container(keep_images)
+    assert fakecontainerclient.deleted_blobs == ['SLES15-SP2-Azure-HPC.x86_64-0.9.0-Build1.43.vhd']
 
 
 def test_cleanup_images_from_rg(monkeypatch):
@@ -163,8 +165,8 @@ def test_cleanup_disks_from_rg(monkeypatch):
 
 
 def test_get_keeping_image_names(monkeypatch):
-    class FakeBlockBlobService:
-        def list_blobs(self, container):
+    class FakeContainerClient:
+        def list_blobs(self):
             older_then_min_age = datetime.now(timezone.utc) - timedelta(hours=generators.min_image_age_hours+1)
             return [
                     MockImage('SLES15-SP2-Azure-HPC.x86_64-0.9.0-Build1.43.vhd', older_then_min_age),
@@ -172,12 +174,14 @@ def test_get_keeping_image_names(monkeypatch):
                     MockImage('YouWillNotGetMyBuildNumber', older_then_min_age),
                     ]
 
+    fakecontainerclient = FakeContainerClient()
     monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
     monkeypatch.setattr(Azure, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(Azure, 'container_client',lambda *args, **kwargs: fakecontainerclient)
 
     az = Azure('fake')
     generators.max_images_per_flavor = 1
-    assert az.get_keeping_image_names(FakeBlockBlobService()) == ['SLES15-SP2-Azure-HPC.x86_64-0.9.1-Build1.3.vhd']
+    assert az.get_keeping_image_names() == ['SLES15-SP2-Azure-HPC.x86_64-0.9.1-Build1.3.vhd']
 
 
 def test_cleanup_all(monkeypatch):
@@ -202,44 +206,98 @@ def test_cleanup_all(monkeypatch):
 
 
 def test_cleanup_bootdiagnostics(monkeypatch):
-    class FakeBlockBlobService:
-        deleted_container = list()
+
+    called = 0
+
+    def count_call(*args, **kwargs):
+        nonlocal called
+        called = called + 1
+    class FakeBlobServiceClient:
 
         def list_containers(self):
-            older_then_min_age = datetime.now(timezone.utc) - timedelta(hours=generators.min_image_age_hours+1)
-            newer_then_min_age = datetime.now(timezone.utc)
             return [
-                    MockImage('bootdiagnostics-A', older_then_min_age),
-                    MockImage('bootdiagnostics-B', older_then_min_age),
-                    MockImage('bootdiagnostics-C', newer_then_min_age),
-                    MockImage('bootdiagnostics-D', newer_then_min_age),
-                    MockImage('bootdiagnostics-E', older_then_min_age),
+                    MockImage('bootdiagnostics-A'),
+                    MockImage('ShouldNotMatchRegex'),
+                    MockImage('bootdiagnostics-C'),
+                    MockImage('bootdiagnostics-D'),
+                    MockImage('bootdiagnostics-E'),
                 ]
 
-        def list_blobs(self, container):
-            older_then_min_age = datetime.now(timezone.utc) - timedelta(hours=generators.min_image_age_hours+1)
-            newer_then_min_age = datetime.now(timezone.utc)
-            last_modified = older_then_min_age
-
-            if (container == 'bootdiagnostics-E'):
-                last_modified = newer_then_min_age
-
-            return [MockImage('blalbub', last_modified)]
-
-        def delete_container(self, container_name):
-            self.deleted_container.append(container_name)
+    fakeblobserviceclient = FakeBlobServiceClient()
 
     monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
     monkeypatch.setattr(Azure, 'check_credentials', lambda *args, **kwargs: True)
-    bbs = FakeBlockBlobService()
+    monkeypatch.setattr(Azure, 'bs_client', lambda *args, **kwargs: fakeblobserviceclient)
+    monkeypatch.setattr(Azure,'cleanup_bootdiagnostics_container',count_call)
 
     az = Azure('fake')
-    az.cleanup_bootdiagnostics(bbs)
+    az.cleanup_bootdiagnostics()
 
-    assert bbs.deleted_container == [
-            'bootdiagnostics-A',
-            'bootdiagnostics-B',
+    assert called == 4
+
+
+def test_cleanup_bootdiagnostics_container_older_than_min_age(monkeypatch):
+
+    class FakeBlobServiceClient:
+        deleted_containers = list()
+
+        def delete_container(self,container_name):
+            self.deleted_containers.append(container_name)
+
+    class FakeContainerClient():
+
+        def list_blobs(self):
+            older_then_min_age = datetime.now(timezone.utc) - timedelta(hours=generators.min_image_age_hours+1)
+            newer_then_min_age = datetime.now(timezone.utc)
+            return [
+                MockImage('Image',newer_then_min_age),
+                MockImage('Image',newer_then_min_age),
+                MockImage('Image',newer_then_min_age),
+                MockImage('Image',older_then_min_age),
             ]
+
+    fakecontainerclient = FakeContainerClient()
+    fakeblobserviceclient = FakeBlobServiceClient()
+    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    monkeypatch.setattr(Azure, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(Azure, 'container_client',lambda *args, **kwargs: fakecontainerclient)
+    monkeypatch.setattr(Azure, 'bs_client', lambda *args, **kwargs: fakeblobserviceclient)
+
+    az = Azure('fake')
+    az.cleanup_bootdiagnostics_container(MockImage('HaveOneOlder',datetime.now(timezone.utc)))
+    assert len(fakeblobserviceclient.deleted_containers) == 1
+
+
+def test_cleanup_bootdiagnostics_container_all_newer(monkeypatch):
+
+    class FakeBlobServiceClient:
+        deleted_containers = list()
+
+        def delete_container(self,container_name):
+            self.deleted_containers.append(container_name)
+
+    class FakeContainerClient():
+
+        def list_blobs(self):
+            older_then_min_age = datetime.now(timezone.utc) - timedelta(hours=generators.min_image_age_hours+1)
+            newer_then_min_age = datetime.now(timezone.utc)
+            return [
+                MockImage('Image',newer_then_min_age),
+                MockImage('Image',newer_then_min_age),
+                MockImage('Image',newer_then_min_age),
+                MockImage('Image',newer_then_min_age),
+            ]
+
+    fakecontainerclient = FakeContainerClient()
+    fakeblobserviceclient = FakeBlobServiceClient()
+    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    monkeypatch.setattr(Azure, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(Azure, 'container_client',lambda *args, **kwargs: fakecontainerclient)
+    monkeypatch.setattr(Azure, 'bs_client', lambda *args, **kwargs: fakeblobserviceclient)
+
+    az = Azure('fake')
+    az.cleanup_bootdiagnostics_container(MockImage('AllNewer',datetime.now(timezone.utc)))
+    assert len(fakeblobserviceclient.deleted_containers) == 0
 
 
 def test_check_credentials(monkeypatch):
@@ -264,6 +322,7 @@ def test_check_credentials(monkeypatch):
     monkeypatch.setattr(AzureCredential, 'getData', lambda *args, **kwargs: "FOO")
     monkeypatch.setattr(AzureCredential, 'getAuthExpire', lambda *args, **kwargs: "BAR")
     monkeypatch.setattr(time, 'sleep', lambda *args, **kwargs: True)
+    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
 
     az = Azure('fake')
     assert count_renew == 0
