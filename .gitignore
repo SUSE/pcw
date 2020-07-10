@@ -2,6 +2,7 @@
 *__pycache__*
 env/
 venv/
+.venv/
 tags
 db.sqlite3
 *.egg-info/

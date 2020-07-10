@@ -1,4 +1,4 @@
 [report]
 omit =
-    venv/*
+    */lib/python*
     */migrations/*

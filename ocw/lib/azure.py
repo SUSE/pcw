@@ -4,7 +4,7 @@ from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.storage import StorageManagementClient
-from azure.storage.blob.blockblobservice import BlockBlobService
+from azure.storage.blob import BlobServiceClient
 from msrest.exceptions import AuthenticationError
 import re
 import time
@@ -23,6 +23,8 @@ class Azure(Provider):
             self.__compute_mgmt_client = None
             self.__sp_credentials = None
             self.__resource_mgmt_client = None
+            self.__blob_service_client = None
+            self.__resource_group = self.cfgGet('cleanup', 'azure-storage-resourcegroup')
 
         Azure.__instances[vault_namespace].check_credentials()
         return Azure.__instances[vault_namespace]
@@ -58,9 +60,22 @@ class Azure(Provider):
         self.__compute_mgmt_client = None
         self.__sp_credentials = None
         self.__resource_mgmt_client = None
+        self.__blob_service_client = None
         logger.info("Renew credentials - current client_id %s should expire at %s",
                     self.__credentials.getData('client_id'), self.__credentials.getAuthExpire())
         self.__credentials.renew()
+
+    def bs_client(self):
+        if(self.__blob_service_client is None):
+            storage_account = self.cfgGet('cleanup', 'azure-storage-account-name')
+            storage_key = self.get_storage_key(storage_account)
+            connection_string = "{};AccountName={};AccountKey={};EndpointSuffix=core.windows.net".format(
+                "DefaultEndpointsProtocol=https", storage_account, storage_key)
+            self.__blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        return self.__blob_service_client
+
+    def container_client(self, container_name):
+        return self.bs_client().get_container_client(container_name)
 
     def sp_credentials(self):
         if (self.__sp_credentials is None):
@@ -82,11 +97,9 @@ class Azure(Provider):
                 self.sp_credentials(), self.subscription())
         return self.__resoure_mgmt_client
 
-    def get_storage_key(self):
-        resourcegroup = self.cfgGet('cleanup', 'azure-storage-resourcegroup')
-        storage_account = self.cfgGet('cleanup', 'azure-storage-account-name')
+    def get_storage_key(self, storage_account):
         storage_client = StorageManagementClient(self.sp_credentials(), self.subscription())
-        storage_keys = storage_client.storage_accounts.list_keys(resourcegroup, storage_account)
+        storage_keys = storage_client.storage_accounts.list_keys(self.__resource_group, storage_account)
         storage_keys = [v.value for v in storage_keys.keys]
         return storage_keys[0]
 
@@ -109,11 +122,11 @@ class Azure(Provider):
 
     def list_by_resource_group(self, resource_group, filters=None):
         return [item for item in self.resource_mgmt_client().resources.list_by_resource_group(
-                        resource_group, filter=filters)]
+            resource_group, filter=filters)]
 
-    def get_keeping_image_names(self, bbsrv):
+    def get_keeping_image_names(self):
         images = list()
-        for item in bbsrv.list_blobs('sle-images'):
+        for item in self.container_client('sle-images').list_blobs():
             m = self.parse_image_name(item.name)
             if m:
                 images.append(Image(item.name, flavor=m['key'], build=m['build'], date=item.properties.last_modified))
@@ -124,33 +137,31 @@ class Azure(Provider):
 
     def cleanup_all(self):
         ''' Cleanup all autodateed data which might created during automated tests.'''
-        block_blob_service = BlockBlobService(account_name='openqa', account_key=self.get_storage_key())
+        self.cleanup_bootdiagnostics()
 
-        self.cleanup_bootdiagnostics(block_blob_service)
-
-        keep_images = self.get_keeping_image_names(block_blob_service)
-        self.cleanup_sle_images_container(block_blob_service, keep_images)
+        keep_images = self.get_keeping_image_names()
+        self.cleanup_sle_images_container(keep_images)
         self.cleanup_disks_from_rg(keep_images)
         self.cleanup_images_from_rg(keep_images)
         for i in keep_images:
             logger.info("Keep image {} ".format(i))
 
-    def cleanup_bootdiagnostics(self, block_blob_service):
-        containers = block_blob_service.list_containers()
+    def cleanup_bootdiagnostics(self):
+        containers = self.bs_client().list_containers()
         for c in containers:
             logger.debug('Found container {}'.format(c.name))
             if (re.match('^bootdiagnostics-', c.name)):
-                self.cleanup_bootdiagnostics_container(block_blob_service, c)
+                self.cleanup_bootdiagnostics_container(c)
 
-    def cleanup_bootdiagnostics_container(self, bbsrv, container):
-        last_modified = container.properties.last_modified
-        generator = bbsrv.list_blobs(container.name)
-        for blob in generator:
-            if (last_modified < blob.properties.last_modified):
-                last_modified = blob.properties.last_modified
-        if (self.older_than_min_age(last_modified)):
+    def cleanup_bootdiagnostics_container(self, container):
+        latest_modification = container.properties.last_modified
+        container_blobs = self.container_client(container.name).list_blobs()
+        for blob in container_blobs:
+            if (latest_modification > blob.properties.last_modified):
+                latest_modification = blob.properties.last_modified
+        if (self.older_than_min_age(latest_modification)):
             logger.info("Delete container {}".format(container.name))
-            if not bbsrv.delete_container(container.name):
+            if not self.bs_client().delete_container(container.name):
                 logger.error("Failed to delete container {}".format(container.name))
 
     def parse_image_name(self, img_name):
@@ -190,9 +201,9 @@ class Azure(Provider):
         ]
         return self.parse_image_name_helper(img_name, regexes)
 
-    def cleanup_sle_images_container(self, bbsrv, keep_images):
-        container_name = 'sle-images'
-        for img in bbsrv.list_blobs(container_name):
+    def cleanup_sle_images_container(self, keep_images):
+        container_client = self.container_client('sle-images')
+        for img in container_client.list_blobs():
             m = self.parse_image_name(img.name)
             if m:
                 logger.debug('[{}] Blob {} is candidate for deletion with build {} '.format(
@@ -200,11 +211,10 @@ class Azure(Provider):
 
                 if img.name not in keep_images:
                     logger.info("Delete image '{}'".format(img.name))
-                    bbsrv.delete_blob(container_name, img.name, snapshot=None)
+                    container_client.delete_blob(img.name, delete_snapshots="include")
 
     def cleanup_images_from_rg(self, keep_images):
-        rg = self.cfgGet('cleanup', 'azure-storage-resourcegroup')
-        for item in self.list_images_by_resource_group(rg):
+        for item in self.list_images_by_resource_group(self.__resource_group):
             m = self.parse_image_name(item.name)
             if m:
                 logger.debug('[{}] Image {} is candidate for deletion with build {} '.format(
@@ -212,19 +222,18 @@ class Azure(Provider):
 
                 if item.name not in keep_images:
                     logger.info("Delete image '{}'".format(item.name))
-                    self.compute_mgmt_client().images.delete(rg, item.name)
+                    self.compute_mgmt_client().images.delete(self.__resource_group, item.name)
 
     def cleanup_disks_from_rg(self, keep_images):
-        rg = self.cfgGet('cleanup', 'azure-storage-resourcegroup')
-        for item in self.list_disks_by_resource_group(rg):
+        for item in self.list_disks_by_resource_group(self.__resource_group):
             m = self.parse_image_name(item.name)
             if m:
                 logger.debug('[{}] Disk {} is candidate for deletion with build {} '.format(
                     self.__credentials.namespace, item.name, m['build']))
 
                 if item.name not in keep_images:
-                    if self.compute_mgmt_client().disks.get(rg, item.name).managed_by:
+                    if self.compute_mgmt_client().disks.get(self.__resource_group, item.name).managed_by:
                         logger.warning("Disk is in use - unable delete {}".format(item.name))
                     else:
                         logger.info("Delete disk '{}'".format(item.name))
-                        self.compute_mgmt_client().disks.delete(rg, item.name)
+                        self.compute_mgmt_client().disks.delete(self.__resource_group, item.name)
