@@ -9,12 +9,18 @@ from msrest.exceptions import AuthenticationError
 import re
 import time
 import logging
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
 
 class Azure(Provider):
-    __instances = dict()
+    __instances: Dict[str, "Azure"] = dict()
+
+    def __init__(self, namespace: str):
+        super().__init__(namespace)
+        self.__resource_group = self.cfgGet('cleanup', 'azure-storage-resourcegroup')
+        self.check_credentials()
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in Azure.__instances:
@@ -24,9 +30,6 @@ class Azure(Provider):
             self.__sp_credentials = None
             self.__resource_mgmt_client = None
             self.__blob_service_client = None
-            self.__resource_group = self.cfgGet('cleanup', 'azure-storage-resourcegroup')
-
-        Azure.__instances[vault_namespace].check_credentials()
         return Azure.__instances[vault_namespace]
 
     def subscription(self):
