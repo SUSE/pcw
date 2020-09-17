@@ -10,15 +10,10 @@ max_image_age_hours = 20
 azure_storage_resourcegroup = 'openqa'
 
 
-class MockProperties:
-    def __init__(self, last_modified):
-        self.last_modified = last_modified
-
-
 class MockImage:
     def __init__(self, name, last_modified=None):
         self.name = name
-        self.properties = MockProperties(last_modified)
+        self.last_modified = last_modified
 
 
 def mock_cfgGet(self, section, field):

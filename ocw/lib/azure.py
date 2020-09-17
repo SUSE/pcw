@@ -132,7 +132,7 @@ class Azure(Provider):
         for item in self.container_client('sle-images').list_blobs():
             m = self.parse_image_name(item.name)
             if m:
-                images.append(Image(item.name, flavor=m['key'], build=m['build'], date=item.properties.last_modified))
+                images.append(Image(item.name, flavor=m['key'], build=m['build'], date=item.last_modified))
             else:
                 logger.error("[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, item.name))
 
@@ -157,15 +157,14 @@ class Azure(Provider):
                 self.cleanup_bootdiagnostics_container(c)
 
     def cleanup_bootdiagnostics_container(self, container):
-        latest_modification = container.properties.last_modified
+        latest_modification = container.last_modified
         container_blobs = self.container_client(container.name).list_blobs()
         for blob in container_blobs:
-            if (latest_modification > blob.properties.last_modified):
-                latest_modification = blob.properties.last_modified
+            if (latest_modification > blob.last_modified):
+                latest_modification = blob.last_modified
         if (self.older_than_min_age(latest_modification)):
-            logger.info("Delete container {}".format(container.name))
-            if not self.bs_client().delete_container(container.name):
-                logger.error("Failed to delete container {}".format(container.name))
+            logger.info("Mark container for deletion {}".format(container.name))
+            self.bs_client().delete_container(container.name)
 
     def parse_image_name(self, img_name):
         regexes = [
