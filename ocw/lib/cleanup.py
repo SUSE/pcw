@@ -3,6 +3,7 @@ from ocw.lib.azure import Azure
 from ocw.lib.EC2 import EC2
 from ocw.lib.gce import GCE
 from ocw.lib.emailnotify import send_mail
+from ocw.lib.emailnotify import send_cluster_notification
 import logging
 import traceback
 from ocw.apps import getScheduler
@@ -32,5 +33,20 @@ def cleanup_run():
                 send_mail('{} on Cleanup in [{}]'.format(type(e).__name__, vault_namespace), traceback.format_exc())
 
 
+def list_clusters():
+    cfg = ConfigFile()
+    if cfg.has('clusters'):
+        for vault_namespace in cfg.getList(['clusters', 'namespaces'], ['']):
+            try:
+                clusters = EC2(vault_namespace).all_clusters()
+                logger.info("%d clusters found", len(clusters))
+                send_cluster_notification(vault_namespace, clusters)
+            except Exception as e:
+                logger.exception("[{}] List clusters failed!".format(vault_namespace))
+                send_mail('{} on List clusters in [{}]'.format(
+                    type(e).__name__, vault_namespace), traceback.format_exc())
+
+
 def init_cron():
     getScheduler().add_job(cleanup_run, trigger='interval', minutes=60, id='cleanup_all')
+    getScheduler().add_job(list_clusters, trigger='interval', hours=18, id='list_clusters')

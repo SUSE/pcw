@@ -17,6 +17,7 @@ class EC2(Provider):
             EC2.__instances[vault_namespace] = self = object.__new__(cls)
             self.__credentials = EC2Credential(vault_namespace)
             self.__ec2_client = dict()
+            self.__eks_client = dict()
             self.__ec2_resource = dict()
             self.__secret = None
             self.__key = None
@@ -31,19 +32,20 @@ class EC2(Provider):
             self.__secret = None
             self.__ec2_resource = dict()
             self.__ec2_client = dict()
+            self.__eks_client = dict()
 
         self.__secret = self.__credentials.getData('secret_key')
         self.__key = self.__credentials.getData('access_key')
 
         for i in range(1, 60 * 5):
             try:
-                self.list_regions()
+                self.all_regions()
                 return True
             except Exception:
                 logger.info("check_credentials (attemp:%d) with key %s expiring at %s ",
                             i, self.__key, self.__credentials.getAuthExpire())
                 time.sleep(1)
-        self.list_regions()
+        self.all_regions()
 
     def ec2_resource(self, region='eu-central-1'):
         if region not in self.__ec2_resource:
@@ -59,10 +61,25 @@ class EC2(Provider):
                                                      region_name=region)
         return self.__ec2_client[region]
 
+    def eks_client(self, region='eu-central-1'):
+        if region not in self.__eks_client:
+            self.__eks_client[region] = boto3.client('eks', aws_access_key_id=self.__key,
+                                                     aws_secret_access_key=self.__secret,
+                                                     region_name=region)
+        return self.__eks_client[region]
+
+    def all_clusters(self):
+        regions = self.all_regions()
+        clusters = list()
+        for region in regions:
+            response = self.eks_client(region).list_clusters()
+            [clusters.append(cluster) for cluster in response['clusters']]
+        return clusters
+
     def list_instances(self, region='eu-central-1'):
         return [i for i in self.ec2_resource(region).instances.all()]
 
-    def list_regions(self):
+    def all_regions(self):
         regions_resp = self.ec2_client().describe_regions()
         regions = [region['RegionName'] for region in regions_resp['Regions']]
         return regions
