@@ -175,7 +175,7 @@ def _update_provider(name, vault_namespace):
 
     if 'ec2' in name:
         instances = []
-        for region in cfg.getList(['ec2', 'regions'], EC2(vault_namespace).list_regions()):
+        for region in cfg.getList(['ec2', 'regions'], EC2(vault_namespace).all_regions()):
             instances_csp = EC2(vault_namespace).list_instances(region=region)
             instances += [ec2_to_local_instance(i, vault_namespace, region) for i in instances_csp]
             logger.info("Got %d instances from EC2 in region %s", len(instances), region)

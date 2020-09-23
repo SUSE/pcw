@@ -64,6 +64,17 @@ def send_leftover_notification():
     o.update(notified=True)
 
 
+def send_cluster_notification(namespace, clusters):
+    cfg = ConfigFile()
+    cfg_path = ['notify.cluster.namespace.{}'.format(namespace), 'to']
+    if not cfg.has('notify') or not cfg.has(cfg_path):
+        return
+    if len(clusters):
+        clusters_str = ' '.join([str(cluster) for cluster in clusters])
+        logger.debug("Full clusters list - %s", clusters_str)
+        send_mail("EC2 clusters found", clusters_str, receiver_email=cfg.get(cfg_path))
+
+
 def send_mail(subject, message, receiver_email=None):
     cfg = ConfigFile()
     if not cfg.has('notify'):
