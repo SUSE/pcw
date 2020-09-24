@@ -4,6 +4,7 @@ azure-mgmt-compute
 azure-mgmt-storage
 azure-mgmt-resource
 azure-storage-blob
+msrestazure
 uwsgi
 requests
 django
