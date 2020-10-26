@@ -2,6 +2,7 @@ from .provider import Provider, Image
 from .vault import EC2Credential
 from dateutil.parser import parse
 import boto3
+from botocore.exceptions import ClientError
 import re
 import time
 import logging
@@ -85,11 +86,13 @@ class EC2(Provider):
         return regions
 
     def delete_instance(self, instance_id):
-        instances_list = list(self.ec2_resource().instances.filter(InstanceIds=[instance_id]))
-        if len(instances_list) > 0:
-            instances_list[0].terminate()
-        else:
-            logger.warning("Instance {} is ACTIVE in local DB but does not exists on EC2".format(instance_id))
+        try:
+            self.ec2_resource().instances.filter(InstanceIds=[instance_id]).terminate()
+        except ClientError as ex:
+            if ex.response['Error']['Code'] == 'InvalidInstanceID.NotFound':
+                logger.warning("Failed to delete instance with id {}. It does not exists on EC2".format(instance_id))
+            else:
+                raise ex
 
     def parse_image_name(self, img_name):
         regexes = [
