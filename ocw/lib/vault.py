@@ -24,7 +24,11 @@ class Vault:
         self.namespace = vault_namespace
         self.password = cfg.get(['vault', 'password'])
         self.certificate_dir = cfg.get(['vault', 'cert_dir'], '/etc/ssl/certs')
-        self.auth_json = None
+        if cfg.getBoolean(['vault', 'use-file-cache']) and self._getAuthCacheFile().exists():
+            logger.info('Loading cached credentials')
+            self.auth_json = self.loadAuthCache()
+        else:
+            self.auth_json = None
         self.client_token = None
         self.client_token_expire = None
 
