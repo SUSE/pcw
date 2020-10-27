@@ -62,7 +62,7 @@ def sync_csp_to_local_db(pc_instances, provider, vault_namespace):
         o.age = o.last_seen - o.first_seen
         o.save()
     o = Instance.objects
-    o = o.filter(provider=provider, active=False)
+    o = o.filter(provider=provider, vault_namespace=vault_namespace, active=False)
     o = o.update(state=StateChoice.DELETED)
 
 
