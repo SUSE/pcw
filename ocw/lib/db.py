@@ -26,15 +26,13 @@ __last_update = None
 @transaction.atomic
 def sync_csp_to_local_db(pc_instances, provider, vault_namespace):
     t_now = timezone.now()
-    o = Instance.objects
-    o = o.filter(provider=provider, vault_namespace=vault_namespace)
-    o = o.update(active=False)
+    Instance.objects.filter(provider=provider, vault_namespace=vault_namespace).update(active=False)
 
     for i in pc_instances:
         if i.provider != provider:
-            raise ValueError
+            raise ValueError('Instance {} does not belong to {}'.format(i,provider))
         if i.vault_namespace != vault_namespace:
-            raise ValueError
+            raise ValueError('Instance {} does not belong to {}'.format(i,vault_namespace))
 
         logger.debug("Update/Create instance %s:%s @ %s\n\t%s", provider, i.instance_id, i.region, i.csp_info)
         if Instance.objects.filter(provider=i.provider, instance_id=i.instance_id).exists():
@@ -44,6 +42,7 @@ def sync_csp_to_local_db(pc_instances, provider, vault_namespace):
                 o.region = i.region
             if o.state == StateChoice.DELETED:
                 logger.error("Update already DELETED instance %s:%s\n\t%s", provider, i.instance_id, i.csp_info)
+                continue
             if o.state != StateChoice.DELETING:
                 o.state = StateChoice.ACTIVE
         else:
@@ -61,9 +60,7 @@ def sync_csp_to_local_db(pc_instances, provider, vault_namespace):
         o.active = True
         o.age = o.last_seen - o.first_seen
         o.save()
-    o = Instance.objects
-    o = o.filter(provider=provider, vault_namespace=vault_namespace, active=False)
-    o = o.update(state=StateChoice.DELETED)
+    Instance.objects.filter(provider=provider, vault_namespace=vault_namespace, active=False).update(state=StateChoice.DELETED)
 
 
 def ec2_to_json(i):
