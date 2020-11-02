@@ -165,8 +165,6 @@ def gce_to_local_instance(instance, vault_namespace):
 
 
 def _update_provider(name, vault_namespace):
-    cfg = ConfigFile()
-
     if 'azure' in name:
         instances = Azure(vault_namespace).list_resource_groups()
         instances = [azure_to_local_instance(i, vault_namespace) for i in instances]
@@ -175,7 +173,7 @@ def _update_provider(name, vault_namespace):
 
     if 'ec2' in name:
         instances = []
-        for region in cfg.getList(['ec2', 'regions'], EC2(vault_namespace).all_regions()):
+        for region in EC2(vault_namespace).all_regions:
             instances_csp = EC2(vault_namespace).list_instances(region=region)
             instances += [ec2_to_local_instance(i, vault_namespace, region) for i in instances_csp]
             logger.info("Got %d instances from EC2 in region %s", len(instances), region)
@@ -242,7 +240,7 @@ def delete_instance(instance):
     if (instance.provider == ProviderChoice.AZURE):
         Azure(instance.vault_namespace).delete_resource(instance.instance_id)
     elif (instance.provider == ProviderChoice.EC2):
-        EC2(instance.vault_namespace).delete_instance(instance.instance_id)
+        EC2(instance.vault_namespace).delete_instance(instance.region, instance.instance_id)
     elif (instance.provider == ProviderChoice.GCE):
         GCE(instance.vault_namespace).delete_instance(instance.instance_id, instance.region)
     else:

@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 
 def test_parse_image_name(monkeypatch):
     monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(EC2, 'get_all_regions', lambda self:['region1','region2'])
     monkeypatch.setattr(ConfigFile, 'get', lambda *args, **kwargs: "FOOF")
     ec2 = EC2('fake')
 
@@ -71,7 +72,8 @@ def test_cleanup_images(monkeypatch):
 
     monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
     monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
-    monkeypatch.setattr(EC2, 'ec2_client', lambda self: mocked_ec2_client)
+    monkeypatch.setattr(EC2, 'get_all_regions', lambda self:['region1'])
+    monkeypatch.setattr(EC2, 'ec2_client', lambda self, region: mocked_ec2_client)
 
     ec2 = EC2('fake')
     ec2.cleanup_images()
@@ -125,7 +127,7 @@ def test_cleanup_snapshots(monkeypatch):
     monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
     monkeypatch.setattr(EC2, 'needs_to_delete_snapshot', lambda *args, **kwargs: True)
     monkeypatch.setattr(EC2, 'ec2_client', lambda self, region: mocked_ec2_client)
-    monkeypatch.setattr(EC2, 'all_regions', lambda self: ['eu-central'])
+    monkeypatch.setattr(EC2, 'get_all_regions', lambda self: ['eu-central'])
 
     mocked_ec2_client.describe_snapshots = lambda OwnerIds: response
     mocked_ec2_client.delete_snapshot = delete_snapshot
