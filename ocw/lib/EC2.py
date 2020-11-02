@@ -4,6 +4,7 @@ from dateutil.parser import parse
 import boto3
 from botocore.exceptions import ClientError
 import re
+from datetime import date, datetime, timedelta
 import time
 import logging
 
@@ -77,6 +78,38 @@ class EC2(Provider):
             [clusters.append(cluster) for cluster in response['clusters']]
         return clusters
 
+    @staticmethod
+    def needs_to_delete_snapshot(snapshot, cleanup_ec2_max_snapshot_age_days) -> bool:
+        delete_older_than = date.today() - timedelta(days=cleanup_ec2_max_snapshot_age_days)
+        if datetime.date(snapshot['StartTime']) < delete_older_than:
+            regexes = [
+                re.compile(r'''^OpenQA upload image$'''),
+                re.compile(r'''^Created by CreateImage\([\w-]+\) for ami-\w+ from vol-\w+$''')
+            ]
+            for regex in regexes:
+                m = re.match(regex, snapshot['Description'].strip())
+                if m:
+                    return True
+        return False
+
+    def cleanup_snapshots(self):
+        cleanup_ec2_max_snapshot_age_days = self.cfgGet('cleanup', 'ec2-max-snapshot-age-days')
+        if cleanup_ec2_max_snapshot_age_days < 0:
+            return
+        for region in self.all_regions():
+            response = self.ec2_client(region).describe_snapshots(OwnerIds=['self'])
+            for snapshot in response['Snapshots']:
+                if EC2.needs_to_delete_snapshot(snapshot, cleanup_ec2_max_snapshot_age_days):
+                    logger.info("[{}] Deleting snapshot {} in region {} with StartTime={}".format(
+                        self.__credentials.namespace, snapshot['SnapshotId'], region, snapshot['StartTime']))
+                    try:
+                        self.ec2_client(region).delete_snapshot(SnapshotId=snapshot['SnapshotId'])
+                    except ClientError as ex:
+                        if ex.response['Error']['Code'] == 'InvalidSnapshot.InUse':
+                            logger.info(ex.response['Error']['Message'])
+                        else:
+                            raise ex
+
     def list_instances(self, region='eu-central-1'):
         return [i for i in self.ec2_resource(region).instances.all()]
 
@@ -144,6 +177,10 @@ class EC2(Provider):
         return self.parse_image_name_helper(img_name, regexes)
 
     def cleanup_all(self):
+        self.cleanup_images()
+        self.cleanup_snapshots()
+
+    def cleanup_images(self):
         response = self.ec2_client().describe_images(Owners=['self'])
         images = list()
         for img in response['Images']:
@@ -157,9 +194,7 @@ class EC2(Provider):
                                     img_id=img['ImageId']))
             else:
                 logger.error("[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, img['Name']))
-
         keep_images = self.get_keeping_image_names(images)
-
         for img in [i for i in images if i.name not in keep_images]:
             logger.info("Delete image '{}' (ami:{})".format(img.name, img.id))
             self.ec2_client().deregister_image(ImageId=img.id, DryRun=False)

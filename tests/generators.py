@@ -8,6 +8,7 @@ min_image_age_hours = 7
 max_images_per_flavor = 1
 max_image_age_hours = 20
 azure_storage_resourcegroup = 'openqa'
+ec2_max_snapshot_age_days = 1
 
 
 class MockImage:
@@ -25,6 +26,8 @@ def mock_cfgGet(self, section, field):
         return max_image_age_hours
     elif field == 'azure-storage-resourcegroup':
         return azure_storage_resourcegroup
+    elif field == 'ec2-max-snapshot-age-days':
+        return ec2_max_snapshot_age_days
 
 
 class ec2_meta_mock:

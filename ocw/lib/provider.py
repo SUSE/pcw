@@ -18,6 +18,7 @@ class Provider:
             'cleanup/min-image-age-hours': {'default': 24},
             'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload'},
             'cleanup/azure-storage-account-name': {'default': 'openqa'},
+            'cleanup/ec2-max-snapshot-age-days': {'default': -1},
         }
         key = '/'.join([section, field])
         if key not in mapping:
