@@ -13,6 +13,12 @@ logger = logging.getLogger(__name__)
 
 class EC2(Provider):
     __instances = dict()
+    default_region = 'eu-central-1'
+
+    def __init__(self, namespace: str):
+        super().__init__(namespace)
+        self.check_credentials()
+        self.all_regions = self.get_all_regions()
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in EC2.__instances:
@@ -24,7 +30,6 @@ class EC2(Provider):
             self.__secret = None
             self.__key = None
 
-        EC2.__instances[vault_namespace].check_credentials()
         return EC2.__instances[vault_namespace]
 
     def check_credentials(self):
@@ -41,29 +46,29 @@ class EC2(Provider):
 
         for i in range(1, 60 * 5):
             try:
-                self.all_regions()
+                self.get_all_regions()
                 return True
             except Exception:
                 logger.info("check_credentials (attemp:%d) with key %s expiring at %s ",
                             i, self.__key, self.__credentials.getAuthExpire())
                 time.sleep(1)
-        self.all_regions()
+        self.get_all_regions()
 
-    def ec2_resource(self, region='eu-central-1'):
+    def ec2_resource(self, region):
         if region not in self.__ec2_resource:
             self.__ec2_resource[region] = boto3.resource('ec2', aws_access_key_id=self.__key,
                                                          aws_secret_access_key=self.__secret,
                                                          region_name=region)
         return self.__ec2_resource[region]
 
-    def ec2_client(self, region='eu-central-1'):
+    def ec2_client(self, region):
         if region not in self.__ec2_client:
             self.__ec2_client[region] = boto3.client('ec2', aws_access_key_id=self.__key,
                                                      aws_secret_access_key=self.__secret,
                                                      region_name=region)
         return self.__ec2_client[region]
 
-    def eks_client(self, region='eu-central-1'):
+    def eks_client(self, region):
         if region not in self.__eks_client:
             self.__eks_client[region] = boto3.client('eks', aws_access_key_id=self.__key,
                                                      aws_secret_access_key=self.__secret,
@@ -71,9 +76,8 @@ class EC2(Provider):
         return self.__eks_client[region]
 
     def all_clusters(self):
-        regions = self.all_regions()
         clusters = list()
-        for region in regions:
+        for region in self.all_regions:
             response = self.eks_client(region).list_clusters()
             [clusters.append(cluster) for cluster in response['clusters']]
         return clusters
@@ -96,7 +100,7 @@ class EC2(Provider):
         cleanup_ec2_max_snapshot_age_days = self.cfgGet('cleanup', 'ec2-max-snapshot-age-days')
         if cleanup_ec2_max_snapshot_age_days < 0:
             return
-        for region in self.all_regions():
+        for region in self.all_regions:
             response = self.ec2_client(region).describe_snapshots(OwnerIds=['self'])
             for snapshot in response['Snapshots']:
                 if EC2.needs_to_delete_snapshot(snapshot, cleanup_ec2_max_snapshot_age_days):
@@ -110,17 +114,17 @@ class EC2(Provider):
                         else:
                             raise ex
 
-    def list_instances(self, region='eu-central-1'):
+    def list_instances(self, region):
         return [i for i in self.ec2_resource(region).instances.all()]
 
-    def all_regions(self):
-        regions_resp = self.ec2_client().describe_regions()
+    def get_all_regions(self):
+        regions_resp = self.ec2_client(EC2.default_region).describe_regions()
         regions = [region['RegionName'] for region in regions_resp['Regions']]
         return regions
 
-    def delete_instance(self, instance_id):
+    def delete_instance(self, region, instance_id):
         try:
-            self.ec2_resource().instances.filter(InstanceIds=[instance_id]).terminate()
+            self.ec2_resource(region).instances.filter(InstanceIds=[instance_id]).terminate()
         except ClientError as ex:
             if ex.response['Error']['Code'] == 'InvalidInstanceID.NotFound':
                 logger.warning("Failed to delete instance with id {}. It does not exists on EC2".format(instance_id))
@@ -181,20 +185,24 @@ class EC2(Provider):
         self.cleanup_snapshots()
 
     def cleanup_images(self):
-        response = self.ec2_client().describe_images(Owners=['self'])
-        images = list()
-        for img in response['Images']:
-            # img is in the format described here:
-            # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.describe_images
-            m = self.parse_image_name(img['Name'])
-            if m:
-                logger.debug("[{}]Image {} is candidate for deletion with build {}".format(
-                    self.__credentials.namespace, img['Name'], m['build']))
-                images.append(Image(img['Name'], flavor=m['key'], build=m['build'], date=parse(img['CreationDate']),
-                                    img_id=img['ImageId']))
-            else:
-                logger.error("[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, img['Name']))
-        keep_images = self.get_keeping_image_names(images)
-        for img in [i for i in images if i.name not in keep_images]:
-            logger.info("Delete image '{}' (ami:{})".format(img.name, img.id))
-            self.ec2_client().deregister_image(ImageId=img.id, DryRun=False)
+        for region in self.all_regions:
+            response = self.ec2_client(region).describe_images(Owners=['self'])
+            images = list()
+            for img in response['Images']:
+                # img is in the format described here:
+                # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.describe_images
+                m = self.parse_image_name(img['Name'])
+                if m:
+                    logger.debug(
+                        "[{}]Image {} is candidate for deletion with build {}".format(self.__credentials.namespace,
+                                                                                      img['Name'], m['build']))
+                    images.append(
+                        Image(img['Name'], flavor=m['key'], build=m['build'], date=parse(img['CreationDate']),
+                              img_id=img['ImageId']))
+                else:
+                    logger.error(
+                        "[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, img['Name']))
+            keep_images = self.get_keeping_image_names(images)
+            for img in [i for i in images if i.name not in keep_images]:
+                logger.info("Delete image '{}' (ami:{})".format(img.name, img.id))
+                self.ec2_client(region).deregister_image(ImageId=img.id, DryRun=False)
