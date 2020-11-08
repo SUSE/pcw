@@ -11,7 +11,7 @@ class Provider:
 
     def __init__(self, namespace: str):
         self._namespace = namespace
-        self.dry_run = PCWConfig().getBoolean('default/dry_run')
+        self.dry_run = PCWConfig.getBoolean('default/dry_run')
         self.logger = logging.getLogger(self.__module__)
 
     def older_than_min_age(self, age):

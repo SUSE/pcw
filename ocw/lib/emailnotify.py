@@ -7,6 +7,7 @@ from django.urls import reverse
 import json
 import smtplib
 import logging
+from email.mime.text import MIMEText
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def draw_instance_table(objects):
 
 
 def send_leftover_notification():
-    if PCWConfig().has('notify'):
+    if PCWConfig.has('notify'):
         o = Instance.objects
         o = o.filter(active=True, csp_info__icontains='openqa_created_by',
                      age__gt=timedelta(hours=PCWConfig.get_feature_property('notify', 'age-hours')))
@@ -59,20 +60,17 @@ def send_cluster_notification(namespace, clusters):
 
 
 def send_mail(subject, message, receiver_email=None):
-    if PCWConfig().has('notify'):
-        smtp_server = PCWConfig().get_feature_property('notify', 'smtp')
-        port = PCWConfig().get_feature_property('notify', 'smtp-port')
-        sender_email = PCWConfig().get_feature_property('notify', 'from')
+    if PCWConfig.has('notify'):
+        smtp_server = PCWConfig.get_feature_property('notify', 'smtp')
+        port = PCWConfig.get_feature_property('notify', 'smtp-port')
+        sender_email = PCWConfig.get_feature_property('notify', 'from')
         if receiver_email is None:
-            receiver_email = PCWConfig().get_feature_property('notify', 'to')
-        email = '''\
-    Subject: [Openqa-Cloud-Watch] {subject}
-    From: {_from}
-    To: {_to}
-
-    {message}
-    '''.format(subject=subject, _from=sender_email, _to=receiver_email, message=message)
+            receiver_email = PCWConfig.get_feature_property('notify', 'to')
+        mimetext = MIMEText(message)
+        mimetext['Subject'] = '[Openqa-Cloud-Watch] {}'.format(subject)
+        mimetext['From'] = sender_email
+        mimetext['To'] = receiver_email
         logger.info("Send Email To:'%s' Subject:'[Openqa-Cloud-Watch] %s'", receiver_email, subject)
         server = smtplib.SMTP(smtp_server, port)
         server.ehlo()
-        server.sendmail(sender_email, receiver_email.split(','), email)
+        server.sendmail(sender_email, receiver_email.split(','), mimetext.as_string())

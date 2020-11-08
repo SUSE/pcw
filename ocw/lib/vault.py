@@ -18,11 +18,11 @@ class Vault:
     extra_time = 600
 
     def __init__(self, vault_namespace):
-        self.url = PCWConfig().get_feature_property('vault', 'url')
-        self.user = PCWConfig().get_feature_property('vault', 'user')
+        self.url = PCWConfig.get_feature_property('vault', 'url')
+        self.user = PCWConfig.get_feature_property('vault', 'user')
         self.namespace = vault_namespace
-        self.password = PCWConfig().get_feature_property('vault', 'password')
-        self.certificate_dir = PCWConfig().get_feature_property('vault', 'cert_dir')
+        self.password = PCWConfig.get_feature_property('vault', 'password')
+        self.certificate_dir = PCWConfig.get_feature_property('vault', 'cert_dir')
         if PCWConfig.getBoolean('vault/use-file-cache') and self._getAuthCacheFile().exists():
             logger.info('Loading cached credentials')
             self.auth_json = self.loadAuthCache()
@@ -102,7 +102,7 @@ class Vault:
         raise NotImplementedError
 
     def getData(self, name=None):
-        use_file_cache = PCWConfig().getBoolean('vault/use-file-cache')
+        use_file_cache = PCWConfig.getBoolean('vault/use-file-cache')
         if self.auth_json is None and use_file_cache:
             self.auth_json = self.loadAuthCache()
         if self.isExpired():
@@ -129,7 +129,7 @@ class Vault:
         return expire < datetime.today() + timedelta(seconds=self.extra_time)
 
     def renew(self):
-        if PCWConfig().getBoolean('vault/use-file-cache') and self._getAuthCacheFile().exists():
+        if PCWConfig.getBoolean('vault/use-file-cache') and self._getAuthCacheFile().exists():
             self._getAuthCacheFile().unlink()
         self.revoke()
         self.getData()

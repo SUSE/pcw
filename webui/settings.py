@@ -259,8 +259,16 @@ class PCWConfig():
             return False
 
     @staticmethod
-    def getBoolean(config_path: str, default=False) -> bool:
-        value = ConfigFile().get(config_path, default)
+    def getBoolean(config_path: str, namespace: str = None, default=False) -> bool:
+        if namespace:
+            (feature, property) = config_path.split('/')
+            setting = '{}.namespace.{}/{}'.format(feature, namespace, property)
+            if PCWConfig.has(setting):
+                value = ConfigFile().get(setting)
+            else:
+                value = ConfigFile().get(config_path, default)
+        else:
+            value = ConfigFile().get(config_path, default)
         if isinstance(value, bool):
             return value
         return bool(re.match("^(true|on|1|yes)$", str(value), flags=re.IGNORECASE))

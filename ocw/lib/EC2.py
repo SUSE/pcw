@@ -6,6 +6,8 @@ import boto3
 from botocore.exceptions import ClientError
 import re
 from datetime import date, datetime, timedelta
+from ocw.lib.emailnotify import send_mail
+import traceback
 import time
 
 
@@ -94,11 +96,7 @@ class EC2(Provider):
                     return True
         return False
 
-    def cleanup_snapshots(self):
-        cleanup_ec2_max_snapshot_age_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-snapshot-age-days',
-                                                                           self._namespace)
-        if cleanup_ec2_max_snapshot_age_days < 0:
-            return
+    def cleanup_snapshots(self, cleanup_ec2_max_snapshot_age_days):
         for region in self.all_regions:
             response = self.ec2_client(region).describe_snapshots(OwnerIds=['self'])
             for snapshot in response['Snapshots']:
@@ -117,18 +115,14 @@ class EC2(Provider):
                         else:
                             raise ex
 
-    def cleanup_volumes(self):
-        cleanup_ec2_max_volumes_age_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-volumes-age-days',
-                                                                          self._namespace)
-        if cleanup_ec2_max_volumes_age_days < 0:
-            return
+    def cleanup_volumes(self, cleanup_ec2_max_volumes_age_days):
         delete_older_than = date.today() - timedelta(days=cleanup_ec2_max_volumes_age_days)
         for region in self.all_regions:
             response = self.ec2_client(region).describe_volumes()
             for volume in response['Volumes']:
                 if datetime.date(volume['CreateTime']) < delete_older_than:
-                    self.log_info("Deleting volume {} in region {} with CreateTime={}", volume['VolumeId'],
-                                  region, volume['CreateTime'])
+                    self.log_info("Deleting volume {} in region {} with CreateTime={}", volume['VolumeId'], region,
+                                  volume['CreateTime'])
                     if self.volume_protected(volume):
                         self.log_info('Volume {} has tag DO_NOT_DELETE so protected from deletion', volume['VolumeId'])
                     elif self.dry_run:
@@ -213,9 +207,133 @@ class EC2(Provider):
         return self.parse_image_name_helper(img_name, regexes)
 
     def cleanup_all(self):
+        cleanup_ec2_max_snapshot_age_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-snapshot-age-days',
+                                                                           self._namespace)
+        cleanup_ec2_max_volumes_age_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-volumes-age-days',
+                                                                          self._namespace)
         self.cleanup_images()
-        self.cleanup_snapshots()
-        self.cleanup_volumes()
+        if cleanup_ec2_max_snapshot_age_days >= 0:
+            self.cleanup_snapshots(cleanup_ec2_max_snapshot_age_days)
+        if cleanup_ec2_max_volumes_age_days >= 0:
+            self.cleanup_volumes(cleanup_ec2_max_volumes_age_days)
+        if PCWConfig.getBoolean('cleanup/vpc_cleanup', self._namespace):
+            self.cleanup_uploader_vpcs()
+
+    def delete_vpc(self, region, vpc, vpcId):
+        try:
+            self.log_info('{} has no associated instances. Initializing cleanup of it', vpc)
+            self.delete_internet_gw(vpc)
+            self.delete_routing_tables(vpc)
+            self.delete_vpc_endpoints(region, vpcId)
+            self.delete_security_groups(vpc)
+            self.delete_vpc_peering_connections(region, vpcId)
+            self.delete_network_acls(vpc)
+            self.delete_vpc_subnets(vpc)
+            if self.dry_run:
+                self.log_info('Deletion of VPC skipped due to dry_run mode')
+            else:
+                # finally, delete the vpc
+                self.ec2_resource(region).meta.client.delete_vpc(VpcId=vpcId)
+        except Exception as e:
+            self.log_err("{} on VPC deletion. {}", type(e).__name__, traceback.format_exc())
+            send_mail('{} on VPC deletion in [{}]'.format(type(e).__name__, self._namespace), traceback.format_exc())
+
+    def delete_vpc_subnets(self, vpc):
+        for subnet in vpc.subnets.all():
+            for interface in subnet.network_interfaces.all():
+                if self.dry_run:
+                    self.log_info('Deletion of {} skipped due to dry_run mode', interface)
+                else:
+                    self.log_info('Deleting {}', interface)
+                    interface.delete()
+            if self.dry_run:
+                self.log_info('Deletion of {} skipped due to dry_run mode', subnet)
+            else:
+                self.log_info('Deleting {}', subnet)
+                subnet.delete()
+
+    def delete_network_acls(self, vpc):
+        for netacl in vpc.network_acls.all():
+            if not netacl.is_default:
+                if self.dry_run:
+                    self.log_info('Deletion of {} skipped due to dry_run mode', netacl)
+                else:
+                    self.log_info('Deleting {}', netacl)
+                    netacl.delete()
+
+    def delete_vpc_peering_connections(self, region, vpcId):
+        response = self.ec2_client(region).describe_vpc_peering_connections(
+            Filters=[{'Name': 'requester-vpc-info.vpc-id', 'Values': [vpcId]}])
+        for vpcpeer in response['VpcPeeringConnections']:
+            vpcpeer_connection = self.ec2_resource(region).VpcPeeringConnection(vpcpeer['VpcPeeringConnectionId'])
+            if self.dry_run:
+                self.log_info('Deletion of {} skipped due to dry_run mode', vpcpeer_connection)
+            else:
+                self.log_info('Deleting {}', vpcpeer_connection)
+                vpcpeer_connection.delete()
+
+    def delete_security_groups(self, vpc):
+        for sg in vpc.security_groups.all():
+            if sg.group_name != 'default':
+                if self.dry_run:
+                    self.log_info('Deletion of {} skipped due to dry_run mode', sg)
+                else:
+                    self.log_info('Deleting {}', sg)
+                    sg.delete()
+
+    def delete_vpc_endpoints(self, region, vpcId):
+        response = self.ec2_client(region).describe_vpc_endpoints(Filters=[{'Name': 'vpc-id', 'Values': [vpcId]}])
+        for ep in response['VpcEndpoints']:
+            if self.dry_run:
+                self.log_info('Deletion of {} skipped due to dry_run mode', ep)
+            else:
+                self.log_info('Deleting {}', ep)
+                self.ec2_client(region).delete_vpc_endpoints(VpcEndpointIds=[ep['VpcEndpointId']])
+
+    def delete_routing_tables(self, vpc):
+        for rt in vpc.route_tables.all():
+            # we can not delete main RouteTable's , not main one don't have associations_attributes
+            if len(rt.associations_attribute) == 0:
+                if self.dry_run:
+                    self.log_info('{} will be not deleted due to dry_run mode', rt)
+                else:
+                    self.log_info('Deleting {}', rt)
+                    rt.delete()
+
+    def delete_internet_gw(self, vpc):
+        for gw in vpc.internet_gateways.all():
+            if self.dry_run:
+                self.log_info('{} will be not deleted due to dry_run mode', gw)
+            else:
+                self.log_info('Deleting {}', gw)
+                vpc.detach_internet_gateway(InternetGatewayId=gw.id)
+                gw.delete()
+
+    def cleanup_uploader_vpcs(self):
+        for region in self.all_regions:
+            response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']},
+                                                                      {'Name': 'tag:Name', 'Values': ['uploader-*']}])
+            for response_vpc in response['Vpcs']:
+                self.log_info('{} in {} looks like uploader leftover. (OwnerId={}).', response_vpc['VpcId'], region,
+                              response_vpc['OwnerId'])
+                if PCWConfig.getBoolean('cleanup/vpc-notify-only', self._namespace):
+                    send_mail('VPC {} should be deleted, skipping due vpc-notify-only=True'.format(
+                        response_vpc['VpcId']), '')
+                else:
+                    resource_vpc = self.ec2_resource(region).Vpc(response_vpc['VpcId'])
+                    can_be_deleted = True
+                    for subnet in resource_vpc.subnets.all():
+                        if len(list(subnet.instances.all())):
+                            self.log_warn('{} has associated instance(s) so can not be deleted', response_vpc['VpcId'])
+                            can_be_deleted = False
+                            break
+                    if can_be_deleted:
+                        self.delete_vpc(region, resource_vpc, response_vpc['VpcId'])
+                    elif not self.dry_run:
+                        body = 'Uploader leftover {} (OwnerId={}) in {} is locked'.format(response_vpc['VpcId'],
+                                                                                          response_vpc['OwnerId'],
+                                                                                          region)
+                        send_mail('VPC deletion locked by running VMs', body)
 
     def cleanup_images(self):
         for region in self.all_regions:

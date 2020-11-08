@@ -7,6 +7,7 @@ max_images_per_flavor = 1
 max_image_age_hours = 20
 azure_storage_resourcegroup = 'openqa'
 ec2_max_snapshot_age_days = 1
+ec2_max_volumes_age_days = 5
 
 
 class MockImage:
@@ -15,7 +16,7 @@ class MockImage:
         self.last_modified = last_modified
 
 
-def mock_get_feature_property(feature: str, property: str, namespace: str):
+def mock_get_feature_property(feature: str, property: str, namespace: str = None):
     if property == 'min-image-age-hours':
         return min_image_age_hours
     elif property == 'max-images-per-flavor':
@@ -26,6 +27,8 @@ def mock_get_feature_property(feature: str, property: str, namespace: str):
         return azure_storage_resourcegroup
     elif property == 'ec2-max-snapshot-age-days':
         return ec2_max_snapshot_age_days
+    elif property == 'ec2-max-volumes-age-days':
+        return ec2_max_volumes_age_days
 
 
 class ec2_meta_mock:
