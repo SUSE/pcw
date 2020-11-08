@@ -16,7 +16,7 @@ def cleanup_run():
     if cfg.has('cleanup'):
         for vault_namespace in cfg.getList(['cleanup', 'namespaces'], cfg.getList(['vault', 'namespaces'], [''])):
             try:
-                providers = cfg.getList(['vault.namespace.{}'.format(vault_namespace), 'providers'],
+                providers = cfg.getList(['cleanup.namespace.{}'.format(vault_namespace), 'providers'],
                                         ['ec2', 'azure', 'gce'])
                 logger.debug("[{}] Run cleanup for {}".format(vault_namespace, ','.join(providers)))
                 if 'azure' in providers:
