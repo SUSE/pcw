@@ -67,7 +67,12 @@ class GCE(Provider):
         return [GCE.url_to_name(z) for z in region['zones']]
 
     def delete_instance(self, instance_id, zone):
-        self.compute_client().instances().delete(project=self.__project, zone=zone, instance=instance_id).execute()
+        if self.dry_run:
+            logger.info("[{}] Deletion of instance {} skipped due to dry run mode".format(
+                self.__credentials.namespace,
+                instance_id))
+        else:
+            self.compute_client().instances().delete(project=self.__project, zone=zone, instance=instance_id).execute()
 
     @staticmethod
     def url_to_name(url):
@@ -133,11 +138,16 @@ class GCE(Provider):
 
         for img in [i for i in images if i.name not in keep_images]:
             logger.info("Delete image '{}'".format(img.name))
-            request = self.compute_client().images().delete(project=self.__project, image=img.name)
-            response = request.execute()
-            if 'error' in response:
-                for e in response['error']['errors']:
-                    logger.error(e['message'])
-            if 'warnings' in response:
-                for w in response['warnings']:
-                    logger.warning(w['message'])
+            if self.dry_run:
+                logger.info("[{}] Deletion of image {} skipped due to dry run mode".format(
+                            self.__credentials.namespace,
+                            img.name))
+            else:
+                request = self.compute_client().images().delete(project=self.__project, image=img.name)
+                response = request.execute()
+                if 'error' in response:
+                    for e in response['error']['errors']:
+                        logger.error(e['message'])
+                if 'warnings' in response:
+                    for w in response['warnings']:
+                        logger.warning(w['message'])

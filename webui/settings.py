@@ -206,11 +206,11 @@ class ConfigFile:
     def getList(self, name, default=[]):
         return [i.strip() for i in self.get(name, ','.join(default)).split(',')]
 
-    def getBoolean(self, name, default=False):
+    def getBoolean(self, name, default=False) -> bool:
         value = self.get(name, default)
         if isinstance(value, bool):
             return value
-        return re.match('^(true|on|1|yes)$', value, flags=re.IGNORECASE)
+        return bool(re.match('^(true|on|1|yes)$', value, flags=re.IGNORECASE))
 
     def has(self, name):
         try:

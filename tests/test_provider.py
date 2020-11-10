@@ -1,6 +1,5 @@
 from ocw.lib.provider import Provider, Image
-from pathlib import Path, PurePath
-import webui
+from .conftest import set_pcw_ini
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
@@ -10,17 +9,8 @@ from .generators import max_images_per_flavor
 from .generators import min_image_age_hours
 from .generators import max_image_age_hours
 
-working_dir = Path(PurePath(Path(__file__).absolute()).parent)
-webui.settings.CONFIG_FILE = working_dir / 'pcw_test_provider.ini'
 
-
-def set_pcw_ini(add=''):
-    with open(webui.settings.CONFIG_FILE, "w") as f:
-        f.write(add)
-
-
-def test_cfgGet_with_defaults():
-    set_pcw_ini()
+def test_cfgGet_with_defaults(pcw_file):
     provider = Provider('testns')
     assert provider.cfgGet('cleanup', 'max-images-per-flavor') == 1
     assert type(provider.cfgGet('cleanup', 'max-images-per-flavor')) is int
@@ -30,8 +20,8 @@ def test_cfgGet_with_defaults():
     assert type(provider.cfgGet('cleanup', 'azure-storage-resourcegroup')) is str
 
 
-def test_cfgGet_from_pcw_ini():
-    set_pcw_ini("""
+def test_cfgGet_from_pcw_ini(pcw_file):
+    set_pcw_ini(pcw_file, """
 [cleanup]
 max-images-per-flavor = 666
 azure-storage-resourcegroup = bla-blub
@@ -43,8 +33,8 @@ azure-storage-resourcegroup = bla-blub
     assert type(provider.cfgGet('cleanup', 'azure-storage-resourcegroup')) is str
 
 
-def test_cfgGet_from_pcw_ini_with_namespace():
-    set_pcw_ini("""
+def test_cfgGet_from_pcw_ini_with_namespace(pcw_file):
+    set_pcw_ini(pcw_file, """
 [cleanup]
 max-images-per-flavor = 666
 azure-storage-resourcegroup = bla-blub
@@ -59,9 +49,6 @@ azure-storage-resourcegroup = bla-blub-ns
     assert provider.cfgGet('cleanup', 'azure-storage-resourcegroup') == 'bla-blub-ns'
     assert type(provider.cfgGet('cleanup', 'azure-storage-resourcegroup')) is str
 
-
-def test_cleanup_pcw_ini():
-    Path(webui.settings.CONFIG_FILE).unlink()
 
 
 def test_older_than_min_age_older(monkeypatch):
