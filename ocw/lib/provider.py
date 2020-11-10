@@ -10,6 +10,7 @@ class Provider:
 
     def __init__(self, namespace):
         self.__namespace = namespace
+        self.dry_run = ConfigFile().getBoolean(['default', 'dry_run'], False)
 
     def cfgGet(self, section, field):
         mapping = {

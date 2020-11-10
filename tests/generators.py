@@ -1,7 +1,5 @@
 from faker import Faker
 from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 
 fake = Faker()
 min_image_age_hours = 7

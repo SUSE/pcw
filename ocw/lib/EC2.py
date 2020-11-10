@@ -107,7 +107,11 @@ class EC2(Provider):
                     logger.info("[{}] Deleting snapshot {} in region {} with StartTime={}".format(
                         self.__credentials.namespace, snapshot['SnapshotId'], region, snapshot['StartTime']))
                     try:
-                        self.ec2_client(region).delete_snapshot(SnapshotId=snapshot['SnapshotId'])
+                        if self.dry_run:
+                            logger.info("[{}] Snapshot deletion of {} skipped due to dry run mode".format(
+                                self.__credentials.namespace, snapshot['SnapshotId']))
+                        else:
+                            self.ec2_client(region).delete_snapshot(SnapshotId=snapshot['SnapshotId'])
                     except ClientError as ex:
                         if ex.response['Error']['Code'] == 'InvalidSnapshot.InUse':
                             logger.info(ex.response['Error']['Message'])
@@ -124,7 +128,12 @@ class EC2(Provider):
 
     def delete_instance(self, region, instance_id):
         try:
-            self.ec2_resource(region).instances.filter(InstanceIds=[instance_id]).terminate()
+            if self.dry_run:
+                logger.info(
+                    "[{}] Instance termination {} skipped due to dry run mode".format(self.__credentials.namespace,
+                                                                                      instance_id))
+            else:
+                self.ec2_resource(region).instances.filter(InstanceIds=[instance_id]).terminate()
         except ClientError as ex:
             if ex.response['Error']['Code'] == 'InvalidInstanceID.NotFound':
                 logger.warning("Failed to delete instance with id {}. It does not exists on EC2".format(instance_id))
@@ -205,4 +214,9 @@ class EC2(Provider):
             keep_images = self.get_keeping_image_names(images)
             for img in [i for i in images if i.name not in keep_images]:
                 logger.info("Delete image '{}' (ami:{})".format(img.name, img.id))
-                self.ec2_client(region).deregister_image(ImageId=img.id, DryRun=False)
+                if self.dry_run:
+                    logger.info(
+                        "[{}] Image deletion {} skipped due to dry run mode".format(self.__credentials.namespace,
+                                                                                    img.id))
+                else:
+                    self.ec2_client(region).deregister_image(ImageId=img.id, DryRun=False)
