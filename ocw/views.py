@@ -6,7 +6,7 @@ from .tables import InstanceTable
 from .tables import InstanceFilter
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-
+#Check travis
 
 class FilteredSingleTableView(SingleTableView):
     filter_class = None
