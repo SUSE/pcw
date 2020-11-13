@@ -4,6 +4,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from distutils.version import LooseVersion
+import logging
 
 
 class Provider:
@@ -11,6 +12,7 @@ class Provider:
     def __init__(self, namespace):
         self.__namespace = namespace
         self.dry_run = ConfigFile().getBoolean(['default', 'dry_run'], False)
+        self.logger = logging.getLogger(self.__module__)
 
     def cfgGet(self, section, field):
         mapping = {
@@ -70,6 +72,26 @@ class Provider:
                     keep_images.append(img.name)
 
         return keep_images
+
+    def log_info(self,  message: str, *args: object):
+        if args:
+            message = message.format(*args)
+        self.logger.info("[{}] {}".format(self.__namespace, message))
+
+    def log_warn(self,  message: str, *args: object):
+        if args:
+            message = message.format(*args)
+        self.logger.warning("[{}] {}".format(self.__namespace, message))
+
+    def log_err(self,  message: str, *args: object):
+        if args:
+            message = message.format(*args)
+        self.logger.error("[{}] {}".format(self.__namespace, message))
+
+    def log_dbg(self,  message: str, *args: object):
+        if args:
+            message = message.format(*args)
+        self.logger.debug("[{}] {}".format(self.__namespace, message))
 
 
 class Image:

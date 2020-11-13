@@ -4,9 +4,7 @@ import googleapiclient.discovery
 from google.oauth2 import service_account
 from dateutil.parser import parse
 import re
-import logging
 
-logger = logging.getLogger(__name__)
 
 
 class GCE(Provider):
@@ -68,9 +66,7 @@ class GCE(Provider):
 
     def delete_instance(self, instance_id, zone):
         if self.dry_run:
-            logger.info("[{}] Deletion of instance {} skipped due to dry run mode".format(
-                self.__credentials.namespace,
-                instance_id))
+            self.log_info("Deletion of instance {} skipped due to dry run mode", instance_id)
         else:
             self.compute_client().instances().delete(project=self.__project, zone=zone, instance=instance_id).execute()
 
@@ -126,28 +122,24 @@ class GCE(Provider):
                 if m:
                     images.append(Image(image['name'], flavor=m['key'], build=m['build'],
                                         date=parse(image['creationTimestamp'])))
-                    logger.debug('[{}]Image {} is candidate for deletion with build {}'.format(
-                        self.__credentials.namespace, image['name'], m['build']))
+                    self.log_dbg('Image {} is candidate for deletion with build {}', image['name'], m['build'])
                 else:
-                    logger.error("[{}] Unable to parse image name '{}'".format(
-                        self.__credentials.namespace, image['name']))
+                    self.log_err("Unable to parse image name '{}'", image['name'])
 
             request = self.compute_client().images().list_next(previous_request=request, previous_response=response)
 
         keep_images = self.get_keeping_image_names(images)
 
         for img in [i for i in images if i.name not in keep_images]:
-            logger.info("Delete image '{}'".format(img.name))
+            self.log_info("Delete image '{}'", img.name)
             if self.dry_run:
-                logger.info("[{}] Deletion of image {} skipped due to dry run mode".format(
-                            self.__credentials.namespace,
-                            img.name))
+                self.log_info("Deletion of image {} skipped due to dry run mode", img.name)
             else:
                 request = self.compute_client().images().delete(project=self.__project, image=img.name)
                 response = request.execute()
                 if 'error' in response:
                     for e in response['error']['errors']:
-                        logger.error(e['message'])
+                        self.log_err(e['message'])
                 if 'warnings' in response:
                     for w in response['warnings']:
-                        logger.warning(w['message'])
+                        self.log_warn(w['message'])

@@ -6,9 +6,6 @@ from botocore.exceptions import ClientError
 import re
 from datetime import date, datetime, timedelta
 import time
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 class EC2(Provider):
@@ -49,8 +46,8 @@ class EC2(Provider):
                 self.get_all_regions()
                 return True
             except Exception:
-                logger.info("check_credentials (attemp:%d) with key %s expiring at %s ",
-                            i, self.__key, self.__credentials.getAuthExpire())
+                self.log_info("check_credentials (attemp:{}) with key {} expiring at {} ", i, self.__key,
+                              self.__credentials.getAuthExpire())
                 time.sleep(1)
         self.get_all_regions()
 
@@ -104,17 +101,17 @@ class EC2(Provider):
             response = self.ec2_client(region).describe_snapshots(OwnerIds=['self'])
             for snapshot in response['Snapshots']:
                 if EC2.needs_to_delete_snapshot(snapshot, cleanup_ec2_max_snapshot_age_days):
-                    logger.info("[{}] Deleting snapshot {} in region {} with StartTime={}".format(
-                        self.__credentials.namespace, snapshot['SnapshotId'], region, snapshot['StartTime']))
+                    self.log_info("Deleting snapshot {} in region {} with StartTime={}", snapshot['SnapshotId'],
+                                  region, snapshot['StartTime'])
                     try:
                         if self.dry_run:
-                            logger.info("[{}] Snapshot deletion of {} skipped due to dry run mode".format(
-                                self.__credentials.namespace, snapshot['SnapshotId']))
+                            self.log_info("Snapshot deletion of {} skipped due to dry run mode",
+                                          snapshot['SnapshotId'])
                         else:
                             self.ec2_client(region).delete_snapshot(SnapshotId=snapshot['SnapshotId'])
                     except ClientError as ex:
                         if ex.response['Error']['Code'] == 'InvalidSnapshot.InUse':
-                            logger.info(ex.response['Error']['Message'])
+                            self.log_info(ex.response['Error']['Message'])
                         else:
                             raise ex
 
@@ -129,14 +126,12 @@ class EC2(Provider):
     def delete_instance(self, region, instance_id):
         try:
             if self.dry_run:
-                logger.info(
-                    "[{}] Instance termination {} skipped due to dry run mode".format(self.__credentials.namespace,
-                                                                                      instance_id))
+                self.log_info("Instance termination {} skipped due to dry run mode", instance_id)
             else:
                 self.ec2_resource(region).instances.filter(InstanceIds=[instance_id]).terminate()
         except ClientError as ex:
             if ex.response['Error']['Code'] == 'InvalidInstanceID.NotFound':
-                logger.warning("Failed to delete instance with id {}. It does not exists on EC2".format(instance_id))
+                self.log_warn("Failed to delete instance with id {}. It does not exists on EC2", instance_id)
             else:
                 raise ex
 
@@ -202,21 +197,16 @@ class EC2(Provider):
                 # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.describe_images
                 m = self.parse_image_name(img['Name'])
                 if m:
-                    logger.debug(
-                        "[{}]Image {} is candidate for deletion with build {}".format(self.__credentials.namespace,
-                                                                                      img['Name'], m['build']))
+                    self.log_dbg("Image {} is candidate for deletion with build {}", img['Name'], m['build'])
                     images.append(
                         Image(img['Name'], flavor=m['key'], build=m['build'], date=parse(img['CreationDate']),
                               img_id=img['ImageId']))
                 else:
-                    logger.error(
-                        "[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, img['Name']))
+                    self.log_err(" Unable to parse image name '{}'", img['Name'])
             keep_images = self.get_keeping_image_names(images)
             for img in [i for i in images if i.name not in keep_images]:
-                logger.info("Delete image '{}' (ami:{})".format(img.name, img.id))
+                self.log_dbg("Delete image '{}' (ami:{})".format(img.name, img.id))
                 if self.dry_run:
-                    logger.info(
-                        "[{}] Image deletion {} skipped due to dry run mode".format(self.__credentials.namespace,
-                                                                                    img.id))
+                    self.log_info("Image deletion {} skipped due to dry run mode", img.id)
                 else:
                     self.ec2_client(region).deregister_image(ImageId=img.id, DryRun=False)

@@ -8,10 +8,8 @@ from azure.storage.blob import BlobServiceClient
 from msrest.exceptions import AuthenticationError
 import re
 import time
-import logging
 from typing import Dict
 
-logger = logging.getLogger(__name__)
 
 
 class Azure(Provider):
@@ -53,9 +51,8 @@ class Azure(Provider):
                 self.list_resource_groups()
                 return True
             except AuthenticationError:
-                logger.info("Check credentials failed (attemp:%d) - client_id %s should expire at %s",
-                            i, self.__credentials.getData('client_id'),
-                            self.__credentials.getAuthExpire())
+                self.log_info("Check credentials failed (attemp:{}) - client_id {} should expire at {}", i,
+                              self.__credentials.getData('client_id'), self.__credentials.getAuthExpire())
                 time.sleep(1)
         raise AuthenticationError("Invalid Azure credentials")
 
@@ -64,8 +61,8 @@ class Azure(Provider):
         self.__sp_credentials = None
         self.__resource_mgmt_client = None
         self.__blob_service_client = None
-        logger.info("Renew credentials - current client_id %s should expire at %s",
-                    self.__credentials.getData('client_id'), self.__credentials.getAuthExpire())
+        self.log_info("Renew credentials - current client_id {} should expire at {}",
+                      self.__credentials.getData('client_id'), self.__credentials.getAuthExpire())
         self.__credentials.renew()
 
     def bs_client(self):
@@ -114,9 +111,7 @@ class Azure(Provider):
 
     def delete_resource(self, resource_id):
         if self.dry_run:
-            logger.info(
-                "[{}] Deletion of resource group {} skipped due to dry run mode".format(self.__credentials.namespace,
-                                                                                        resource_id))
+            self.log_info("Deletion of resource group {} skipped due to dry run mode", resource_id)
         else:
             self.resource_mgmt_client().resource_groups.delete(resource_id)
 
@@ -139,7 +134,7 @@ class Azure(Provider):
             if m:
                 images.append(Image(item.name, flavor=m['key'], build=m['build'], date=item.last_modified))
             else:
-                logger.error("[{}] Unable to parse image name '{}'".format(self.__credentials.namespace, item.name))
+                self.log_err("Unable to parse image name '{}'", item.name)
 
         return super().get_keeping_image_names(images)
 
@@ -152,12 +147,12 @@ class Azure(Provider):
         self.cleanup_disks_from_rg(keep_images)
         self.cleanup_images_from_rg(keep_images)
         for i in keep_images:
-            logger.info("Keep image {} ".format(i))
+            self.log_info("Keep image {} ", i)
 
     def cleanup_bootdiagnostics(self):
         containers = self.bs_client().list_containers()
         for c in containers:
-            logger.debug('Found container {}'.format(c.name))
+            self.log_dbg('Found container {}', c.name)
             if (re.match('^bootdiagnostics-', c.name)):
                 self.cleanup_bootdiagnostics_container(c)
 
@@ -168,12 +163,9 @@ class Azure(Provider):
             if (latest_modification > blob.last_modified):
                 latest_modification = blob.last_modified
         if (self.older_than_min_age(latest_modification)):
-            logger.info("Mark container for deletion {}".format(container.name))
+            self.log_info("Mark container for deletion {}", container.name)
             if self.dry_run:
-                logger.info(
-                    "[{}] Deletion of boot diagnostic container {} skipped due to dry run mode".format(
-                        self.__credentials.namespace,
-                        container.name))
+                self.log_info("Deletion of boot diagnostic container {} skipped due to dry run mode", container.name)
             else:
                 self.bs_client().delete_container(container.name)
 
@@ -219,14 +211,12 @@ class Azure(Provider):
         for img in container_client.list_blobs():
             m = self.parse_image_name(img.name)
             if m:
-                logger.debug('[{}] Blob {} is candidate for deletion with build {} '.format(
-                    self.__credentials.namespace, img.name, m['build']))
+                self.log_dbg('Blob {} is candidate for deletion with build {} ', img.name, m['build'])
 
                 if img.name not in keep_images:
-                    logger.info("Delete blob '{}'".format(img.name))
+                    self.log_info("Delete blob '{}'", img.name)
                     if self.dry_run:
-                        logger.info("[{}] Deletion of blob image {} skipped due to dry run mode".format(
-                            self.__credentials.namespace, img.name))
+                        self.log_info("Deletion of blob image {} skipped due to dry run mode", img.name)
                     else:
                         container_client.delete_blob(img.name, delete_snapshots="include")
 
@@ -234,14 +224,11 @@ class Azure(Provider):
         for item in self.list_images_by_resource_group(self.__resource_group):
             m = self.parse_image_name(item.name)
             if m:
-                logger.debug('[{}] Image {} is candidate for deletion with build {} '.format(
-                    self.__credentials.namespace, item.name, m['build']))
+                self.log_dbg('Image {} is candidate for deletion with build {} ', item.name, m['build'])
                 if item.name not in keep_images:
-                    logger.info("Delete image '{}'".format(item.name))
+                    self.log_info("Delete image '{}'", item.name)
                     if self.dry_run:
-                        logger.info("[{}] Deletion of image {} skipped due to dry run mode".format(
-                            self.__credentials.namespace,
-                            item.name))
+                        self.log_info("Deletion of image {} skipped due to dry run mode", item.name)
                     else:
                         self.compute_mgmt_client().images.delete(self.__resource_group, item.name)
 
@@ -249,17 +236,14 @@ class Azure(Provider):
         for item in self.list_disks_by_resource_group(self.__resource_group):
             m = self.parse_image_name(item.name)
             if m:
-                logger.debug('[{}] Disk {} is candidate for deletion with build {} '.format(
-                    self.__credentials.namespace, item.name, m['build']))
+                self.log_dbg('Disk {} is candidate for deletion with build {} ', item.name, m['build'])
 
                 if item.name not in keep_images:
                     if self.compute_mgmt_client().disks.get(self.__resource_group, item.name).managed_by:
-                        logger.warning("Disk is in use - unable delete {}".format(item.name))
+                        self.log_warn("Disk is in use - unable delete {}", item.name)
                     else:
-                        logger.info("Delete disk '{}'".format(item.name))
+                        self.log_info("Delete disk '{}'", item.name)
                         if self.dry_run:
-                            logger.info("[{}] Deletion of image {} skipped due to dry run mode".format(
-                                self.__credentials.namespace,
-                                item.name))
+                            self.log_info("Deletion of image {} skipped due to dry run mode", item.name)
                         else:
                             self.compute_mgmt_client().disks.delete(self.__resource_group, item.name)
