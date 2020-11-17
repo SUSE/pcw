@@ -9,29 +9,27 @@ import logging
 
 class Provider:
 
-    def __init__(self, namespace):
+    def __init__(self, namespace: str):
         self.__namespace = namespace
-        self.dry_run = ConfigFile().getBoolean(['default', 'dry_run'], False)
+        self.dry_run = ConfigFile().getBoolean('default/dry_run', False)
         self.logger = logging.getLogger(self.__module__)
 
-    def cfgGet(self, section, field):
-        mapping = {
-            'cleanup/max-images-per-flavor': {'default': 1},
-            'cleanup/max-image-age-hours': {'default': 24 * 31},
-            'cleanup/min-image-age-hours': {'default': 24},
-            'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload'},
-            'cleanup/azure-storage-account-name': {'default': 'openqa'},
-            'cleanup/ec2-max-snapshot-age-days': {'default': -1},
+    def cfgGet(self, section: str, field: str):
+        default_values = {
+            'cleanup/max-images-per-flavor': 1,
+            'cleanup/max-image-age-hours': 24 * 31,
+            'cleanup/min-image-age-hours': 24,
+            'cleanup/azure-storage-resourcegroup': 'openqa-upload',
+            'cleanup/azure-storage-account-name': 'openqa',
+            'cleanup/ec2-max-snapshot-age-days': -1,
         }
         key = '/'.join([section, field])
-        if key not in mapping:
-            raise LookupError("Missing {} in mapping list".format(key))
-        e = mapping[key]
+        if key not in default_values:
+            raise LookupError("Missing {} in default_values list".format(key))
+        default = default_values[key]
         namespace_section = '{}.namespace.{}'.format(section, self.__namespace)
-        cfg = ConfigFile()
-        return type(e['default'])(cfg.get(
-            [namespace_section, field],
-            cfg.get([section, field], e['default'])))
+        return type(default)(ConfigFile().get('{}/{}'.format(namespace_section, field),
+                                              ConfigFile().get('{}/{}'.format(section, field), default)))
 
     def older_than_min_age(self, age):
         return datetime.now(timezone.utc) > age + timedelta(hours=self.cfgGet('cleanup', 'min-image-age-hours'))

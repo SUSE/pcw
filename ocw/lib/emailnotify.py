@@ -33,28 +33,27 @@ def draw_instance_table(objects):
 
 
 def send_leftover_notification():
-    cfg = ConfigFile()
-    if not cfg.has('notify'):
+    if not ConfigFile().has('notify'):
         return
     o = Instance.objects
     o = o.filter(active=True,
                  csp_info__icontains='openqa_created_by',
-                 age__gt=timedelta(hours=int(cfg.get(['notify', 'age-hours'], 12))))
+                 age__gt=timedelta(hours=int(ConfigFile().get('notify/age-hours', 12))))
 
     if o.filter(notified=False).count() == 0:
         return
 
-    subject = cfg.get(['notify', 'subject'], 'CSP left overs')
+    subject = ConfigFile().get('notify/subject', 'CSP left overs')
     body_prefix = "Message from {url}\n\n".format(url=build_absolute_uri())
     send_mail(subject, body_prefix + draw_instance_table(o))
 
     # Handle namespaces
     namespaces = list(dict.fromkeys([i.vault_namespace for i in o]))
     for namespace in namespaces:
-        cfg_path = ['notify.namespace.{}'.format(namespace), 'to']
-        if not cfg.has(cfg_path):
+        config_path = 'notify.namespace.{}/to'.format(namespace)
+        if not ConfigFile().has(config_path):
             continue
-        receiver_email = cfg.get(cfg_path)
+        receiver_email = ConfigFile().get(config_path)
         namespace_objects = o.filter(vault_namespace=namespace)
         if namespace_objects.filter(notified=False).count() == 0:
             continue
@@ -65,26 +64,24 @@ def send_leftover_notification():
 
 
 def send_cluster_notification(namespace, clusters):
-    cfg = ConfigFile()
-    cfg_path = ['notify.cluster.namespace.{}'.format(namespace), 'to']
-    if not cfg.has('notify') or not cfg.has(cfg_path):
+    config_path = 'notify.cluster.namespace.{}/to'.format(namespace)
+    if not ConfigFile().has('notify') or not ConfigFile().has(config_path):
         return
     if len(clusters):
         clusters_str = ' '.join([str(cluster) for cluster in clusters])
         logger.debug("Full clusters list - %s", clusters_str)
-        send_mail("EC2 clusters found", clusters_str, receiver_email=cfg.get(cfg_path))
+        send_mail("EC2 clusters found", clusters_str, receiver_email=ConfigFile().get(config_path))
 
 
 def send_mail(subject, message, receiver_email=None):
-    cfg = ConfigFile()
-    if not cfg.has('notify'):
+    if not ConfigFile().has('notify'):
         return
 
-    smtp_server = cfg.get(['notify', 'smtp'])
-    port = cfg.get(['notify', 'smtp-port'], 25)
-    sender_email = cfg.get(['notify', 'from'])
+    smtp_server = ConfigFile().get('notify/smtp')
+    port = ConfigFile().get('notify/smtp-port', 25)
+    sender_email = ConfigFile().get('notify/from')
     if receiver_email is None:
-        receiver_email = cfg.get(['notify', 'to'])
+        receiver_email = ConfigFile().get('notify/to')
     email = '''\
 Subject: [Openqa-Cloud-Watch] {subject}
 From: {_from}

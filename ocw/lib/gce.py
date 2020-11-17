@@ -6,7 +6,6 @@ from dateutil.parser import parse
 import re
 
 
-
 class GCE(Provider):
     __instances = dict()
 

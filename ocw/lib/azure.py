@@ -11,7 +11,6 @@ import time
 from typing import Dict
 
 
-
 class Azure(Provider):
     __instances: Dict[str, "Azure"] = dict()
 

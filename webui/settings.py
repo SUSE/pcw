@@ -1,8 +1,8 @@
 import configparser
 import re
 import os
-import hashlib
 import logging.config
+
 
 """
 Django settings for webui project.
@@ -165,60 +165,59 @@ logging.config.dictConfig({
 
 class ConfigFile:
     __instance = None
-    __file_hash = None
-    filename = None
-    config = None
 
-    def __new__(cls, filename=None):
+    def __new__(cls, filename: str = None):
         if ConfigFile.__instance is None:
             ConfigFile.__instance = object.__new__(cls)
-        ConfigFile.__instance.filename = filename or CONFIG_FILE
+            ConfigFile.__instance.filename = filename or CONFIG_FILE
+            ConfigFile.__instance.config = configparser.ConfigParser()
+            ConfigFile.__instance.config.read(ConfigFile.__instance.filename)
         return ConfigFile.__instance
 
-    def get_hash(self):
-        with open(self.filename, 'r') as f:
-            h = hashlib.sha256()
-            h.update(f.read().encode('utf-8'))
-            return h.hexdigest()
-        return None
-
-    def check_file(self):
-        file_hash = self.get_hash()
-        if self.__file_hash is None or self.__file_hash != file_hash:
-            self.__file_hash = file_hash
-            self.config = configparser.ConfigParser()
-            self.config.read(self.filename)
-
-    def get(self, name, default=None):
-        self.check_file()
-        d = self.config
-        if not isinstance(name, list):
-            name = [name]
-        for i in name:
-            if i in d:
-                d = d[i]
+    def get(self, config_path: str, default: str = None) -> str:
+        config_pointer = self.config
+        config_array = config_path.split('/')
+        for i in config_array:
+            if i in config_pointer:
+                config_pointer = config_pointer[i]
             else:
                 if default is None:
-                    raise LookupError('Missing attribute {} in file {}'.format('.'.join(name), self.filename))
+                    raise LookupError('Missing attribute {} in file {}'.format(config_path, self.filename))
                 return default
-        return d
+        return config_pointer
 
-    def getList(self, name, default=[]):
-        return [i.strip() for i in self.get(name, ','.join(default)).split(',')]
+    def getList(self, config_path: str, default: list = []) -> list:
+        return [i.strip() for i in self.get(config_path, ','.join(default)).split(',')]
 
-    def getBoolean(self, name, default=False) -> bool:
-        value = self.get(name, default)
+    def getBoolean(self, config_path: str, default=False) -> bool:
+        value = self.get(config_path, default)
         if isinstance(value, bool):
             return value
-        return bool(re.match('^(true|on|1|yes)$', value, flags=re.IGNORECASE))
+        return bool(re.match('^(true|on|1|yes)$', str(value), flags=re.IGNORECASE))
 
-    def has(self, name):
+    def has(self, config_path: str) -> bool:
         try:
-            self.get(name)
+            self.get(config_path)
             return True
         except Exception:
             pass
         return False
+
+
+class PCWConfig():
+
+    @staticmethod
+    def get_namespaces_for(feature: str, fallback_to_default=False):
+        config_path = '{}/namespaces'.format(feature)
+        if fallback_to_default:
+            return ConfigFile().getList(config_path, ConfigFile().getList('default/namespaces'))
+        else:
+            return ConfigFile().getList(config_path)
+
+    @staticmethod
+    def get_providers_for(feature: str, namespace: str):
+        return ConfigFile().getList('{}.namespace.{}/providers'.format(feature, namespace),
+                                    ['ec2', 'azure', 'gce'])
 
 
 def build_absolute_uri(path=''):
