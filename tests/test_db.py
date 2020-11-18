@@ -1,4 +1,3 @@
-import pytest
 import json
 from ocw.lib.db import ec2_to_local_instance
 from ocw.lib.db import ec2_to_json

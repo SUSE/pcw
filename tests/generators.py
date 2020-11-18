@@ -15,16 +15,16 @@ class MockImage:
         self.last_modified = last_modified
 
 
-def mock_cfgGet(self, section, field):
-    if field == 'min-image-age-hours':
+def mock_get_feature_property(feature: str, property: str, namespace: str):
+    if property == 'min-image-age-hours':
         return min_image_age_hours
-    elif field == 'max-images-per-flavor':
+    elif property == 'max-images-per-flavor':
         return max_images_per_flavor
-    elif field == 'max-image-age-hours':
+    elif property == 'max-image-age-hours':
         return max_image_age_hours
-    elif field == 'azure-storage-resourcegroup':
+    elif property == 'azure-storage-resourcegroup':
         return azure_storage_resourcegroup
-    elif field == 'ec2-max-snapshot-age-days':
+    elif property == 'ec2-max-snapshot-age-days':
         return ec2_max_snapshot_age_days
 
 

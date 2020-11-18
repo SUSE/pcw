@@ -1,6 +1,7 @@
 import configparser
 import re
 import os
+import hashlib
 import logging.config
 
 
@@ -165,16 +166,31 @@ logging.config.dictConfig({
 
 class ConfigFile:
     __instance = None
+    __file_hash = None
+    filename = None
+    config = None
 
-    def __new__(cls, filename: str = None):
+    def __new__(cls, filename=None):
         if ConfigFile.__instance is None:
             ConfigFile.__instance = object.__new__(cls)
-            ConfigFile.__instance.filename = filename or CONFIG_FILE
-            ConfigFile.__instance.config = configparser.ConfigParser()
-            ConfigFile.__instance.config.read(ConfigFile.__instance.filename)
+        ConfigFile.__instance.filename = filename or CONFIG_FILE
         return ConfigFile.__instance
 
-    def get(self, config_path: str, default: str = None) -> str:
+    def get_hash(self):
+        with open(self.filename, 'r') as f:
+            h = hashlib.sha256()
+            h.update(f.read().encode('utf-8'))
+            return h.hexdigest()
+
+    def check_file(self):
+        file_hash = self.get_hash()
+        if self.__file_hash is None or self.__file_hash != file_hash:
+            self.__file_hash = file_hash
+            self.config = configparser.ConfigParser()
+            self.config.read(self.filename)
+
+    def get(self, config_path: str, default=None):
+        self.check_file()
         config_pointer = self.config
         config_array = config_path.split('/')
         for i in config_array:
@@ -189,35 +205,64 @@ class ConfigFile:
     def getList(self, config_path: str, default: list = []) -> list:
         return [i.strip() for i in self.get(config_path, ','.join(default)).split(',')]
 
-    def getBoolean(self, config_path: str, default=False) -> bool:
-        value = self.get(config_path, default)
-        if isinstance(value, bool):
-            return value
-        return bool(re.match('^(true|on|1|yes)$', str(value), flags=re.IGNORECASE))
-
-    def has(self, config_path: str) -> bool:
-        try:
-            self.get(config_path)
-            return True
-        except Exception:
-            pass
-        return False
-
 
 class PCWConfig():
 
     @staticmethod
-    def get_namespaces_for(feature: str, fallback_to_default=False):
-        config_path = '{}/namespaces'.format(feature)
-        if fallback_to_default:
-            return ConfigFile().getList(config_path, ConfigFile().getList('default/namespaces'))
-        else:
-            return ConfigFile().getList(config_path)
+    def get_feature_property(feature: str, property: str, namespace: str = None):
+        default_values = {
+            'cleanup/max-images-per-flavor': {'default': 1, 'return_type': int},
+            'cleanup/max-image-age-hours': {'default': 24 * 31, 'return_type': int},
+            'cleanup/min-image-age-hours': {'default': 24, 'return_type': int},
+            'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload', 'return_type': str},
+            'cleanup/azure-storage-account-name': {'default': 'openqa', 'return_type': str},
+            'cleanup/ec2-max-snapshot-age-days': {'default': -1, 'return_type': int},
+            'notify/to': {'default': None, 'return_type': str},
+            'notify/age-hours': {'default': 12, 'return_type': int},
+            'cluster.notify/to': {'default': None, 'return_type': str},
+            'notify/smtp': {'default': None, 'return_type': str},
+            'notify/smtp-port': {'default': 25, 'return_type': int},
+            'notify/from': {'default': 'pcw@publiccloud.qa.suse.de', 'return_type': str},
+            'vault/url': {'default': None, 'return_type': str},
+            'vault/user': {'default': None, 'return_type': str},
+            'vault/password': {'default': None, 'return_type': str},
+            'vault/cert_dir': {'default': '/etc/ssl/certs', 'return_type': str}
+        }
+        key = '/'.join([feature, property])
+        if key not in default_values:
+            raise LookupError("Missing {} in default_values list".format(key))
+        if namespace:
+            setting = '{}.namespace.{}/{}'.format(feature, namespace, property)
+            if PCWConfig.has(setting):
+                return default_values[key]['return_type'](ConfigFile().get(setting))
+        return default_values[key]['return_type'](
+            ConfigFile().get(key, default_values[key]['default']))
+
+    @staticmethod
+    def get_namespaces_for(feature: str) -> list:
+        if PCWConfig.has(feature):
+            return ConfigFile().getList('{}/namespaces'.format(feature), ConfigFile().getList('default/namespaces'))
+        return list()
 
     @staticmethod
     def get_providers_for(feature: str, namespace: str):
         return ConfigFile().getList('{}.namespace.{}/providers'.format(feature, namespace),
                                     ['ec2', 'azure', 'gce'])
+
+    @staticmethod
+    def has(setting: str) -> bool:
+        try:
+            ConfigFile().get(setting)
+            return True
+        except LookupError:
+            return False
+
+    @staticmethod
+    def getBoolean(config_path: str, default=False) -> bool:
+        value = ConfigFile().get(config_path, default)
+        if isinstance(value, bool):
+            return value
+        return bool(re.match("^(true|on|1|yes)$", str(value), flags=re.IGNORECASE))
 
 
 def build_absolute_uri(path=''):
@@ -231,8 +276,7 @@ def build_absolute_uri(path=''):
     --------
          url = build_absolute_uri(reverse(views.delete, args=[i.id]))
     '''
-    cfg = ConfigFile()
-    base_url = cfg.get(['default', 'base-url'], ALLOWED_HOSTS[0])
+    base_url = ConfigFile().get('default/base-url', ALLOWED_HOSTS[0])
 
     if not re.match('^http', base_url):
         base_url = 'https://{}'.format(base_url)

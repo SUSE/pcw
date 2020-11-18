@@ -1,7 +1,6 @@
 from ocw.lib.EC2 import EC2
-from ocw.lib.provider import Provider
-from webui.settings import ConfigFile
-from tests.generators import mock_cfgGet
+from webui.settings import PCWConfig
+from tests.generators import mock_get_feature_property
 from tests.generators import min_image_age_hours, max_image_age_hours
 from datetime import datetime, timezone, timedelta
 from botocore.exceptions import ClientError
@@ -10,7 +9,7 @@ from botocore.exceptions import ClientError
 def test_parse_image_name(monkeypatch):
     monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
     monkeypatch.setattr(EC2, 'get_all_regions', lambda self:['region1','region2'])
-    monkeypatch.setattr(ConfigFile, 'get', lambda *args, **kwargs: "FOOF")
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda *args, **kwargs: "FOOF")
     ec2 = EC2('fake')
 
     assert ec2.parse_image_name('openqa-SLES12-SP5-EC2.x86_64-0.9.1-BYOS-Build1.55.raw.xz') == {
@@ -70,7 +69,7 @@ def test_cleanup_images(monkeypatch):
     mocked_ec2_client.describe_images = lambda *args, **kwargs: response
     mocked_ec2_client.deregister_image = lambda *args, **kwargs: deleted_images.append(kwargs['ImageId'])
 
-    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
     monkeypatch.setattr(EC2, 'get_all_regions', lambda self:['region1'])
     monkeypatch.setattr(EC2, 'ec2_client', lambda self, region: mocked_ec2_client)
@@ -123,7 +122,7 @@ def test_cleanup_snapshots(monkeypatch):
     response = {
         'Snapshots': [{'SnapshotId': snapshotid_to_delete,'StartTime': datetime.now()}]
         }
-    monkeypatch.setattr(Provider, 'cfgGet', lambda self, section, field: -1)
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda self, section, field: -1)
     monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
     monkeypatch.setattr(EC2, 'needs_to_delete_snapshot', lambda *args, **kwargs: True)
     monkeypatch.setattr(EC2, 'ec2_client', lambda self, region: mocked_ec2_client)
@@ -138,7 +137,7 @@ def test_cleanup_snapshots(monkeypatch):
     # deletion did not happened because cfgGet returned -1 ( setting not defined in pcw.ini )
     assert snapshotid_to_delete in ec2_snapshots
 
-    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     ec2.cleanup_snapshots()
 
     # snapshot was deleted because setting **is** defined so whole cleanup start actually working

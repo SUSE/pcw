@@ -1,4 +1,4 @@
-from webui.settings import ConfigFile, PCWConfig
+from webui.settings import PCWConfig
 from ocw.lib.azure import Azure
 from ocw.lib.EC2 import EC2
 from ocw.lib.gce import GCE
@@ -12,36 +12,33 @@ logger = logging.getLogger(__name__)
 
 
 def cleanup_run():
-    if ConfigFile().has('cleanup'):
-        for namespace in PCWConfig.get_namespaces_for('cleanup', fallback_to_default=True):
-            try:
-                providers = PCWConfig.get_providers_for('cleanup', namespace)
-                logger.debug("[{}] Run cleanup for {}".format(namespace, ','.join(providers)))
-                if 'azure' in providers:
-                    Azure(namespace).cleanup_all()
+    for namespace in PCWConfig.get_namespaces_for('cleanup'):
+        try:
+            providers = PCWConfig.get_providers_for('cleanup', namespace)
+            logger.debug("[{}] Run cleanup for {}".format(namespace, ','.join(providers)))
+            if 'azure' in providers:
+                Azure(namespace).cleanup_all()
 
-                if 'ec2' in providers:
-                    EC2(namespace).cleanup_all()
+            if 'ec2' in providers:
+                EC2(namespace).cleanup_all()
 
-                if 'gce' in providers:
-                    GCE(namespace).cleanup_all()
+            if 'gce' in providers:
+                GCE(namespace).cleanup_all()
 
-            except Exception as e:
-                logger.exception("[{}] Cleanup failed!".format(namespace))
-                send_mail('{} on Cleanup in [{}]'.format(type(e).__name__, namespace), traceback.format_exc())
+        except Exception as e:
+            logger.exception("[{}] Cleanup failed!".format(namespace))
+            send_mail('{} on Cleanup in [{}]'.format(type(e).__name__, namespace), traceback.format_exc())
 
 
 def list_clusters():
-    if ConfigFile().has('clusters'):
-        for vault_namespace in PCWConfig.get_namespaces_for('clusters'):
-            try:
-                clusters = EC2(vault_namespace).all_clusters()
-                logger.info("%d clusters found", len(clusters))
-                send_cluster_notification(vault_namespace, clusters)
-            except Exception as e:
-                logger.exception("[{}] List clusters failed!".format(vault_namespace))
-                send_mail('{} on List clusters in [{}]'.format(
-                    type(e).__name__, vault_namespace), traceback.format_exc())
+    for namespace in PCWConfig.get_namespaces_for('clusters'):
+        try:
+            clusters = EC2(namespace).all_clusters()
+            logger.info("%d clusters found", len(clusters))
+            send_cluster_notification(namespace, clusters)
+        except Exception as e:
+            logger.exception("[{}] List clusters failed!".format(namespace))
+            send_mail('{} on List clusters in [{}]'.format(type(e).__name__, namespace), traceback.format_exc())
 
 
 def init_cron():

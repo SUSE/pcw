@@ -1,70 +1,29 @@
 from ocw.lib.provider import Provider, Image
-from .conftest import set_pcw_ini
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
 from tests import generators
-from .generators import mock_cfgGet
+from webui.settings import PCWConfig
+from .generators import mock_get_feature_property
 from .generators import max_images_per_flavor
 from .generators import min_image_age_hours
 from .generators import max_image_age_hours
 
 
-def test_cfgGet_with_defaults(pcw_file):
-    provider = Provider('testns')
-    assert provider.cfgGet('cleanup', 'max-images-per-flavor') == 1
-    assert type(provider.cfgGet('cleanup', 'max-images-per-flavor')) is int
-    assert type(provider.cfgGet('cleanup', 'min-image-age-hours')) is int
-    assert type(provider.cfgGet('cleanup', 'max-image-age-hours')) is int
-    assert provider.cfgGet('cleanup', 'azure-storage-resourcegroup') == 'openqa-upload'
-    assert type(provider.cfgGet('cleanup', 'azure-storage-resourcegroup')) is str
-
-
-def test_cfgGet_from_pcw_ini(pcw_file):
-    set_pcw_ini(pcw_file, """
-[cleanup]
-max-images-per-flavor = 666
-azure-storage-resourcegroup = bla-blub
-""")
-    provider = Provider('testns')
-    assert provider.cfgGet('cleanup', 'max-images-per-flavor') == 666
-    assert type(provider.cfgGet('cleanup', 'max-images-per-flavor')) is int
-    assert provider.cfgGet('cleanup', 'azure-storage-resourcegroup') == 'bla-blub'
-    assert type(provider.cfgGet('cleanup', 'azure-storage-resourcegroup')) is str
-
-
-def test_cfgGet_from_pcw_ini_with_namespace(pcw_file):
-    set_pcw_ini(pcw_file, """
-[cleanup]
-max-images-per-flavor = 666
-azure-storage-resourcegroup = bla-blub
-
-[cleanup.namespace.testns]
-max-images-per-flavor = 42
-azure-storage-resourcegroup = bla-blub-ns
-""")
-    provider = Provider('testns')
-    assert provider.cfgGet('cleanup', 'max-images-per-flavor') == 42
-    assert type(provider.cfgGet('cleanup', 'max-images-per-flavor')) is int
-    assert provider.cfgGet('cleanup', 'azure-storage-resourcegroup') == 'bla-blub-ns'
-    assert type(provider.cfgGet('cleanup', 'azure-storage-resourcegroup')) is str
-
-
-
 def test_older_than_min_age_older(monkeypatch):
-    monkeypatch.setattr(Provider, 'cfgGet', lambda *args, **kwargs: 24)
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda *args, **kwargs: 24)
     provider = Provider('testolderminage')
     assert provider.older_than_min_age(datetime.now(timezone.utc) - timedelta(hours=25)) == True
 
 
 def test_older_than_min_age_younger(monkeypatch):
-    monkeypatch.setattr(Provider, 'cfgGet', lambda *args, **kwargs: 24)
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda *args, **kwargs: 24)
     provider = Provider('testolderminage')
     assert provider.older_than_min_age(datetime.now(timezone.utc) - timedelta(hours=23)) == False
 
 
 def test_needs_to_delete_image(monkeypatch):
-    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     provider = Provider('testneedstodelete')
     too_many_images = max_images_per_flavor+1
     not_enough_images = max_images_per_flavor-3
@@ -75,7 +34,7 @@ def test_needs_to_delete_image(monkeypatch):
 
 
 def test_get_keeping_image_names(monkeypatch):
-    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     provider = Provider('testneedstodelete')
 
     newer_then_min_age = datetime.now(timezone.utc)

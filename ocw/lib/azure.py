@@ -1,5 +1,6 @@
 from .provider import Provider, Image
 from ..lib.vault import AzureCredential
+from webui.settings import PCWConfig
 from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
@@ -16,7 +17,7 @@ class Azure(Provider):
 
     def __init__(self, namespace: str):
         super().__init__(namespace)
-        self.__resource_group = self.cfgGet('cleanup', 'azure-storage-resourcegroup')
+        self.__resource_group = PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', namespace)
         self.check_credentials()
 
     def __new__(cls, vault_namespace):
@@ -66,7 +67,7 @@ class Azure(Provider):
 
     def bs_client(self):
         if(self.__blob_service_client is None):
-            storage_account = self.cfgGet('cleanup', 'azure-storage-account-name')
+            storage_account = PCWConfig.get_feature_property('cleanup', 'azure-storage-account-name', self._namespace)
             storage_key = self.get_storage_key(storage_account)
             connection_string = "{};AccountName={};AccountKey={};EndpointSuffix=core.windows.net".format(
                 "DefaultEndpointsProtocol=https", storage_account, storage_key)

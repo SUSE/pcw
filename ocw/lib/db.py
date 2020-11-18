@@ -195,13 +195,13 @@ def update_run():
     error_occured = False
     for namespace in PCWConfig.get_namespaces_for('vault'):
         for provider in PCWConfig.get_providers_for('vault', namespace):
-            logger.info("Check provider %s in namespace %s", provider, namespace)
+            logger.info("[%s] Check provider %s", namespace, provider)
             email_text = set()
             for n in range(max_retries):
                 try:
                     _update_provider(provider, namespace)
                 except Exception:
-                    logger.exception("Update failed for {} in namespace {}".format(provider, namespace))
+                    logger.exception("[{}] Update failed for {}".format(namespace, provider))
                     email_text.add(traceback.format_exc())
                     time.sleep(5)
                 else:
@@ -209,7 +209,7 @@ def update_run():
             else:
                 error_occured = True
                 send_mail('Error on update {} in namespace {}'.format(provider, namespace),
-                          "\n{}\n".format('#' * 79).join(email_text))
+                          "\n{}\n".format('#'*79).join(email_text))
 
     auto_delete_instances()
     send_leftover_notification()
