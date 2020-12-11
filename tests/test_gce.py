@@ -1,14 +1,13 @@
 from ocw.lib.gce import GCE
-from ocw.lib.provider import Provider
-from webui.settings import ConfigFile
+from webui.settings import PCWConfig
 from tests.generators import min_image_age_hours, max_image_age_hours
-from tests.generators import mock_cfgGet
+from tests.generators import mock_get_feature_property
 from tests import generators
 from datetime import datetime, timezone, timedelta
 
 
 def test_parse_image_name(monkeypatch):
-    monkeypatch.setattr(ConfigFile, 'get', lambda *args, **kwargs: "FOOF")
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda *args, **kwargs: "FOOF")
     gce = GCE('fake')
 
     assert gce.parse_image_name('sles12-sp5-gce-x8664-0-9-1-byos-build1-56') == {
@@ -88,7 +87,7 @@ def test_cleanup_all(monkeypatch):
     mocked_compute_client.images = lambda *args, **kwargs: fmi
     monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)
 
-    monkeypatch.setattr(Provider, 'cfgGet', mock_cfgGet)
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
 
     gce = GCE('fake')
     generators.max_images_per_flavor = 2

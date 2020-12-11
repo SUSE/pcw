@@ -1,4 +1,4 @@
-from webui.settings import ConfigFile
+from webui.settings import PCWConfig
 from ..models import Instance
 from ..models import StateChoice
 from ..models import ProviderChoice
@@ -24,15 +24,15 @@ __last_update = None
 
 
 @transaction.atomic
-def sync_csp_to_local_db(pc_instances, provider, vault_namespace):
+def sync_csp_to_local_db(pc_instances, provider, namespace):
     t_now = timezone.now()
-    Instance.objects.filter(provider=provider, vault_namespace=vault_namespace).update(active=False)
+    Instance.objects.filter(provider=provider, vault_namespace=namespace).update(active=False)
 
     for i in pc_instances:
         if i.provider != provider:
             raise ValueError('Instance {} does not belong to {}'.format(i, provider))
-        if i.vault_namespace != vault_namespace:
-            raise ValueError('Instance {} does not belong to {}'.format(i, vault_namespace))
+        if i.vault_namespace != namespace:
+            raise ValueError('Instance {} does not belong to {}'.format(i, namespace))
 
         logger.debug("Update/Create instance %s:%s @ %s\n\t%s", provider, i.instance_id, i.region, i.csp_info)
         if Instance.objects.filter(provider=i.provider, instance_id=i.instance_id).exists():
@@ -47,7 +47,7 @@ def sync_csp_to_local_db(pc_instances, provider, vault_namespace):
         else:
             o = Instance(
                 provider=provider,
-                vault_namespace=vault_namespace,
+                vault_namespace=namespace,
                 first_seen=i.first_seen,
                 instance_id=i.instance_id,
                 state=StateChoice.ACTIVE,
@@ -59,7 +59,7 @@ def sync_csp_to_local_db(pc_instances, provider, vault_namespace):
         o.active = True
         o.age = o.last_seen - o.first_seen
         o.save()
-    Instance.objects.filter(provider=provider, vault_namespace=vault_namespace, active=False).\
+    Instance.objects.filter(provider=provider, vault_namespace=namespace, active=False). \
         update(state=StateChoice.DELETED)
 
 
@@ -191,27 +191,24 @@ def update_run():
     '''
     global __running, __last_update
     __running = True
-    cfg = ConfigFile()
     max_retries = 3
     error_occured = False
-
-    for vault_namespace in cfg.getList(['vault', 'namespaces'], ['']):
-        for provider in cfg.getList(['vault.namespace.{}'.format(vault_namespace), 'providers'],
-                                    ['ec2', 'azure', 'gce']):
-            logger.info("Check provider %s in vault_namespace %s", provider, vault_namespace)
+    for namespace in PCWConfig.get_namespaces_for('vault'):
+        for provider in PCWConfig.get_providers_for('vault', namespace):
+            logger.info("[%s] Check provider %s", namespace, provider)
             email_text = set()
             for n in range(max_retries):
                 try:
-                    _update_provider(provider, vault_namespace)
+                    _update_provider(provider, namespace)
                 except Exception:
-                    logger.exception("Update failed for {} in namespace {}".format(provider, vault_namespace))
+                    logger.exception("[{}] Update failed for {}".format(namespace, provider))
                     email_text.add(traceback.format_exc())
                     time.sleep(5)
                 else:
                     break
             else:
                 error_occured = True
-                send_mail('Error on update {} in namespace {}'.format(provider, vault_namespace),
+                send_mail('Error on update {} in namespace {}'.format(provider, namespace),
                           "\n{}\n".format('#'*79).join(email_text))
 
     auto_delete_instances()
@@ -242,17 +239,16 @@ def delete_instance(instance):
         GCE(instance.vault_namespace).delete_instance(instance.instance_id, instance.region)
     else:
         raise NotImplementedError(
-                "Provider({}).delete() isn't implementd".format(instance.provider))
+            "Provider({}).delete() isn't implemented".format(instance.provider))
 
     instance.state = StateChoice.DELETING
     instance.save()
 
 
 def auto_delete_instances():
-    cfg = ConfigFile()
-    for vault_namespace in cfg.getList(['vault', 'namespaces'], ['']):
+    for namespace in PCWConfig.get_namespaces_for('vault'):
         o = Instance.objects
-        o = o.filter(state=StateChoice.ACTIVE, vault_namespace=vault_namespace,
+        o = o.filter(state=StateChoice.ACTIVE, vault_namespace=namespace,
                      ttl__gt=timedelta(0), age__gte=F('ttl'), csp_info__icontains='openqa_created_by')
         email_text = set()
         for i in o:
@@ -265,7 +261,7 @@ def auto_delete_instances():
                 email_text.add("{}\n\n{}".format(msg, traceback.format_exc()))
 
         if len(email_text) > 0:
-            send_mail('[{}] Error on auto deleting instance(s)'.format(vault_namespace),
+            send_mail('[{}] Error on auto deleting instance(s)'.format(namespace),
                       "\n{}\n".format('#'*79).join(email_text))
 
 

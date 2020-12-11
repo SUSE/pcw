@@ -49,7 +49,8 @@ use-file-cache = True
     monkeypatch.setattr(requests, "get", mock_get)
     monkeypatch.setattr(Vault, "_getAuthCacheFile", lambda x: authfile)
     yield authfile
-    os.remove(authfile)
+    if os.path.exists(authfile):
+        os.remove(authfile)
 
 
 class MockResponse:
@@ -234,7 +235,7 @@ def test_Vault_revoke(vaultSetup, monkeypatch):
     assert az.client_token_expire is None
 
 
-def test_http_response_no_json(monkeypatch):
+def test_http_response_no_json(vault_pcw, monkeypatch):
     az = AzureCredential(namespace)
     monkeypatch.setattr(requests, "post", lambda *args, **kwargs: MockResponse(content_type='html/text'))
     with pytest.raises(ConnectionError):
@@ -245,7 +246,7 @@ def test_http_response_no_json(monkeypatch):
         az.httpGet('foobar')
 
 
-def test_http_response_with_json_error(monkeypatch):
+def test_http_response_with_json_error(vault_pcw, monkeypatch):
     az = AzureCredential(namespace)
     monkeypatch.setattr(requests, "post", lambda *args, **kwargs: MockResponse(json_response={'errors': ['err1']}))
     with pytest.raises(ConnectionError):
@@ -314,7 +315,7 @@ def test_GCECredential(vaultSetup):
 
 
 @pytest.mark.parametrize("cred_class",[AzureCredential,EC2Credential,GCECredential])
-def test_use_file_cache(authfileSetup, monkeypatch, cred_class):
+def test_use_file_cache(authfileSetup, cred_class):
     assert not authfileSetup.exists()
 
     cred = cred_class(namespace)

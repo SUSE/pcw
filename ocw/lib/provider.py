@@ -1,4 +1,4 @@
-from webui.settings import ConfigFile
+from webui.settings import PCWConfig
 import re
 from datetime import datetime
 from datetime import timedelta
@@ -9,37 +9,21 @@ import logging
 
 class Provider:
 
-    def __init__(self, namespace):
-        self.__namespace = namespace
-        self.dry_run = ConfigFile().getBoolean(['default', 'dry_run'], False)
+    def __init__(self, namespace: str):
+        self._namespace = namespace
+        self.dry_run = PCWConfig().getBoolean('default/dry_run')
         self.logger = logging.getLogger(self.__module__)
 
-    def cfgGet(self, section, field):
-        mapping = {
-            'cleanup/max-images-per-flavor': {'default': 1},
-            'cleanup/max-image-age-hours': {'default': 24 * 31},
-            'cleanup/min-image-age-hours': {'default': 24},
-            'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload'},
-            'cleanup/azure-storage-account-name': {'default': 'openqa'},
-            'cleanup/ec2-max-snapshot-age-days': {'default': -1},
-        }
-        key = '/'.join([section, field])
-        if key not in mapping:
-            raise LookupError("Missing {} in mapping list".format(key))
-        e = mapping[key]
-        namespace_section = '{}.namespace.{}'.format(section, self.__namespace)
-        cfg = ConfigFile()
-        return type(e['default'])(cfg.get(
-            [namespace_section, field],
-            cfg.get([section, field], e['default'])))
-
     def older_than_min_age(self, age):
-        return datetime.now(timezone.utc) > age + timedelta(hours=self.cfgGet('cleanup', 'min-image-age-hours'))
+        return datetime.now(timezone.utc) > age + timedelta(
+            hours=PCWConfig.get_feature_property('cleanup', 'min-image-age-hours', self._namespace))
 
     def needs_to_delete_image(self, order_number, image_date):
         if self.older_than_min_age(image_date):
-            max_images_per_flavor = self.cfgGet('cleanup', 'max-images-per-flavor')
-            max_image_age = image_date + timedelta(hours=self.cfgGet('cleanup', 'max-image-age-hours'))
+            max_images_per_flavor = PCWConfig.get_feature_property('cleanup', 'max-images-per-flavor',
+                                                                   self._namespace)
+            max_image_age = image_date + timedelta(
+                hours=PCWConfig.get_feature_property('cleanup', 'max-image-age-hours', self._namespace))
             return order_number >= max_images_per_flavor or max_image_age < datetime.now(timezone.utc)
         else:
             return False
@@ -76,22 +60,22 @@ class Provider:
     def log_info(self,  message: str, *args: object):
         if args:
             message = message.format(*args)
-        self.logger.info("[{}] {}".format(self.__namespace, message))
+        self.logger.info("[{}] {}".format(self._namespace, message))
 
     def log_warn(self,  message: str, *args: object):
         if args:
             message = message.format(*args)
-        self.logger.warning("[{}] {}".format(self.__namespace, message))
+        self.logger.warning("[{}] {}".format(self._namespace, message))
 
     def log_err(self,  message: str, *args: object):
         if args:
             message = message.format(*args)
-        self.logger.error("[{}] {}".format(self.__namespace, message))
+        self.logger.error("[{}] {}".format(self._namespace, message))
 
     def log_dbg(self,  message: str, *args: object):
         if args:
             message = message.format(*args)
-        self.logger.debug("[{}] {}".format(self.__namespace, message))
+        self.logger.debug("[{}] {}".format(self._namespace, message))
 
 
 class Image:

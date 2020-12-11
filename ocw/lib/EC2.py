@@ -1,4 +1,5 @@
 from .provider import Provider, Image
+from webui.settings import PCWConfig
 from .vault import EC2Credential
 from dateutil.parser import parse
 import boto3
@@ -94,7 +95,8 @@ class EC2(Provider):
         return False
 
     def cleanup_snapshots(self):
-        cleanup_ec2_max_snapshot_age_days = self.cfgGet('cleanup', 'ec2-max-snapshot-age-days')
+        cleanup_ec2_max_snapshot_age_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-snapshot-age-days',
+                                                                           self._namespace)
         if cleanup_ec2_max_snapshot_age_days < 0:
             return
         for region in self.all_regions:
