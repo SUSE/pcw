@@ -247,7 +247,7 @@ class PCWConfig():
     @staticmethod
     def get_providers_for(feature: str, namespace: str):
         return ConfigFile().getList('{}.namespace.{}/providers'.format(feature, namespace),
-                                    ['ec2', 'azure', 'gce'])
+                                    ConfigFile().getList('{}/providers'.format(feature), ['ec2', 'azure', 'gce']))
 
     @staticmethod
     def has(setting: str) -> bool:
