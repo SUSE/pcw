@@ -145,11 +145,11 @@ def test_cleanup_snapshots(monkeypatch):
 
     def delete_snapshot_raise_error(SnapshotId):
         error_response = {'Error': {'Code': 'InvalidSnapshot.InUse','Message': 'Message'}}
-        raise ClientError(error_response=error_response,operation_name='delete_snapshot')
+        raise ClientError(error_response=error_response, operation_name='delete_snapshot')
 
     response = {
-        'Snapshots': [{'SnapshotId': snapshotid_i_have_ami,'StartTime': datetime.now()}]
-        }
+        'Snapshots': [{'SnapshotId': snapshotid_i_have_ami, 'StartTime': datetime.now()}]
+    }
     mocked_ec2_client.describe_snapshots = lambda OwnerIds: response
     mocked_ec2_client.delete_snapshot = delete_snapshot_raise_error
 
@@ -157,4 +157,37 @@ def test_cleanup_snapshots(monkeypatch):
     assert snapshotid_i_have_ami in ec2_snapshots
 
 
+def test_cleanup_volumes(monkeypatch):
+    def mocked_ec2_client():
+        pass
 
+    monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(EC2, 'ec2_client', lambda self, region: mocked_ec2_client)
+    monkeypatch.setattr(EC2, 'get_all_regions', lambda self: ['eu-central'])
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda self, section, field: -1)
+    volumeid_to_delete = 'delete_me'
+
+    deleted_volumes = []
+
+    def delete_volume(VolumeId):
+        deleted_volumes.append(VolumeId)
+
+    response = {
+        'Volumes': [{'VolumeId': volumeid_to_delete, 'CreateTime': datetime.now(timezone.utc) - timedelta(days=6)},
+                    {'VolumeId': 'too_young_to_die', 'CreateTime': datetime.now(timezone.utc) - timedelta(days=2)},
+                    {'VolumeId': volumeid_to_delete, 'CreateTime': datetime.now(timezone.utc) - timedelta(days=6),
+                     'Tags': [{'Key': 'DO_NOT_DELETE', 'Value': '1'}]}, ]
+    }
+    mocked_ec2_client.describe_volumes = lambda *args, **kwargs: response
+    mocked_ec2_client.delete_volume = delete_volume
+    ec2 = EC2('fake')
+    ec2.cleanup_volumes()
+
+    assert len(deleted_volumes) == 0
+
+    monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda self, section, field: 5)
+
+    ec2.cleanup_volumes()
+
+    assert len(deleted_volumes) == 1
+    assert deleted_volumes[0] == volumeid_to_delete

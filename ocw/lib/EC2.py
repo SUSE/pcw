@@ -117,6 +117,32 @@ class EC2(Provider):
                         else:
                             raise ex
 
+    def cleanup_volumes(self):
+        cleanup_ec2_max_volumes_age_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-volumes-age-days',
+                                                                          self._namespace)
+        if cleanup_ec2_max_volumes_age_days < 0:
+            return
+        delete_older_than = date.today() - timedelta(days=cleanup_ec2_max_volumes_age_days)
+        for region in self.all_regions:
+            response = self.ec2_client(region).describe_volumes()
+            for volume in response['Volumes']:
+                if datetime.date(volume['CreateTime']) < delete_older_than:
+                    self.log_info("Deleting volume {} in region {} with CreateTime={}", volume['VolumeId'],
+                                  region, volume['CreateTime'])
+                    if self.volume_protected(volume):
+                        self.log_info('Volume {} has tag DO_NOT_DELETE so protected from deletion', volume['VolumeId'])
+                    elif self.dry_run:
+                        self.log_info("Volume deletion of {} skipped due to dry run mode", volume['VolumeId'])
+                    else:
+                        self.ec2_client(region).delete_volume(VolumeId=volume['VolumeId'])
+
+    def volume_protected(self, volume):
+        if 'Tags' in volume:
+            for tag in volume['Tags']:
+                if tag['Key'] == 'DO_NOT_DELETE':
+                    return True
+        return False
+
     def list_instances(self, region):
         return [i for i in self.ec2_resource(region).instances.all()]
 
@@ -189,6 +215,7 @@ class EC2(Provider):
     def cleanup_all(self):
         self.cleanup_images()
         self.cleanup_snapshots()
+        self.cleanup_volumes()
 
     def cleanup_images(self):
         for region in self.all_regions:
