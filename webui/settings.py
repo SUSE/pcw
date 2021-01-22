@@ -217,6 +217,7 @@ class PCWConfig():
             'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload', 'return_type': str},
             'cleanup/azure-storage-account-name': {'default': 'openqa', 'return_type': str},
             'cleanup/ec2-max-snapshot-age-days': {'default': -1, 'return_type': int},
+            'cleanup/ec2-max-volumes-age-days': {'default': -1, 'return_type': int},
             'notify/to': {'default': None, 'return_type': str},
             'notify/age-hours': {'default': 12, 'return_type': int},
             'cluster.notify/to': {'default': None, 'return_type': str},
