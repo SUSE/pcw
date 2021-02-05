@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.com/cfconrad/pcw.svg?branch=master)](https://travis-ci.com/cfconrad/pcw)
-[![codecov](https://codecov.io/gh/cfconrad/pcw/branch/master/graph/badge.svg)](https://codecov.io/gh/cfconrad/pcw)
+[![Build Status](https://travis-ci.com/SUSE/pcw.svg?branch=master)](https://travis-ci.com/SUSE/pcw)
+[![codecov](https://codecov.io/gh/SUSE/pcw/branch/master/graph/badge.svg)](https://codecov.io/gh/SUSE/pcw)
 
 # OpenQA Public cloud Helper
 
