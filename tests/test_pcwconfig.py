@@ -99,3 +99,34 @@ def test_get_providers_for_existed_feature(pcw_file):
     """)
     providers = PCWConfig.get_providers_for('providerfeature', 'fake')
     assert not {'azure'} ^ set(providers)
+
+def test_getBoolean_notdefined(pcw_file):
+    assert not PCWConfig.getBoolean('feature/bool_property')
+
+def test_getBoolean_notdefined_namespace(pcw_file):
+    assert not PCWConfig.getBoolean('feature/bool_property','random_namespace')
+
+def test_getBoolean_defined(pcw_file):
+    set_pcw_ini(pcw_file, """
+    [feature]
+    bool_property = True
+    """)
+    assert PCWConfig.getBoolean('feature/bool_property')
+
+def test_getBoolean_defined_namespace(pcw_file):
+    set_pcw_ini(pcw_file, """
+    [feature]
+    bool_property = False
+    [feature.namespace.random_namespace]
+    bool_property = True
+    """)
+    assert PCWConfig.getBoolean('feature/bool_property','random_namespace')
+
+def test_getBoolean_namespace_but_not_defined(pcw_file):
+    set_pcw_ini(pcw_file, """
+    [feature]
+    bool_property = True
+    [feature.namespace.random_namespace]
+    providers = azure
+    """)
+    assert PCWConfig.getBoolean('feature/bool_property','random_namespace')
