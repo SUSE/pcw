@@ -99,6 +99,7 @@ class EC2(Provider):
     def cleanup_snapshots(self, cleanup_ec2_max_snapshot_age_days):
         for region in self.all_regions:
             response = self.ec2_client(region).describe_snapshots(OwnerIds=['self'])
+            response['Snapshots'].sort(key=lambda snapshot: snapshot['StartTime'].timestamp())
             for snapshot in response['Snapshots']:
                 if EC2.needs_to_delete_snapshot(snapshot, cleanup_ec2_max_snapshot_age_days):
                     self.log_info("Deleting snapshot {} in region {} with StartTime={}", snapshot['SnapshotId'],
@@ -124,7 +125,8 @@ class EC2(Provider):
                     self.log_info("Deleting volume {} in region {} with CreateTime={}", volume['VolumeId'], region,
                                   volume['CreateTime'])
                     if self.volume_protected(volume):
-                        self.log_info('Volume {} has tag DO_NOT_DELETE so protected from deletion', volume['VolumeId'])
+                        self.log_info('Volume {} has tag DO_NOT_DELETE so protected from deletion',
+                                      volume['VolumeId'])
                     elif self.dry_run:
                         self.log_info("Volume deletion of {} skipped due to dry run mode", volume['VolumeId'])
                     else:
@@ -324,7 +326,8 @@ class EC2(Provider):
                     can_be_deleted = True
                     for subnet in resource_vpc.subnets.all():
                         if len(list(subnet.instances.all())):
-                            self.log_warn('{} has associated instance(s) so can not be deleted', response_vpc['VpcId'])
+                            self.log_warn('{} has associated instance(s) so can not be deleted',
+                                          response_vpc['VpcId'])
                             can_be_deleted = False
                             break
                     if can_be_deleted:
