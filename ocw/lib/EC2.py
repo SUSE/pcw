@@ -118,7 +118,6 @@ class EC2(Provider):
 
     def cleanup_volumes(self, cleanup_ec2_max_volumes_age_days):
         delete_older_than = date.today() - timedelta(days=cleanup_ec2_max_volumes_age_days)
-        self.log_dbg("Will delete volumes older than {}", delete_older_than)
         for region in self.all_regions:
             response = self.ec2_client(region).describe_volumes()
             for volume in response['Volumes']:
@@ -131,10 +130,13 @@ class EC2(Provider):
                     else:
                         self.log_info("Deleting volume {} in region {} with CreateTime={}", volume['VolumeId'], region,
                                       volume['CreateTime'])
-                        self.ec2_client(region).delete_volume(VolumeId=volume['VolumeId'])
-                else:
-                    self.log_dbg("Volume (id={}, CreateTime={}) too young to die".format(
-                        volume['VolumeId'], volume['CreateTime']))
+                        try:
+                            self.ec2_client(region).delete_volume(VolumeId=volume['VolumeId'])
+                        except ClientError as ex:
+                            if ex.response['Error']['Code'] == 'VolumeInUse':
+                                self.log_info(ex.response['Error'])
+                            else:
+                                raise ex
 
     def volume_protected(self, volume):
         if 'Tags' in volume:
