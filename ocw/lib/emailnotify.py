@@ -39,8 +39,6 @@ def send_leftover_notification():
         o = o.filter(active=True, csp_info__icontains='openqa_created_by',
                      age__gt=timedelta(hours=PCWConfig.get_feature_property('notify', 'age-hours')))
         body_prefix = "Message from {url}\n\n".format(url=build_absolute_uri())
-        if o.filter(notified=False).count() > 0:
-            send_mail('CSP left overs', body_prefix + draw_instance_table(o))
         # Handle namespaces
         for namespace in PCWConfig.get_namespaces_for('notify'):
             receiver_email = PCWConfig.get_feature_property('notify', 'to', namespace)
