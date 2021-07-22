@@ -138,6 +138,19 @@ class EC2(Provider):
                             else:
                                 raise ex
 
+    def cleanup_keys(self):
+        for region in self.all_regions:
+            response = self.ec2_client(region).describe_key_pairs()
+            for keypair in response['KeyPairs']:
+                if(keypair['KeyName'].startswith('openqa-')):
+                    if self.dry_run:
+                        self.log_info("Deletion of ('KeyPairId': {}, 'KeyName': {}) in {} skipped due to dry run mode".
+                                      format(keypair['KeyPairId'], keypair['KeyName'], region))
+                    else:
+                        self.log_info(" Deleting ('KeyPairId': {}, 'KeyName': {}) in {}".format(
+                            keypair['KeyPairId'], keypair['KeyName'], region))
+                        self.ec2_client(region).delete_key_pair(KeyPairId=keypair['KeyPairId'])
+
     def volume_protected(self, volume):
         if 'Tags' in volume:
             for tag in volume['Tags']:
