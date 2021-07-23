@@ -85,6 +85,7 @@ class MockedEC2Client():
     response = {}
     deleted_images = list()
     deleted_volumes = list()
+    deleted_sg = list()
     snapshotid_to_delete = 'delete_me'
     volumeid_to_delete = 'delete_me'
     snapshotid_i_have_ami = 'you_can_not_delete_me'
@@ -125,6 +126,12 @@ class MockedEC2Client():
         MockedEC2Client.delete_vpc_endpoints_called = True
 
     def describe_vpc_peering_connections(self, Filters):
+        return MockedEC2Client.response
+
+    def delete_security_group(self, GroupId):
+        MockedEC2Client.deleted_sg.append(GroupId)
+
+    def describe_security_groups(self):
         return MockedEC2Client.response
 
 
@@ -444,6 +451,9 @@ def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
     def mocked_cleanup_images(self):
         called_stack.append('cleanup_images')
 
+    def mocked_cleanup_sg(self):
+        called_stack.append('cleanup_sg')
+
     def mocked_cleanup_snapshots(self, arg1):
         called_stack.append('cleanup_snapshots')
 
@@ -461,8 +471,30 @@ def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
     monkeypatch.setattr(EC2, 'cleanup_snapshots', mocked_cleanup_snapshots)
     monkeypatch.setattr(EC2, 'cleanup_volumes', mocked_cleanup_volumes)
     monkeypatch.setattr(EC2, 'cleanup_uploader_vpcs', mocked_cleanup_uploader_vpcs)
+    monkeypatch.setattr(EC2, 'cleanup_sg', mocked_cleanup_sg)
     monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda *args, **kwargs: 5)
 
     ec2_patch.cleanup_all()
 
-    assert called_stack == ['cleanup_images', 'cleanup_snapshots', 'cleanup_volumes', 'cleanup_uploader_vpcs']
+    assert called_stack == ['cleanup_images', 'cleanup_snapshots',
+                            'cleanup_volumes', 'cleanup_uploader_vpcs', 'cleanup_sg']
+
+
+def test_cleanup_sg_cleanup_one_group(ec2_patch):
+    openqa_ttl = 75000
+    ttl_not_expired = datetime.now(timezone.utc).isoformat()
+    ttl_expired = (datetime.now(timezone.utc) - timedelta(seconds=openqa_ttl + 10)).isoformat()
+    MockedEC2Client.response = {
+        'SecurityGroups': [
+            {'Tags': [{'Key': 'openqa_created_date', 'Value': ttl_expired},
+                      {'Key': 'openqa_ttl', 'Value': openqa_ttl}], 'GroupName': 'TTL_Expired', 'GroupId': '11'},
+            {'Tags': [{'Key': 'openqa_created_date', 'Value': ttl_not_expired},
+                      {'Key': 'openqa_ttl', 'Value': openqa_ttl}], 'GroupName': 'TTL_NOT_Expired', 'GroupId': '12'},
+            {'Tags': [{'Key': 'openqa_created_date', 'Value': ttl_expired},
+                      {'Key': 'openqa_ttl', 'Value': openqa_ttl}], 'GroupName': 'TTL_Expired2', 'GroupId': '13'},
+        ]
+    }
+    ec2_patch.cleanup_sg()
+    assert len(MockedEC2Client.deleted_sg) == 2
+    assert '11' in MockedEC2Client.deleted_sg
+

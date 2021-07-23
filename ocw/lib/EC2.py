@@ -6,6 +6,7 @@ import boto3
 from botocore.exceptions import ClientError
 import re
 from datetime import date, datetime, timedelta
+import dateutil.parser
 from ocw.lib.emailnotify import send_mail
 import traceback
 import time
@@ -151,12 +152,37 @@ class EC2(Provider):
                             keypair['KeyPairId'], keypair['KeyName'], region))
                         self.ec2_client(region).delete_key_pair(KeyPairId=keypair['KeyPairId'])
 
+    def cleanup_sg(self):
+        sg_description_template = "('GroupName': {}, 'GroupId': {}, 'openqa_created_date': {}, 'openqa_ttl': {})"
+        for region in self.all_regions:
+            response = self.ec2_client(region).describe_security_groups()
+            for sg in response['SecurityGroups']:
+                openqa_created_date = self.get_value_from_tags(sg, 'openqa_created_date')
+                openqa_ttl = self.get_value_from_tags(sg, 'openqa_ttl')
+                if openqa_created_date and openqa_ttl:
+                    delete_older_than = date.today() - timedelta(seconds=int(openqa_ttl))
+                    if datetime.date(dateutil.parser.parse(openqa_created_date)) < delete_older_than:
+                        sg_description = sg_description_template.format(
+                            sg['GroupName'], sg['GroupId'], openqa_created_date, openqa_ttl)
+                        if self.dry_run:
+                            self.log_info("SecurityGroup deletion {} skipped due to dry run mode", sg_description)
+                        else:
+                            self.log_info("Deleting {} in {}".format(sg_description, region))
+                            self.ec2_client(region).delete_security_group(GroupId=sg['GroupId'])
+
     def volume_protected(self, volume):
         if 'Tags' in volume:
             for tag in volume['Tags']:
                 if tag['Key'] == 'DO_NOT_DELETE':
                     return True
         return False
+
+    def get_value_from_tags(self, entity, key_name):
+        if 'Tags' in entity:
+            for tag in entity['Tags']:
+                if tag['Key'] == key_name:
+                    return tag['Value']
+        return None
 
     def list_instances(self, region):
         return [i for i in self.ec2_resource(region).instances.all()]
@@ -239,6 +265,8 @@ class EC2(Provider):
             self.cleanup_volumes(cleanup_ec2_max_volumes_age_days)
         if PCWConfig.getBoolean('cleanup/vpc_cleanup', self._namespace):
             self.cleanup_uploader_vpcs()
+        if PCWConfig.getBoolean('cleanup/sg_cleanup', self._namespace):
+            self.cleanup_sg()
 
     def delete_vpc(self, region, vpc, vpcId):
         try:
