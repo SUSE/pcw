@@ -5,10 +5,20 @@ from .models import Instance
 from .models import ProviderChoice
 from .models import StateChoice
 from django_tables2.utils import A
+from django.utils.html import format_html
+from django.templatetags.static import static
+
+
+class NoHeaderLinkColumn(tables.LinkColumn):
+    def header(self):
+        return ""
 
 
 class InstanceTable(tables.Table):
-    opt = tables.LinkColumn('delete_instance', args=[A('pk')], text='delete')
+    delete = NoHeaderLinkColumn('delete_instance', args=[A('pk')],
+                                text=format_html('<img width=20 height=20 title="Delete instance" src="{}"/>',
+                                static('img/trash.png'))
+                                )
     age = tables.Column(attrs={
         'td': {
             'class': lambda record: 'old' if record.age.seconds > 60*60 else ''
