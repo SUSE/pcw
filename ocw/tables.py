@@ -5,10 +5,40 @@ from .models import Instance
 from .models import ProviderChoice
 from .models import StateChoice
 from django_tables2.utils import A
+from django.utils.html import format_html
+from django.templatetags.static import static
+from webui.settings import PCWConfig
+
+
+class NoHeaderLinkColumn(tables.LinkColumn):
+    def header(self):
+        return ""
+
+
+class OpenQALinkColumn(tables.Column):
+    def __init__(self, *args, **kwargs):
+        kwargs['accessor'] = 'pk'
+        super().__init__(*args, **kwargs)
+
+    def header(self):
+        return ""
+
+    def render(self, record):
+        tags = record.tags()
+        if tags.get('openqa_created_by', '') == 'openqa-suse-de' and 'openqa_var_JOB_ID' in tags:
+            link = '{}/t{}'.format(PCWConfig.get_feature_property('webui', 'openqa_url'), tags['openqa_var_JOB_ID'])
+            alt = tags.get('openqa_var_NAME', '')
+            return format_html('<a href="{}" "><img alt="{}" title="{}" src="{}"/></a>',
+                               link, alt, alt, static('img/openqa.svg'))
+        return ""
 
 
 class InstanceTable(tables.Table):
-    opt = tables.LinkColumn('delete_instance', args=[A('pk')], text='delete')
+    delete = NoHeaderLinkColumn('delete_instance', args=[A('pk')],
+                                text=format_html('<img width=20 height=20 title="Delete instance" src="{}"/>',
+                                static('img/trash.png'))
+                                )
+    openqa = OpenQALinkColumn()
     age = tables.Column(attrs={
         'td': {
             'class': lambda record: 'old' if record.age.seconds > 60*60 else ''
