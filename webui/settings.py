@@ -227,7 +227,8 @@ class PCWConfig():
             'vault/url': {'default': None, 'return_type': str},
             'vault/user': {'default': None, 'return_type': str},
             'vault/password': {'default': None, 'return_type': str},
-            'vault/cert_dir': {'default': '/etc/ssl/certs', 'return_type': str}
+            'vault/cert_dir': {'default': '/etc/ssl/certs', 'return_type': str},
+            'webui/openqa_url': {'default': 'https://openqa.suse.de', 'return_type': str}
         }
         key = '/'.join([feature, property])
         if key not in default_values:

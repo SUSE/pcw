@@ -1,6 +1,7 @@
 from django.db import models
 from enum import Enum
 from datetime import timedelta
+import json
 
 
 class ChoiceEnum(Enum):
@@ -62,6 +63,15 @@ class Instance(models.Model):
 
     def ttl_formated(self):
         return format_seconds(self.ttl.total_seconds()) if(self.ttl) else ""
+
+    def tags(self):
+        try:
+            info = json.loads(self.csp_info)
+            if 'tags' in info:
+                return info['tags']
+        except json.JSONDecodeError:
+            pass
+        return dict()
 
     class Meta:
         unique_together = (('provider', 'instance_id'),)
