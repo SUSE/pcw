@@ -33,7 +33,21 @@ class OpenQALinkColumn(tables.Column):
         return ""
 
 
+class MailColumn(tables.BooleanColumn):
+    def header(self):
+        return ""
+
+    def render(self, value, record, bound_column):
+        value = self._get_bool_value(record, value, bound_column)
+        if value:
+            return format_html('<img alt="Email notification was send" src="{}" width=20 height=20/>',
+                               static('img/notified.png'))
+        else:
+            return ""
+
+
 class InstanceTable(tables.Table):
+    notified = MailColumn()
     delete = NoHeaderLinkColumn('delete_instance', args=[A('pk')],
                                 text=format_html('<img width=20 height=20 title="Delete instance" src="{}"/>',
                                 static('img/trash.png'))
