@@ -8,6 +8,7 @@ from django_tables2.utils import A
 from django.utils.html import format_html
 from django.templatetags.static import static
 from webui.settings import PCWConfig
+from django.template.loader import get_template
 
 
 class NoHeaderLinkColumn(tables.LinkColumn):
@@ -33,7 +34,32 @@ class OpenQALinkColumn(tables.Column):
         return ""
 
 
+class MailColumn(tables.BooleanColumn):
+    def header(self):
+        return ""
+
+    def render(self, value, record, bound_column):
+        value = self._get_bool_value(record, value, bound_column)
+        if value:
+            return format_html('<img alt="Email notification was send" src="{}" width=20 height=20/>',
+                               static('img/notified.png'))
+        else:
+            return ""
+
+
+class CspInfoColumn(tables.TemplateColumn):
+
+    def __init__(self, template_name=None, **extra):
+        super().__init__(template_name="ocw/csp_info.html", orderable=False, **extra)
+
+    @property
+    def header(self, **kwargs):
+        return get_template('ocw/csp_info_header.html').render()
+
+
 class InstanceTable(tables.Table):
+    csp_info = CspInfoColumn()
+    notified = MailColumn()
     delete = NoHeaderLinkColumn('delete_instance', args=[A('pk')],
                                 text=format_html('<img width=20 height=20 title="Delete instance" src="{}"/>',
                                 static('img/trash.png'))

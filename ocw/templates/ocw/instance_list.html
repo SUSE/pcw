@@ -6,7 +6,7 @@
 {% block content %}
     <link rel="stylesheet" href="{% static 'css/instance_table.css' %}">
     {% if filter %}
-        <button data-toggle="collapse" class="btn btn-default" data-target="#table_filter">Edit filter<span class="glyphicon glyphicon-filter"></span></button>
+        <button data-toggle="collapse" class="btn btn-primary btn-sm" data-target="#table_filter">Edit filter<span class="glyphicon glyphicon-filter"></span></button>
                 Displaying {{ filter.qs.count }} of {{ filter.queryset.count }} items.
         <div id="table_filter" class="well collapse {{ request.GET.state|yesno:"in, " }} ">
         <form action="" method="get" class="form">
