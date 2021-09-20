@@ -1,0 +1,14 @@
+{% load ocw_utils %}
+{% if record.csp_info|length > 30 %}
+<div id="csp_info_short_{{record.id}}" class="csp_info_short" >
+  <span class="text-monospace" style="font-size: 10px">{{ value|slice:":30" }}</span>
+  <button type="button" class="btn btn-link btn-sm" onclick="toggle_csp_info_row({{record.id}})" >...</button>
+</div>
+<div style="display:none" id="csp_info_long_{{record.id}}" class="csp_info_long">
+  <pre class="text-monospace" style="font-size: 10px">{{ value|pretty_json_string }}</pre>
+</div>
+{% else %}
+<div>
+  <pre class="text-monospace" style="font-size: 10px">{{ value|pretty_json_string }}</pre>
+</div>
+{% endif %}
