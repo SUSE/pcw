@@ -1,6 +1,7 @@
 from django.db import models
 from enum import Enum
 from datetime import timedelta
+from webui.settings import PCWConfig
 import json
 
 
@@ -72,6 +73,14 @@ class Instance(models.Model):
         except json.JSONDecodeError:
             pass
         return dict()
+
+    def get_openqa_job_link(self):
+        tags = self.tags()
+        if tags.get('openqa_created_by', '') == 'openqa-suse-de' and 'openqa_var_JOB_ID' in tags:
+            url = '{}/t{}'.format(PCWConfig.get_feature_property('webui', 'openqa_url'), tags['openqa_var_JOB_ID'])
+            title = tags.get('openqa_var_NAME', '')
+            return {'url': url, 'title': title}
+        return None
 
     class Meta:
         unique_together = (('provider', 'instance_id'),)
