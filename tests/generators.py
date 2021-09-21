@@ -42,9 +42,12 @@ class ec2_image_mock:
         self.meta = ec2_meta_mock()
         self.name = fake.uuid4()
 
+def ec2_tags_mock(tags={fake.uuid4(): fake.uuid4()}):
+    return [ {'Key': key, 'Value': tags[key]} for key in tags]
+
 
 class ec2_instance_mock:
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.state = {'Name': fake.uuid4()}
         self.instance_id = fake.uuid4()
         self.image_id = fake.uuid4()
@@ -55,7 +58,7 @@ class ec2_instance_mock:
         self.public_ip_address = fake.uuid4()
         self.security_groups = [{'GroupName': fake.uuid4()}, {'GroupName': fake.uuid4()}]
         self.sriov_net_support = fake.uuid4()
-        self.tags = [{'Key': fake.uuid4(), 'Value': fake.uuid4()}]
+        self.tags = ec2_tags_mock(**kwargs)
         self.state_reason = {'Message': fake.uuid4()}
         self.image = ec2_image_mock()
 
