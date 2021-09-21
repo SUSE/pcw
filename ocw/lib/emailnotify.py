@@ -17,18 +17,20 @@ def draw_instance_table(objects):
     from ocw import views
     table = Texttable(max_width=0)
     table.set_deco(Texttable.HEADER)
-    table.header(['Provider', 'id', 'Created-By', 'Namespace', 'Age', 'Delete'])
+    table.header(['Provider', 'id', 'Created-By', 'Namespace', 'Age', 'Delete', 'openQA'])
     for i in objects:
         j = json.loads(i.csp_info)
         hours, remainder = divmod(i.age.total_seconds(), 3600)
         minutes, seconds = divmod(remainder, 60)
+        link = i.get_openqa_job_link()
         table.add_row([
             i.provider,
             i.instance_id,
             j['tags']['openqa_created_by'],
             i.vault_namespace,
             i.age_formated(),
-            build_absolute_uri(reverse(views.delete, args=[i.id]))
+            build_absolute_uri(reverse(views.delete, args=[i.id])),
+            "" if link is None else link['url']
         ])
     return table.draw()
 
