@@ -7,12 +7,22 @@ from distutils.version import LooseVersion
 import logging
 
 
+class ProviderAdapter(logging.LoggerAdapter):
+    """
+    ProviderAdapter provides the logger with a 'ns' key,
+    whose value in brackets is prepended to the log message.
+    """
+    def process(self, msg, kwargs):
+        return '[{}] {}'.format(self.extra['ns'], msg), kwargs
+
+
 class Provider:
 
     def __init__(self, namespace: str):
         self._namespace = namespace
         self.dry_run = PCWConfig.getBoolean('default/dry_run')
         self.logger = logging.getLogger(self.__module__)
+        self.loggerAdapter = ProviderAdapter(self.logger, {'ns': namespace})
 
     def older_than_min_age(self, age):
         return datetime.now(timezone.utc) > age + timedelta(
@@ -56,26 +66,6 @@ class Provider:
                     keep_images.append(img.name)
 
         return keep_images
-
-    def log_info(self,  message: str, *args: object):
-        if args:
-            message = message.format(*args)
-        self.logger.info("[{}] {}".format(self._namespace, message))
-
-    def log_warn(self,  message: str, *args: object):
-        if args:
-            message = message.format(*args)
-        self.logger.warning("[{}] {}".format(self._namespace, message))
-
-    def log_err(self,  message: str, *args: object):
-        if args:
-            message = message.format(*args)
-        self.logger.error("[{}] {}".format(self._namespace, message))
-
-    def log_dbg(self,  message: str, *args: object):
-        if args:
-            message = message.format(*args)
-        self.logger.debug("[{}] {}".format(self._namespace, message))
 
 
 class Image:

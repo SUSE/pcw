@@ -83,8 +83,8 @@ class GCE(Provider):
 
     def delete_instance(self, instance_id, zone):
         if self.dry_run:
-            self.log_info(
-                "Deletion of instance {} skipped due to dry run mode", instance_id
+            self.loggerAdapter.info(
+                "Deletion of instance {} skipped due to dry run mode".format(instance_id)
             )
         else:
             self.compute_client().instances().delete(
@@ -172,13 +172,13 @@ class GCE(Provider):
                             date=parse(image["creationTimestamp"]),
                         )
                     )
-                    self.log_dbg(
-                        "Image {} is candidate for deletion with build {}",
-                        image["name"],
-                        m["build"],
+                    self.loggerAdapter.debug(
+                        "Image {} is candidate for deletion with build {}".format(
+                            image["name"],
+                            m["build"])
                     )
                 else:
-                    self.log_err("Unable to parse image name '{}'", image["name"])
+                    self.loggerAdapter.error("Unable to parse image name '{}'".format(image["name"]))
 
             request = (
                 self.compute_client()
@@ -189,10 +189,10 @@ class GCE(Provider):
         keep_images = self.get_keeping_image_names(images)
 
         for img in [i for i in images if i.name not in keep_images]:
-            self.log_info("Delete image '{}'", img.name)
+            self.loggerAdapter.info("Delete image '{}'".format(img.name))
             if self.dry_run:
-                self.log_info(
-                    "Deletion of image {} skipped due to dry run mode", img.name
+                self.loggerAdapter.info(
+                    "Deletion of image {} skipped due to dry run mode".format(img.name)
                 )
             else:
                 request = (
@@ -203,7 +203,7 @@ class GCE(Provider):
                 response = request.execute()
                 if "error" in response:
                     for e in response["error"]["errors"]:
-                        self.log_err(e["message"])
+                        self.loggerAdapter.error(e["message"])
                 if "warnings" in response:
                     for w in response["warnings"]:
-                        self.log_warn(w["message"])
+                        self.loggerAdapter.warning(w["message"])
