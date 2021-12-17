@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 ## Run django webui
 
-First copy the [pwc.ini](templates/pwc.ini) to _/etc_
+First copy the [pwc.ini](templates/pcw.ini) to _/etc_
 
 ```
 cp templates/pwc.ini /etc/pwc.ini
@@ -63,5 +63,3 @@ To simplify problem investigation pcw has two [django commands](https://docs.dja
 
 this allows triggering core functionality without web UI. It is highly recommended to use `dry_run = True` in `pcw.ini` in
 such cases.
-
-
