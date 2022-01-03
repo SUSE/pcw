@@ -24,9 +24,9 @@ def vault_pcw(pcw_file):
     set_pcw_ini(pcw_file, """
 [vault]
 url = {}
-user = devel
+user = openqa
 password = sag_ich_nicht
-        """.format  (host))
+        """.format(host))
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def authfileSetup(pcw_file, monkeypatch):
     set_pcw_ini(pcw_file, """
 [vault]
 url = {}
-user = devel
+user = openqa
 password = sag_ich_nicht
 use-file-cache = True
         """.format(host))
@@ -76,7 +76,7 @@ def mock_post(url, **kwargs):
     if (url.startswith('{}/v1/auth/userpass/login/'.format(host))):
         username = url[38:]
         password = kwargs['json']['password']
-        if (username == 'devel' and password == 'sag_ich_nicht'):
+        if (username == 'openqa' and password == 'sag_ich_nicht'):
             client_token = fake.uuid4()
             tokens.append(client_token)
             return MockResponse({'auth': {'client_token': client_token, 'lease_duration': 60*15}}, url=url)
@@ -171,7 +171,7 @@ ceaccount.com"
 def test_Vault(vaultSetup):
     v = Vault(namespace)
     assert v.url == 'http://foo.bar'
-    assert v.user == 'devel'
+    assert v.user == 'openqa'
     assert v.password == 'sag_ich_nicht'
     assert v.namespace == namespace
 
@@ -314,7 +314,7 @@ def test_GCECredential(vaultSetup):
     assert gce._getAuthCacheFile() == Path('/tmp/pcw/GCECredential/{}/auth.json'.format(namespace))
 
 
-@pytest.mark.parametrize("cred_class",[AzureCredential,EC2Credential,GCECredential])
+@pytest.mark.parametrize("cred_class", [AzureCredential, EC2Credential, GCECredential])
 def test_use_file_cache(authfileSetup, cred_class):
     assert not authfileSetup.exists()
 
@@ -338,10 +338,10 @@ def test_use_file_cache(authfileSetup, cred_class):
     del cred
     assert authfileSetup.exists()
 
+
 def test_Vault_use_file_cache_errors(authfileSetup):
     with open(authfileSetup, "w") as f:
         f.write('THIS_IS_NOT_JSON!!')
-
 
     assert authfileSetup.exists()
     v = Vault(namespace)
