@@ -175,8 +175,8 @@ class AzureCredential(Vault):
 
     def getCredentials(self):
 
-        path = '/v1/{}/azure/creds/openqa-role'.format(self.namespace)
-        path_kv = '/v1/{}/secret/azure/openqa-role'.format(self.namespace)
+        path = '/v1/{}/azure/creds/{}-role'.format(self.namespace, self.user)
+        path_kv = '/v1/{}/secret/azure/{}-role'.format(self.namespace, self.user)
         creds = self.httpGet(path)
         data = self.httpGet(path_kv)['data']
         for k, v in data.items():
@@ -189,7 +189,7 @@ class EC2Credential(Vault):
     ''' Known data fields: access_key, secret_key '''
 
     def getCredentials(self):
-        path = '/v1/{}/aws/creds/openqa-role'.format(self.namespace)
+        path = '/v1/{}/aws/creds/{}-role'.format(self.namespace, self.user)
         return self.httpGet(path)
 
 
@@ -199,7 +199,7 @@ class GCECredential(Vault):
     cred_file = None
 
     def getCredentials(self):
-        path = '/v1/{}/gcp/key/openqa-role'.format(self.namespace)
+        path = '/v1/{}/gcp/key/{}-role'.format(self.namespace, self.user)
         creds = self.httpGet(path)
         cred_file = json.loads(base64.b64decode(creds['data']['private_key_data']).decode(encoding='UTF-8'))
         for k, v in cred_file.items():
