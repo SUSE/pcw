@@ -33,7 +33,7 @@ DEBUG = True
 # This configuration file contains admin credentials for each CSP
 CONFIG_FILE = '/etc/pcw.ini'
 
-ALLOWED_HOSTS = ['127.0.0.1', 'publiccloud.qa.suse.de']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -286,7 +286,7 @@ def build_absolute_uri(path=''):
     --------
          url = build_absolute_uri(reverse(views.delete, args=[i.id]))
     '''
-    base_url = ConfigFile().get('default/base-url', ALLOWED_HOSTS[0])
+    base_url = ConfigFile().get('default/base-url', "publiccloud.qa.suse.de")
 
     if not re.match('^http', base_url):
         base_url = 'https://{}'.format(base_url)
