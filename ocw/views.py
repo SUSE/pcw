@@ -35,7 +35,7 @@ def health(request):
 
 
 def instance_json(request):
-    instances = Instance.objects.all()
+    instances = Instance.objects.filter(active=True)
     data = serialize(
         "json",
         instances,
