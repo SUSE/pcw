@@ -1,0 +1,6 @@
+# Ignore git, data and cache files
+.git
+.cache
+/db
+# Also ignore templates
+/templates

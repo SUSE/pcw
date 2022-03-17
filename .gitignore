@@ -1,14 +1,19 @@
+# Python-specifics
 .*.swp
 *__pycache__*
 env/
 venv/
 .venv/
 tags
-db.sqlite3
 *.egg-info/
 .cache
 static/
+# Codecov
 .coverage
 tests/auth.json
 tests/pcw.ini
 htmlcov/*
+
+# Configuration and program data
+/db
+pcw.ini

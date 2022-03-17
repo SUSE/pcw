@@ -1,0 +1,51 @@
+#!/bin/bash -e
+# Startup helper for pcw. This file makes the handling with pcw within containers easier
+# See usage() for a usage summary
+
+CMD=$1
+shift
+
+function usage() {
+	echo "pcw startup helper"
+	echo "Usage: $0 COMMAND"
+	echo "COMMANDS:"
+	echo "   help                    Print help message"
+	echo "   run                     Standart publiccloud-watcher run procedure"
+	echo "   migrate                 Run database migration"
+	echo "   createsuperuser         Create superuser. Requires --email and --username argument"
+	echo ""
+	echo "All other commands will be passed as arguments to 'manage.py'"
+}
+
+case "$CMD" in
+	"")
+		usage
+		exit 1
+		;;
+	"help")
+		usage
+		exit 0
+		;;
+	"-h")
+		usage
+		exit 0
+		;;
+	"--help")
+		usage
+		exit 0
+		;;
+	"run")
+		python3 manage.py migrate
+		python3 manage.py collectstatic
+		uwsgi --enable-threads --http 0.0.0.0:8000 --module webui.wsgi --static-map /static=/pcw/ocw/static
+		;;
+	"migrate")
+		python3 manage.py migrate
+		;;
+	"createsuperuser")
+		python3 manage.py createsuperuser $@
+		;;
+		*)
+		python3 manage.py $@
+esac
+

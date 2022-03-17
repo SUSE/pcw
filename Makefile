@@ -1,3 +1,6 @@
+# Default container tag
+CONT_TAG=suse/qac/pcw
+
 .PHONY: all
 all: prepare test
 
@@ -15,3 +18,10 @@ test:
 .PHONY: codecov
 codecov:
 	pytest -v --cov=./ --cov-report=html && xdg-open htmlcov/index.html
+
+# Build containers
+docker-container:
+	docker build . -t ${CONT_TAG}
+podman-container:
+	podman build . -t ${CONT_TAG}
+
