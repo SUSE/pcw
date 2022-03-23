@@ -36,7 +36,6 @@ case "$CMD" in
 		;;
 	"run")
 		python3 manage.py migrate
-		python3 manage.py collectstatic
 		uwsgi --enable-threads --http 0.0.0.0:8000 --module webui.wsgi --static-map /static=/pcw/ocw/static
 		;;
 	"migrate")
