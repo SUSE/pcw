@@ -9,14 +9,13 @@ COPY . /pcw/
 
 # We do the whole installation and configuration in one layer:
 # * Install system requirements
-RUN zypper -n ar http://download.suse.de/ibs/SUSE:/CA/openSUSE_Leap_15.3/ SUSE_CA && \
-    zypper -n in ca-certificates-suse python3 python3-devel python3-pip gcc && rm -rf /var/cache
-# Install pip requirements
-RUN pip install -r /pcw/requirements.txt && rm -rf /var/cache
+# * Install pip requirements
+# * Empty system cache to conserve some space
+RUN zypper -n in python3 python3-devel python3-pip gcc && pip install -r /pcw/requirements.txt && rm -rf /var/cache
 
 ## Finalize ################################################################# ##
 
-VOLUME /etc/pcw.ini
+VOLUME /pcw
 VOLUME /pcw/db
 
 EXPOSE 8000/tcp
