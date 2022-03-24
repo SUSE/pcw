@@ -11,11 +11,10 @@ COPY . /pcw/
 # * Install system requirements
 # * Install pip requirements
 # * Empty system cache to conserve some space
-RUN zypper -n in python3 python3-devel python3-pip gcc && pip install -r /pcw/requirements.txt && rm -rf /var/cache
+RUN zypper -n in python3 python3-devel python3-pip gcc && pip3 install -r /pcw/requirements.txt && rm -rf /var/cache
 
 ## Finalize ################################################################# ##
 
-VOLUME /pcw
 VOLUME /pcw/db
 
 EXPOSE 8000/tcp
