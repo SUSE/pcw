@@ -1,6 +1,5 @@
 from .provider import Provider, Image
 from webui.settings import PCWConfig
-from .vault import EC2Credential
 from dateutil.parser import parse
 import boto3
 from botocore.exceptions import ClientError
@@ -23,7 +22,6 @@ class EC2(Provider):
     def __new__(cls, vault_namespace):
         if vault_namespace not in EC2.__instances:
             EC2.__instances[vault_namespace] = self = object.__new__(cls)
-            self.__credentials = EC2Credential(vault_namespace)
             self.__ec2_client = dict()
             self.__eks_client = dict()
             self.__ec2_resource = dict()
@@ -33,24 +31,16 @@ class EC2(Provider):
         return EC2.__instances[vault_namespace]
 
     def check_credentials(self):
-        if self.__credentials.isExpired():
-            self.__credentials.renew()
-            self.__key = None
-            self.__secret = None
-            self.__ec2_resource = dict()
-            self.__ec2_client = dict()
-            self.__eks_client = dict()
 
-        self.__secret = self.__credentials.getData('secret_key')
-        self.__key = self.__credentials.getData('access_key')
+        self.__secret = self.getData('secret_key')
+        self.__key = self.getData('access_key')
 
         for i in range(1, 60 * 5):
             try:
                 self.get_all_regions()
                 return True
             except Exception:
-                self.log_info("check_credentials (attemp:{}) with key {} expiring at {} ", i, self.__key,
-                              self.__credentials.getAuthExpire())
+                self.log_info("check_credentials (attemp:{}) with key {}", i, self.__key)
                 time.sleep(1)
         self.get_all_regions()
 

@@ -1,4 +1,4 @@
-from ocw.lib.EC2 import EC2
+from ocw.lib.EC2 import EC2, Provider
 from webui.settings import PCWConfig
 from tests.generators import mock_get_feature_property
 from tests.generators import min_image_age_hours, max_image_age_hours, ec2_max_volumes_age_days, \
@@ -35,6 +35,7 @@ def ec2_patch(monkeypatch):
         pass
 
     monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
+    monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
     monkeypatch.setattr(EC2, 'get_all_regions', lambda self: ['region1'])
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     monkeypatch.setattr(EC2, 'ec2_client', lambda self, region: MockedEC2Client())

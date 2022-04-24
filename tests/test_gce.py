@@ -1,4 +1,4 @@
-from ocw.lib.gce import GCE
+from ocw.lib.gce import GCE, Provider
 from webui.settings import PCWConfig
 from tests.generators import min_image_age_hours, max_image_age_hours
 from tests.generators import mock_get_feature_property
@@ -8,27 +8,28 @@ from datetime import datetime, timezone, timedelta
 
 def test_parse_image_name(monkeypatch):
     monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda *args, **kwargs: "FOOF")
+    monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
     gce = GCE('fake')
 
     assert gce.parse_image_name('sles12-sp5-gce-x8664-0-9-1-byos-build1-56') == {
-            'key': '12-sp5-gce-byos-x8664',
-            'build': '0-9-1-1-56'
-            }
+        'key': '12-sp5-gce-byos-x8664',
+        'build': '0-9-1-1-56'
+    }
 
     assert gce.parse_image_name('sles15-sp2-byos-x8664-0-9-3-gce-build1-10') == {
-            'key': '15-sp2-gce-byos-x8664',
-            'build': '0-9-3-1-10'
-            }
+        'key': '15-sp2-gce-byos-x8664',
+        'build': '0-9-3-1-10'
+    }
 
     assert gce.parse_image_name('sles15-sp2-x8664-0-9-3-gce-build1-10') == {
-            'key': '15-sp2-gce-x8664',
-            'build': '0-9-3-1-10'
-            }
+        'key': '15-sp2-gce-x8664',
+        'build': '0-9-3-1-10'
+    }
 
     assert gce.parse_image_name('sles15-sp2-chost-byos-x8664-0-9-3-gce-build1-11') == {
-            'key': '15-sp2-gce-chost-byos-x8664',
-            'build': '0-9-3-1-11'
-            }
+        'key': '15-sp2-gce-chost-byos-x8664',
+        'build': '0-9-3-1-11'
+    }
 
     assert gce.parse_image_name('do not match') is None
 
@@ -78,9 +79,10 @@ def test_cleanup_all(monkeypatch):
             ]
         }),
         None,   # on images().list_next()
-        FakeRequest({'error': {'errors': [{'message': 'err message'}]}, 'warnings': [{'message': 'warning message'}]}),
+        FakeRequest({'error': {'errors': [{'message': 'err message'}]},
+                     'warnings': [{'message': 'warning message'}]}),
         FakeRequest(),    # on images().delete()
-        ])
+    ])
 
     def mocked_compute_client():
         pass
@@ -88,6 +90,7 @@ def test_cleanup_all(monkeypatch):
     monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)
 
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
+    monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
 
     gce = GCE('fake')
     generators.max_images_per_flavor = 2
