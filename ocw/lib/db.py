@@ -38,7 +38,8 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
         if Instance.objects.filter(provider=i.provider, instance_id=i.instance_id).exists():
             o = Instance.objects.get(provider=i.provider, instance_id=i.instance_id)
             if o.region != i.region:
-                logger.info("Instance %s:%s changed region from %s to %s", provider, i.instance_id, o.region, i.region)
+                logger.info("Instance %s:%s changed region from %s to %s",
+                            provider, i.instance_id, o.region, i.region)
                 o.region = i.region
             if o.state == StateChoice.DELETED:
                 logger.error("Update already DELETED instance %s:%s\n\t%s", provider, i.instance_id, i.csp_info)
@@ -193,8 +194,8 @@ def update_run():
     __running = True
     max_retries = 3
     error_occured = False
-    for namespace in PCWConfig.get_namespaces_for('vault'):
-        for provider in PCWConfig.get_providers_for('vault', namespace):
+    for namespace in PCWConfig.get_namespaces_for('default'):
+        for provider in PCWConfig.get_providers_for('default', namespace):
             logger.info("[%s] Check provider %s", namespace, provider)
             email_text = set()
             for n in range(max_retries):
@@ -230,7 +231,7 @@ def delete_instance(instance):
         raise PermissionError('This instance isn\'t managed by openqa - csp_info: {}'.format(instance.csp_info))
 
     logger.debug("[{}][{}] Delete instance {}".format(
-                instance.provider, instance.vault_namespace, instance.instance_id))
+        instance.provider, instance.vault_namespace, instance.instance_id))
     if (instance.provider == ProviderChoice.AZURE):
         Azure(instance.vault_namespace).delete_resource(instance.instance_id)
     elif (instance.provider == ProviderChoice.EC2):

@@ -18,6 +18,3 @@ def pcw_file():
     yield tmpFile[1]
     if os.path.exists(tmpFile[1]):
         os.remove(tmpFile[1])
-
-
-

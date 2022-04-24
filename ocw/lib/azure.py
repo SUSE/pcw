@@ -1,5 +1,4 @@
 from .provider import Provider, Image
-from ..lib.vault import AzureCredential
 from webui.settings import PCWConfig
 from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.resource import ResourceManagementClient
@@ -23,7 +22,6 @@ class Azure(Provider):
     def __new__(cls, vault_namespace):
         if vault_namespace not in Azure.__instances:
             Azure.__instances[vault_namespace] = self = object.__new__(cls)
-            self.__credentials = AzureCredential(vault_namespace)
             self.__compute_mgmt_client = None
             self.__sp_credentials = None
             self.__resource_mgmt_client = None
@@ -31,39 +29,17 @@ class Azure(Provider):
         return Azure.__instances[vault_namespace]
 
     def subscription(self):
-        return self.__credentials.getData('subscription_id')
+        return self.getData('subscription_id')
 
     def check_credentials(self):
-        if self.__credentials.isExpired():
-            self.renew()
-            return self.__check_credentials()
-
-        try:
-            return self.__check_credentials()
-        except AuthenticationError:
-            self.renew()
-
-        return self.__check_credentials()
-
-    def __check_credentials(self):
         for i in range(1, 40):
             try:
                 self.list_resource_groups()
                 return True
             except AuthenticationError:
-                self.log_info("Check credentials failed (attemp:{}) - client_id {} should expire at {}", i,
-                              self.__credentials.getData('client_id'), self.__credentials.getAuthExpire())
+                self.log_info("Check credentials failed (attemp:{}) - client_id {}", i, self.getData('client_id'))
                 time.sleep(1)
         raise AuthenticationError("Invalid Azure credentials")
-
-    def renew(self):
-        self.__compute_mgmt_client = None
-        self.__sp_credentials = None
-        self.__resource_mgmt_client = None
-        self.__blob_service_client = None
-        self.log_info("Renew credentials - current client_id {} should expire at {}",
-                      self.__credentials.getData('client_id'), self.__credentials.getAuthExpire())
-        self.__credentials.renew()
 
     def bs_client(self):
         if(self.__blob_service_client is None):
@@ -80,10 +56,8 @@ class Azure(Provider):
 
     def sp_credentials(self):
         if (self.__sp_credentials is None):
-            self.__sp_credentials = ServicePrincipalCredentials(client_id=self.__credentials.getData('client_id'),
-                                                                secret=self.__credentials.getData('client_secret'),
-                                                                tenant=self.__credentials.getData('tenant_id')
-                                                                )
+            self.__sp_credentials = ServicePrincipalCredentials(client_id=self.getData(
+                'client_id'), secret=self.getData('client_secret'), tenant=self.getData('tenant_id'))
         return self.__sp_credentials
 
     def compute_mgmt_client(self):
