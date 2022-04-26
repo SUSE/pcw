@@ -184,6 +184,7 @@ class EC2(Provider):
             # openqa-SLES15-SP2.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
             # openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
             # openqa-SLES15-SP2.aarch64-0.9.3-EC2-HVM-Build1.49.raw.xz'
+            # openqa-SLES15-SP4-SAP-BYOS.x86_64-0.9.3-EC2-Build150400.1.31.raw.xz
             re.compile(r'''^openqa-SLES
                               (?P<version>\d+(-SP\d+)?)
                               (-(?P<type>[^\.]+))?
@@ -193,7 +194,7 @@ class EC2(Provider):
                               (?P<kiwi>\d+\.\d+\.\d+)
                               -
                               (?P<flavor>EC2[-\w]*)
-                              -Build
+                              -Build(\d+\.)?
                               (?P<build>\d+\.\d+)
                               \.raw\.xz
                               ''', re.RegexFlag.X),

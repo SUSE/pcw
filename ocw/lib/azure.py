@@ -67,7 +67,8 @@ class Azure(Provider):
 
     def bs_client(self):
         if(self.__blob_service_client is None):
-            storage_account = PCWConfig.get_feature_property('cleanup', 'azure-storage-account-name', self._namespace)
+            storage_account = PCWConfig.get_feature_property(
+                'cleanup', 'azure-storage-account-name', self._namespace)
             storage_key = self.get_storage_key(storage_account)
             connection_string = "{};AccountName={};AccountKey={};EndpointSuffix=core.windows.net".format(
                 "DefaultEndpointsProtocol=https", storage_account, storage_key)
@@ -190,6 +191,7 @@ class Azure(Provider):
             # SLES15-SP2-BYOS.x86_64-0.9.3-Azure-Build1.10.vhd
             # SLES15-SP2.x86_64-0.9.3-Azure-Basic-Build1.11.vhd
             # SLES15-SP2-SAP-BYOS.x86_64-0.9.2-Azure-Build1.9.vhd
+            # SLES15-SP4-BYOS.x86_64-0.9.1-Azure-Build150400.2.103.vhd
             re.compile(r"""
                        SLES
                        (?P<version>\d+(-SP\d+)?)
@@ -199,7 +201,7 @@ class Azure(Provider):
                        (?P<kiwi>\d+\.\d+\.\d+)
                        (-(?P<flavor>Azure[-\w]*))?
                        -
-                       Build(?P<build>\d+\.\d+)
+                       Build(\d+\.)?(?P<build>\d+\.\d+)
                        \.vhd
                        """,
                        re.X)
