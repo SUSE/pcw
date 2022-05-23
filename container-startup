@@ -10,6 +10,7 @@ function usage() {
 	echo "Usage: $0 COMMAND"
 	echo "COMMANDS:"
 	echo "   help                    Print help message"
+	echo "   check                   Run system health checks"
 	echo "   run                     Standart publiccloud-watcher run procedure"
 	echo "   migrate                 Run database migration"
 	echo "   createsuperuser         Create superuser. Requires --email and --username argument"
@@ -38,13 +39,16 @@ case "$CMD" in
 		python3 manage.py migrate
 		uwsgi --enable-threads --http-socket 0.0.0.0:8000  --plugins python3 --module webui.wsgi --static-map /static=/pcw/ocw/static
 		;;
+	"check")
+		python3 manage.py check
+		;;
 	"migrate")
 		python3 manage.py migrate
 		;;
 	"createsuperuser")
 		python3 manage.py createsuperuser $@
 		;;
-		*)
+	*)
 		python3 manage.py $@
 esac
 

@@ -1,6 +1,7 @@
 # Ignore git, data and cache files
 .git
 .cache
+__pycache__
 /db
 # Also ignore templates
 /templates
