@@ -57,18 +57,18 @@ This repository contains the skeleton `Dockerfile` for building a Publiccloud-Wa
 
 ## Running a container
 
-You can use the already build containers from the [QAC project on build.opensuse.org](https://build.opensuse.org/package/show/devel:openSUSE:QA:QAC:containers/pcw):
+You can use the already build containers within [this repository](https://github.com/orgs/SUSE/packages?repo_name=pcw): 
 
-    podman pull registry.opensuse.org/devel/opensuse/qa/qac/containers/tumbleweed/qac/pcw:latest
+    podman pull ghcr.io/suse/pcw:latest
 
-The PublicCloud-Watcher container requires two volumes to be mounted:
+The PublicCloud-Watcher container supports two volumes to be mounted:
 
-* `/pcw/db` - volume where the database file is stored
-* `/etc/pcw.ini` - configuration ini file
+* (required) `/etc/pcw.ini` - configuration ini file
+* (optional) `/pcw/db` - volume where the database file is stored
 
 To create a container using e.g. the data directory `/srv/pcw` for both volumes and expose port 8000, run the following:
 
-    podman create --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp registry.opensuse.org/devel/opensuse/qa/qac/containers/tumbleweed/qac/pcw:latest
+    podman create --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest
     podman start pcw
 
 For usage in docker simply replace `podman` by `docker` in the above command.
@@ -77,11 +77,11 @@ The `pcw` container runs by default the `/pcw/container-startup` startup helper 
 
     podman exec pcw /pcw/container-startup help
     
-    podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp registry.opensuse.org/devel/opensuse/qa/qac/containers/tumbleweed/qac/pcw:latest /pcw/container-startup help
+    podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
 
 To create the admin superuser within the created container named `pcw`, run
 
-    podman run -ti --rm -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp registry.opensuse.org/devel/opensuse/qa/qac/containers/tumbleweed/qac/pcw:latest /pcw/container-startup createsuperuser --email admin@example.com --username admin
+    podman run -ti --rm -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup createsuperuser --email admin@example.com --username admin
 
 ## Codecov
 
