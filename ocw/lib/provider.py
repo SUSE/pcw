@@ -5,6 +5,8 @@ from datetime import timedelta
 from datetime import timezone
 from distutils.version import LooseVersion
 import logging
+import json
+from pathlib import Path
 
 
 class Provider:
@@ -13,6 +15,23 @@ class Provider:
         self._namespace = namespace
         self.dry_run = PCWConfig.getBoolean('default/dry_run')
         self.logger = logging.getLogger(self.__module__)
+        self.auth_json = self.read_auth_json()
+
+    def read_auth_json(self):
+        authcachepath = Path('/var/pcw/{}/{}.json'.format(self._namespace, self.__class__.__name__))
+        if authcachepath.exists():
+            self.log_info('Loading credentials')
+            with authcachepath.open() as f:
+                self.log_info("Try loading auth from file {}".format(f.name))
+                return json.loads(f.read())
+        else:
+            self.log_err('Credentials not found in {}. Terminating', authcachepath)
+            raise FileNotFoundError('Credentials not found')
+
+    def getData(self, name=None):
+        if name is None:
+            return self.auth_json
+        return self.auth_json[name]
 
     def older_than_min_age(self, age):
         return datetime.now(timezone.utc) > age + timedelta(

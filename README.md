@@ -21,7 +21,8 @@ Configuration of Publiccloud-Watcher happens via a global config file in `/etc/p
 
     cp templates/pwc.ini /etc/pcw.ini
 
-The bare minimum configuration requires the `vault[user]` and `vault[password]` settings.
+To be able to connect to CSP PCW needs Service Principal details. Depending on namespaces defined in `pcw.ini`  PCW will expect some JSON files to be created
+under `/var/pcw/[namespace name]/[azure/EC2/gce].json`. See [templates/var/example_namespace/](templates/var/example_namespace/) for examples.
 
 PCW supports email notifications about left-over instances. See the `notify` section therein and their corresponding comments.
 
@@ -57,7 +58,7 @@ This repository contains the skeleton `Dockerfile` for building a Publiccloud-Wa
 
 ## Running a container
 
-You can use the already build containers within [this repository](https://github.com/orgs/SUSE/packages?repo_name=pcw): 
+You can use the already build containers within [this repository](https://github.com/orgs/SUSE/packages?repo_name=pcw):
 
     podman pull ghcr.io/suse/pcw:latest
 
@@ -76,7 +77,7 @@ For usage in docker simply replace `podman` by `docker` in the above command.
 The `pcw` container runs by default the `/pcw/container-startup` startup helper script. You can interact with it by running
 
     podman exec pcw /pcw/container-startup help
-    
+
     podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
 
 To create the admin superuser within the created container named `pcw`, run

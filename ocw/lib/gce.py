@@ -1,4 +1,3 @@
-from .vault import GCECredential
 from .provider import Provider, Image
 import googleapiclient.discovery
 from google.oauth2 import service_account
@@ -12,20 +11,15 @@ class GCE(Provider):
     def __new__(cls, vault_namespace):
         if vault_namespace not in GCE.__instances:
             GCE.__instances[vault_namespace] = self = object.__new__(cls)
-            self.__credentials = GCECredential(vault_namespace)
             self.__compute_client = None
             self.__project = None
         return GCE.__instances[vault_namespace]
 
     def compute_client(self):
-        if self.__credentials.isExpired():
-            self.__credentials.renew()
-            self.__compute_client = None
-        self.__project = self.__credentials.getPrivateKeyData()["project_id"]
+        self.private_key_data = self.getData()
+        self.__project = self.private_key_data["project_id"]
         if self.__compute_client is None:
-            credentials = service_account.Credentials.from_service_account_info(
-                self.__credentials.getPrivateKeyData()
-            )
+            credentials = service_account.Credentials.from_service_account_info(self.private_key_data)
             self.__compute_client = googleapiclient.discovery.build(
                 "compute", "v1", credentials=credentials, cache_discovery=False
             )
