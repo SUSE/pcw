@@ -23,10 +23,13 @@ def draw_instance_table(objects):
         hours, remainder = divmod(i.age.total_seconds(), 3600)
         minutes, seconds = divmod(remainder, 60)
         link = i.get_openqa_job_link()
+        created_by = 'N/A'
+        if 'openqa_created_by' in j['tags']:
+            created_by = j['tags']['openqa_created_by']
         table.add_row([
             i.provider,
             i.instance_id,
-            j['tags']['openqa_created_by'],
+            created_by,
             i.vault_namespace,
             i.age_formated(),
             build_absolute_uri(reverse(views.delete, args=[i.id])),
