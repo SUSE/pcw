@@ -1,5 +1,5 @@
 from .provider import Provider, Image
-from webui.settings import PCWConfig
+from webui.settings import PCWConfig, ConfigFile
 from dateutil.parser import parse
 import boto3
 from botocore.exceptions import ClientError
@@ -17,7 +17,10 @@ class EC2(Provider):
     def __init__(self, namespace: str):
         super().__init__(namespace)
         self.check_credentials()
-        self.all_regions = self.get_all_regions()
+        if PCWConfig.has('default/ec2_regions'):
+            self.all_regions = ConfigFile().getList('default/ec2_regions')
+        else:
+            self.all_regions = self.get_all_regions()
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in EC2.__instances:
