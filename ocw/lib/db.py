@@ -247,7 +247,7 @@ def delete_instance(instance):
 
 
 def auto_delete_instances():
-    for namespace in PCWConfig.get_namespaces_for('vault'):
+    for namespace in PCWConfig.get_namespaces_for('default'):
         o = Instance.objects
         o = o.filter(state=StateChoice.ACTIVE, vault_namespace=namespace,
                      ttl__gt=timedelta(0), age__gte=F('ttl'), csp_info__icontains='openqa_created_by')
