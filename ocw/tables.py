@@ -59,7 +59,7 @@ class InstanceTable(tables.Table):
     notified = MailColumn()
     delete = NoHeaderLinkColumn('delete_instance', args=[A('pk')],
                                 text=format_html('<img width=20 height=20 title="Delete instance" src="{}"/>',
-                                static('img/trash.png'))
+                                                 static('img/trash.png'))
                                 )
     openqa = OpenQALinkColumn()
     age = tables.Column(attrs={
@@ -79,8 +79,8 @@ class InstanceTable(tables.Table):
         exclude = ['active']
         template_name = 'django_tables2/bootstrap.html'
         row_attrs = {
-                'class': lambda record: "state_{}".format(record.state)
-                }
+            'class': lambda record: "state_{}".format(record.state)
+        }
 
 
 # Create a BaseFilterSet to support initial value
@@ -104,7 +104,7 @@ class InstanceFilter(BaseFilterSet):
                                                 initial=[str(i) for i in [StateChoice.ACTIVE, StateChoice.DELETING]])
     region = django_filters.CharFilter(lookup_expr='icontains')
     instance_id = django_filters.CharFilter(lookup_expr='icontains', field_name='instance_id')
-    csp_info = django_filters.CharFilter(lookup_expr='icontains', field_name='csp_info', initial='openqa_created_by')
+    csp_info = django_filters.CharFilter(lookup_expr='icontains', field_name='csp_info')
 
     class Meta:
         model = Instance

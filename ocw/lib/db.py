@@ -222,14 +222,7 @@ def update_run():
         init_cron()
 
 
-def is_delete_instance_allowed(instance):
-    return 'openqa_created_by' in instance.csp_info
-
-
 def delete_instance(instance):
-    if not is_delete_instance_allowed(instance):
-        raise PermissionError('This instance isn\'t managed by openqa - csp_info: {}'.format(instance.csp_info))
-
     logger.debug("[{}][{}] Delete instance {}".format(
         instance.provider, instance.vault_namespace, instance.instance_id))
     if (instance.provider == ProviderChoice.AZURE):
@@ -249,8 +242,8 @@ def delete_instance(instance):
 def auto_delete_instances():
     for namespace in PCWConfig.get_namespaces_for('default'):
         o = Instance.objects
-        o = o.filter(state=StateChoice.ACTIVE, vault_namespace=namespace,
-                     ttl__gt=timedelta(0), age__gte=F('ttl'), csp_info__icontains='openqa_created_by')
+        o = o.filter(state=StateChoice.ACTIVE, vault_namespace=namespace, ttl__gt=timedelta(0),
+                     age__gte=F('ttl')).exclude(csp_info__icontains='pcw_ignore')
         email_text = set()
         for i in o:
             logger.info("[{}][{}] TTL expire for instance {}".format(i.provider, i.vault_namespace, i.instance_id))

@@ -41,8 +41,8 @@ def draw_instance_table(objects):
 def send_leftover_notification():
     if PCWConfig.has('notify'):
         o = Instance.objects
-        o = o.filter(active=True, csp_info__icontains='openqa_created_by',
-                     age__gt=timedelta(hours=PCWConfig.get_feature_property('notify', 'age-hours')))
+        o = o.filter(active=True, age__gt=timedelta(hours=PCWConfig.get_feature_property(
+            'notify', 'age-hours'))).exclude(csp_info__icontains='pcw_ignore')
         body_prefix = "Message from {url}\n\n".format(url=build_absolute_uri())
         # Handle namespaces
         for namespace in PCWConfig.get_namespaces_for('notify'):
