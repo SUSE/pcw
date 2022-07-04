@@ -102,7 +102,8 @@ def ec2_to_local_instance(instance, vault_namespace, region):
         state=StateChoice.ACTIVE,
         region=region,
         csp_info=json.dumps(csp_info, ensure_ascii=False),
-        ttl=timedelta(seconds=int(csp_info['tags'].get('openqa_ttl', 0))),
+        ttl=timedelta(seconds=int(csp_info['tags'].get(
+            'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
     )
 
 
@@ -128,7 +129,8 @@ def azure_to_local_instance(instance, vault_namespace):
         instance_id=instance.name,
         region=instance.location,
         csp_info=json.dumps(csp_info, ensure_ascii=False),
-        ttl=timedelta(seconds=int(csp_info['tags'].get('openqa_ttl', 0))),
+        ttl=timedelta(seconds=int(csp_info['tags'].get(
+            'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
     )
 
 
@@ -158,7 +160,8 @@ def gce_to_local_instance(instance, vault_namespace):
         instance_id=instance['id'],
         region=GCE.url_to_name(instance['zone']),
         csp_info=json.dumps(csp_info, ensure_ascii=False),
-        ttl=timedelta(seconds=int(csp_info['tags'].get('openqa_ttl', 0))),
+        ttl=timedelta(seconds=int(csp_info['tags'].get(
+            'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
     )
 
 
