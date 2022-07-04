@@ -34,7 +34,7 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
         if i.vault_namespace != namespace:
             raise ValueError('Instance {} does not belong to {}'.format(i, namespace))
 
-        logger.debug("Update/Create instance %s:%s @ %s\n\t%s", provider, i.instance_id, i.region, i.csp_info)
+        logger.debug("Update/Create instance %s:%s @ %s", provider, i.instance_id, i.region)
         if Instance.objects.filter(provider=i.provider, instance_id=i.instance_id).exists():
             o = Instance.objects.get(provider=i.provider, instance_id=i.instance_id)
             if o.region != i.region:
