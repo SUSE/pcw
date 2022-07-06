@@ -34,7 +34,7 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
         if i.vault_namespace != namespace:
             raise ValueError('Instance {} does not belong to {}'.format(i, namespace))
 
-        logger.debug("Update/Create instance %s:%s @ %s\n\t%s", provider, i.instance_id, i.region, i.csp_info)
+        logger.debug("Update/Create instance %s:%s @ %s", provider, i.instance_id, i.region)
         if Instance.objects.filter(provider=i.provider, instance_id=i.instance_id).exists():
             o = Instance.objects.get(provider=i.provider, instance_id=i.instance_id)
             if o.region != i.region:
@@ -102,7 +102,8 @@ def ec2_to_local_instance(instance, vault_namespace, region):
         state=StateChoice.ACTIVE,
         region=region,
         csp_info=json.dumps(csp_info, ensure_ascii=False),
-        ttl=timedelta(seconds=int(csp_info['tags'].get('openqa_ttl', 0))),
+        ttl=timedelta(seconds=int(csp_info['tags'].get(
+            'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
     )
 
 
@@ -128,7 +129,8 @@ def azure_to_local_instance(instance, vault_namespace):
         instance_id=instance.name,
         region=instance.location,
         csp_info=json.dumps(csp_info, ensure_ascii=False),
-        ttl=timedelta(seconds=int(csp_info['tags'].get('openqa_ttl', 0))),
+        ttl=timedelta(seconds=int(csp_info['tags'].get(
+            'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
     )
 
 
@@ -158,7 +160,8 @@ def gce_to_local_instance(instance, vault_namespace):
         instance_id=instance['id'],
         region=GCE.url_to_name(instance['zone']),
         csp_info=json.dumps(csp_info, ensure_ascii=False),
-        ttl=timedelta(seconds=int(csp_info['tags'].get('openqa_ttl', 0))),
+        ttl=timedelta(seconds=int(csp_info['tags'].get(
+            'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
     )
 
 
@@ -222,14 +225,7 @@ def update_run():
         init_cron()
 
 
-def is_delete_instance_allowed(instance):
-    return 'openqa_created_by' in instance.csp_info
-
-
 def delete_instance(instance):
-    if not is_delete_instance_allowed(instance):
-        raise PermissionError('This instance isn\'t managed by openqa - csp_info: {}'.format(instance.csp_info))
-
     logger.debug("[{}][{}] Delete instance {}".format(
         instance.provider, instance.vault_namespace, instance.instance_id))
     if (instance.provider == ProviderChoice.AZURE):
@@ -247,10 +243,10 @@ def delete_instance(instance):
 
 
 def auto_delete_instances():
-    for namespace in PCWConfig.get_namespaces_for('vault'):
+    for namespace in PCWConfig.get_namespaces_for('default'):
         o = Instance.objects
-        o = o.filter(state=StateChoice.ACTIVE, vault_namespace=namespace,
-                     ttl__gt=timedelta(0), age__gte=F('ttl'), csp_info__icontains='openqa_created_by')
+        o = o.filter(state=StateChoice.ACTIVE, vault_namespace=namespace, ttl__gt=timedelta(0),
+                     age__gte=F('ttl')).exclude(csp_info__icontains='pcw_ignore')
         email_text = set()
         for i in o:
             logger.info("[{}][{}] TTL expire for instance {}".format(i.provider, i.vault_namespace, i.instance_id))

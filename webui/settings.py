@@ -218,16 +218,13 @@ class PCWConfig():
             'cleanup/azure-storage-account-name': {'default': 'openqa', 'return_type': str},
             'cleanup/ec2-max-snapshot-age-days': {'default': -1, 'return_type': int},
             'cleanup/ec2-max-volumes-age-days': {'default': -1, 'return_type': int},
+            'updaterun/default_ttl': {'default': 44400, 'return_type': int},
             'notify/to': {'default': None, 'return_type': str},
             'notify/age-hours': {'default': 12, 'return_type': int},
             'cluster.notify/to': {'default': None, 'return_type': str},
             'notify/smtp': {'default': None, 'return_type': str},
             'notify/smtp-port': {'default': 25, 'return_type': int},
             'notify/from': {'default': 'pcw@publiccloud.qa.suse.de', 'return_type': str},
-            'vault/url': {'default': None, 'return_type': str},
-            'vault/user': {'default': None, 'return_type': str},
-            'vault/password': {'default': None, 'return_type': str},
-            'vault/cert_dir': {'default': '/etc/ssl/certs', 'return_type': str},
             'webui/openqa_url': {'default': 'https://openqa.suse.de', 'return_type': str}
         }
         key = '/'.join([feature, property])
