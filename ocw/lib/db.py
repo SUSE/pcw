@@ -34,18 +34,20 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
         if i.vault_namespace != namespace:
             raise ValueError('Instance {} does not belong to {}'.format(i, namespace))
 
-        logger.debug("Update/Create instance %s:%s @ %s", provider, i.instance_id, i.region)
-        if Instance.objects.filter(provider=i.provider, instance_id=i.instance_id).exists():
-            o = Instance.objects.get(provider=i.provider, instance_id=i.instance_id)
+        if Instance.objects.filter(provider=i.provider, instance_id=i.instance_id, vault_namespace=namespace).exists():
+            logger.debug("[%s] Update instance %s:%s", namespace, provider, i.instance_id)
+            o = Instance.objects.get(provider=i.provider, instance_id=i.instance_id, vault_namespace=namespace)
             if o.region != i.region:
-                logger.info("Instance %s:%s changed region from %s to %s",
-                            provider, i.instance_id, o.region, i.region)
+                logger.info("[%s] Instance %s:%s changed region from %s to %s",
+                            namespace, provider, i.instance_id, o.region, i.region)
                 o.region = i.region
             if o.state == StateChoice.DELETED:
-                logger.error("Update already DELETED instance %s:%s\n\t%s", provider, i.instance_id, i.csp_info)
+                logger.error("[%s] %s:%s instance which still exists has DELETED state in DB. Reactivating %s",
+                             namespace, provider, i.instance_id, i.all_time_fields())
             if o.state != StateChoice.DELETING:
                 o.state = StateChoice.ACTIVE
         else:
+            logger.debug("[%s] Create instance %s:%s", namespace, provider, i.instance_id)
             o = Instance(
                 provider=provider,
                 vault_namespace=namespace,
@@ -205,7 +207,7 @@ def update_run():
                 try:
                     _update_provider(provider, namespace)
                 except Exception:
-                    logger.exception("[{}] Update failed for {}".format(namespace, provider))
+                    logger.exception("[%s] Update failed for %s", namespace, provider)
                     email_text.add(traceback.format_exc())
                     time.sleep(5)
                 else:
@@ -226,8 +228,7 @@ def update_run():
 
 
 def delete_instance(instance):
-    logger.debug("[{}][{}] Delete instance {}".format(
-        instance.provider, instance.vault_namespace, instance.instance_id))
+    logger.debug("[%s] Delete instance %s:%s", instance.vault_namespace, instance.provider, instance.instance_id)
     if (instance.provider == ProviderChoice.AZURE):
         Azure(instance.vault_namespace).delete_resource(instance.instance_id)
     elif (instance.provider == ProviderChoice.EC2):
@@ -249,11 +250,12 @@ def auto_delete_instances():
                      age__gte=F('ttl')).exclude(csp_info__icontains='pcw_ignore')
         email_text = set()
         for i in o:
-            logger.info("[{}][{}] TTL expire for instance {}".format(i.provider, i.vault_namespace, i.instance_id))
+            logger.info("[%s] TTL expire for instance %s:%s %s", i.vault_namespace,
+                        i.provider, i.instance_id, i.all_time_fields())
             try:
                 delete_instance(i)
             except Exception:
-                msg = "[{}][{}] Deleting instance ({}) failed".format(i.provider, i.vault_namespace, i.instance_id)
+                msg = "[{}] Deleting instance ({}:{}) failed".format(i.vault_namespace, i.provider, i.instance_id)
                 logger.exception(msg)
                 email_text.add("{}\n\n{}".format(msg, traceback.format_exc()))
 
