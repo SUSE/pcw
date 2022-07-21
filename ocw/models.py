@@ -67,8 +67,12 @@ class Instance(models.Model):
 
     def all_time_fields(self):
         all_time_pattern = "(age={}, first_seen={}, last_seen={}, ttl={})"
-        first_fmt = self.first_seen.strftime('%Y-%m-%d %H:%M')
-        last_fmt = self.last_seen.strftime('%Y-%m-%d %H:%M')
+        first_fmt = 'None'
+        last_fmt = 'None'
+        if (self.first_seen):
+            first_fmt = self.first_seen.strftime('%Y-%m-%d %H:%M')
+        if (self.last_seen):
+            last_fmt = self.last_seen.strftime('%Y-%m-%d %H:%M')
         return all_time_pattern.format(self.age_formated(), first_fmt, last_fmt, self.ttl_formated())
 
     def tags(self):
