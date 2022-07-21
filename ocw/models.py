@@ -53,7 +53,7 @@ class Instance(models.Model):
     active = models.BooleanField(default=False, help_text='True if the last sync found this instance on CSP')
     state = models.CharField(max_length=8, default=StateChoice.UNK, choices=StateChoice.choices(),
                              help_text='Local computed state of that Instance')
-    instance_id = models.CharField(max_length=200, unique=True)
+    instance_id = models.CharField(max_length=200)
     region = models.CharField(max_length=64, default='')
     vault_namespace = models.CharField(max_length=64, default='')
     csp_info = models.TextField(default='')
@@ -64,6 +64,12 @@ class Instance(models.Model):
 
     def ttl_formated(self):
         return format_seconds(self.ttl.total_seconds()) if(self.ttl) else ""
+
+    def all_time_fields(self):
+        all_time_pattern = "(age={}, first_seen={}, last_seen={}, ttl={})"
+        first_fmt = self.first_seen.strftime('%Y-%m-%d %H:%M')
+        last_fmt = self.last_seen.strftime('%Y-%m-%d %H:%M')
+        return all_time_pattern.format(self.age_formated(), first_fmt, last_fmt, self.ttl_formated())
 
     def tags(self):
         try:
@@ -83,4 +89,4 @@ class Instance(models.Model):
         return None
 
     class Meta:
-        unique_together = (('provider', 'instance_id'),)
+        unique_together = (('provider', 'instance_id', 'vault_namespace'),)
