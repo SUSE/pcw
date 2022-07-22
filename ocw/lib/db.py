@@ -42,8 +42,9 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
                             namespace, provider, i.instance_id, o.region, i.region)
                 o.region = i.region
             if o.state == StateChoice.DELETED:
-                logger.error("[%s] %s:%s instance which still exists has DELETED state in DB. Reactivating %s",
-                             namespace, provider, i.instance_id, i.all_time_fields())
+                logger.info("[%s] %s:%s instance which still exists has DELETED state in DB. Reactivating %s",
+                            namespace, provider, i.instance_id, i.all_time_fields())
+                o.first_seen = i.first_seen
             if o.state != StateChoice.DELETING:
                 o.state = StateChoice.ACTIVE
         else:
