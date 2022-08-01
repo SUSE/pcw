@@ -20,9 +20,7 @@ class Provider:
     def read_auth_json(self):
         authcachepath = Path('/var/pcw/{}/{}.json'.format(self._namespace, self.__class__.__name__))
         if authcachepath.exists():
-            self.log_info('Loading credentials')
             with authcachepath.open() as f:
-                self.log_info("Try loading auth from file {}".format(f.name))
                 return json.loads(f.read())
         else:
             self.log_err('Credentials not found in {}. Terminating', authcachepath)
