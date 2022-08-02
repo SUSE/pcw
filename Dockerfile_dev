@@ -1,0 +1,26 @@
+FROM registry.suse.com/bci/python:3.10
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UWSGI_WSGI_FILE=/pcw/webui/wsgi.py UWSGI_MASTER=1
+ENV UWSGI_HTTP_AUTO_CHUNKED=1 UWSGI_HTTP_KEEPALIVE=1 UWSGI_LAZY_APPS=1 UWSGI_WSGI_ENV_BEHAVIOR=holy
+
+## System preparation steps ################################################# ##
+
+# We do the whole installation and configuration in one layer:
+COPY requirements.txt /tmp/
+# * Install system requirements
+# * Install pip requirements
+# * Empty system cache to conserve some space
+RUN zypper -n in python310-devel python310-pip gcc libffi-devel && pip3.10 install -r /tmp/requirements.txt && rm -rf /var/cache
+
+# Copy program files only
+COPY container-startup /pcw/
+
+WORKDIR /pcw
+
+## Finalize ################################################################# ##
+
+VOLUME /pcw/db
+
+EXPOSE 8000/tcp
+
+ENTRYPOINT ["/pcw/container-startup", "$@"]
