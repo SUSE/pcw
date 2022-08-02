@@ -69,10 +69,15 @@ class EC2(Provider):
         return self.__eks_client[region]
 
     def all_clusters(self):
-        clusters = list()
-        for region in self.all_regions:
+        clusters = dict()
+        if PCWConfig.has('clusters/ec2_regions'):
+            cluster_regions = ConfigFile().getList('clusters/ec2_regions')
+        else:
+            cluster_regions = self.get_all_regions()
+        for region in cluster_regions:
             response = self.eks_client(region).list_clusters()
-            [clusters.append(cluster) for cluster in response['clusters']]
+            if len(response['clusters']):
+                clusters[region] = response['clusters']
         return clusters
 
     @staticmethod

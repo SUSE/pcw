@@ -24,4 +24,5 @@ docker-container:
 	docker build . -t ${CONT_TAG}
 podman-container:
 	podman build . -t ${CONT_TAG}
-
+podman-container-devel:
+	podman build -f Dockerfile_dev -t pcw-devel

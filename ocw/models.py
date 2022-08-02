@@ -63,7 +63,7 @@ class Instance(models.Model):
         return format_seconds(self.age.total_seconds())
 
     def ttl_formated(self):
-        return format_seconds(self.ttl.total_seconds()) if(self.ttl) else ""
+        return format_seconds(self.ttl.total_seconds()) if (self.ttl) else ""
 
     def all_time_fields(self):
         all_time_pattern = "(age={}, first_seen={}, last_seen={}, ttl={})"
