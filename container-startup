@@ -51,4 +51,3 @@ case "$CMD" in
 	*)
 		python3 manage.py $@
 esac
-

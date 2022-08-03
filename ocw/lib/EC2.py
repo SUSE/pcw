@@ -4,7 +4,7 @@ from dateutil.parser import parse
 import boto3
 from botocore.exceptions import ClientError
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from ocw.lib.emailnotify import send_mail
 import traceback
 import time
@@ -21,6 +21,10 @@ class EC2(Provider):
             self.all_regions = ConfigFile().getList('default/ec2_regions')
         else:
             self.all_regions = self.get_all_regions()
+        if PCWConfig.has('clusters/ec2_regions'):
+            self.cluster_regions = ConfigFile().getList('clusters/ec2_regions')
+        else:
+            self.cluster_regions = self.get_all_regions()
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in EC2.__instances:
@@ -69,10 +73,11 @@ class EC2(Provider):
         return self.__eks_client[region]
 
     def all_clusters(self):
-        clusters = list()
-        for region in self.all_regions:
+        clusters = dict()
+        for region in self.cluster_regions:
             response = self.eks_client(region).list_clusters()
-            [clusters.append(cluster) for cluster in response['clusters']]
+            if len(response['clusters']):
+                clusters[region] = response['clusters']
         return clusters
 
     @staticmethod
@@ -157,6 +162,44 @@ class EC2(Provider):
                 self.log_warn("Failed to delete instance with id {}. It does not exists on EC2", instance_id)
             else:
                 raise ex
+
+    def wait_for_empty_nodegroup_list(self, region, clusterName, timeout_minutes=20):
+        if self.dry_run:
+            self.log_info("Skip waiting due to dry-run mode")
+            return True
+        self.log_info("Waiting empty nodegroup list in {}", clusterName)
+        end = datetime.now(timezone.utc) + timedelta(minutes=timeout_minutes)
+        resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=clusterName)
+
+        while datetime.now(timezone.utc) < end and len(resp_nodegroup['nodegroups']) > 0:
+            time.sleep(20)
+            resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=clusterName)
+            if len(resp_nodegroup['nodegroups']) > 0:
+                self.log_info("Still waiting for {} nodegroups to disappear", len(resp_nodegroup['nodegroups']))
+
+    def delete_all_clusters(self):
+        self.log_info("Deleting all clusters!")
+        for region in self.cluster_regions:
+            response = self.eks_client(region).list_clusters()
+            if len(response['clusters']):
+                self.log_info("Found {} cluster(s) in {}", len(response['clusters']), region)
+                for cluster in response['clusters']:
+                    resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster)
+                    if len(resp_nodegroup['nodegroups']):
+                        self.log_info("Found {} nodegroups for {}", len(resp_nodegroup['nodegroups']), cluster)
+                        for nodegroup in resp_nodegroup['nodegroups']:
+                            if self.dry_run:
+                                self.log_info("Skipping {} nodegroup deletion due to dry-run mode", nodegroup)
+                            else:
+                                self.log_info("Deleting {}", nodegroup)
+                                self.eks_client(region).delete_nodegroup(
+                                    clusterName=cluster, nodegroupName=nodegroup)
+                        self.wait_for_empty_nodegroup_list(region, cluster)
+                    if self.dry_run:
+                        self.log_info("Skipping {} cluster deletion due to dry-run mode", cluster)
+                    else:
+                        self.log_info("Finally deleting {} cluster", cluster)
+                        self.eks_client(region).delete_cluster(name=cluster)
 
     def parse_image_name(self, img_name):
         regexes = [

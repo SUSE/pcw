@@ -94,7 +94,7 @@ The PCW container supports two volumes to be mounted:
 
 To create a container using e.g. the data directory `/srv/pcw` for both volumes and expose port 8000, run the following:
 
-    podman create --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest
+    podman create --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -v <local creds storage>:/var/pcw -p 8000:8000/tcp ghcr.io/suse/pcw:latest
     podman start pcw
 
 For usage in docker simply replace `podman` by `docker` in the above command.
@@ -103,11 +103,21 @@ The `pcw` container runs by default the `/pcw/container-startup` startup helper 
 
     podman exec pcw /pcw/container-startup help
 
-    podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
+    podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v <local creds storage>:/var/pcw -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
 
 To create the admin superuser within the created container named `pcw`, run
 
-    podman run -ti --rm -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup createsuperuser --email admin@example.com --username admin
+    podman run -ti --rm -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -v <local creds storage>:/var/pcw -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup createsuperuser --email admin@example.com --username admin
+
+## Devel version of container
+
+There is [devel version](Dockerfile_dev) of container file. Main difference is that source files are not copied into image but expected to be mounted via volume. This ease development in environment close as much as possible to production run.
+
+Expected use would be :
+
+    make podman-container-devel
+    podman run  -v <local path to ini file>:/etc/pcw.ini -v <local creds storage>:/var/pcw -v <path to this folder>:/pcw  -t pcw-devel <any target from container-startup>
+
 
 ## Codecov
 

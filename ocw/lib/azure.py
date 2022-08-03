@@ -42,7 +42,7 @@ class Azure(Provider):
         raise AuthenticationError("Invalid Azure credentials")
 
     def bs_client(self):
-        if(self.__blob_service_client is None):
+        if (self.__blob_service_client is None):
             storage_account = PCWConfig.get_feature_property(
                 'cleanup', 'azure-storage-account-name', self._namespace)
             storage_key = self.get_storage_key(storage_account)

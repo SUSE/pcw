@@ -56,10 +56,13 @@ def send_leftover_notification():
 
 def send_cluster_notification(namespace, clusters):
     if len(clusters) and PCWConfig.has('notify'):
-        clusters_str = ' '.join([str(cluster) for cluster in clusters])
+        clusters_str = ''
+        for region in clusters:
+            clusters_list = ' '.join([str(cluster) for cluster in clusters[region]])
+            clusters_str = '{}\n{} : {}'.format(clusters_str, region, clusters_list)
         logger.debug("Full clusters list - %s", clusters_str)
-        send_mail("EC2 clusters found", clusters_str,
-                  receiver_email=PCWConfig.get_feature_property('cluster.notify', 'to', namespace))
+        send_mail("[{}] EC2 clusters found".format(namespace), clusters_str,
+                  receiver_email=PCWConfig.get_feature_property('notify', 'to', namespace))
 
 
 def send_mail(subject, message, receiver_email=None):
