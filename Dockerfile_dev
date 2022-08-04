@@ -10,7 +10,7 @@ COPY requirements.txt /tmp/
 # * Install system requirements
 # * Install pip requirements
 # * Empty system cache to conserve some space
-RUN zypper -n in python310-devel python310-pip gcc libffi-devel && pip3.10 install -r /tmp/requirements.txt && rm -rf /var/cache
+RUN zypper -n in python310-devel gcc libffi-devel && pip3.10 install -r /tmp/requirements.txt && rm -rf /var/cache
 
 WORKDIR /pcw
 
