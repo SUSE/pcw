@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/sh
 # Startup helper for pcw. This file makes the handling with pcw within containers easier
 # See usage() for a usage summary
 
