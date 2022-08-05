@@ -88,7 +88,7 @@ class Azure(Provider):
         if self.dry_run:
             self.log_info("Deletion of resource group {} skipped due to dry run mode", resource_id)
         else:
-            self.resource_mgmt_client().resource_groups.delete(resource_id)
+            self.resource_mgmt_client().resource_groups.begin_delete(resource_id)
 
     def list_images_by_resource_group(self, resource_group):
         return self.list_by_resource_group(resource_group,
