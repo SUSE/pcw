@@ -1,6 +1,6 @@
 from .provider import Provider, Image
 from webui.settings import PCWConfig
-from azure.common.credentials import ServicePrincipalCredentials
+from azure.identity import ClientSecretCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.storage import StorageManagementClient
@@ -56,8 +56,8 @@ class Azure(Provider):
 
     def sp_credentials(self):
         if (self.__sp_credentials is None):
-            self.__sp_credentials = ServicePrincipalCredentials(client_id=self.getData(
-                'client_id'), secret=self.getData('client_secret'), tenant=self.getData('tenant_id'))
+            self.__sp_credentials = ClientSecretCredential(client_id=self.getData(
+                'client_id'), client_secret=self.getData('client_secret'), tenant_id=self.getData('tenant_id'))
         return self.__sp_credentials
 
     def compute_mgmt_client(self):
