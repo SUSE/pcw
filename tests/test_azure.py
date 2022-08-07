@@ -148,7 +148,7 @@ def test_cleanup_disks_from_rg(azure_patch, monkeypatch):
             pass
         compute_mgmt_client.disks = lambda: None
         compute_mgmt_client.disks.get = lambda rg, name: FakeDisk(rg, name)
-        compute_mgmt_client.disks.delete = lambda rg, name: deleted_disks.append(name)
+        compute_mgmt_client.disks.begin_delete = lambda rg, name: deleted_disks.append(name)
         return compute_mgmt_client
 
     monkeypatch.setattr(Azure, 'resource_mgmt_client', mock_res_mgmt_client)

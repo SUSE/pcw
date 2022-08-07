@@ -222,4 +222,4 @@ class Azure(Provider):
                         if self.dry_run:
                             self.log_info("Deletion of image {} skipped due to dry run mode", item.name)
                         else:
-                            self.compute_mgmt_client().disks.delete(self.__resource_group, item.name)
+                            self.compute_mgmt_client().disks.begin_delete(self.__resource_group, item.name)
