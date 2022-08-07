@@ -110,7 +110,7 @@ def test_cleanup_images_from_rg(azure_patch, monkeypatch):
         def compute_mgmt_client():
             pass
         compute_mgmt_client.images = lambda: None
-        compute_mgmt_client.images.delete = lambda rg, name: deleted_images.append(name)
+        compute_mgmt_client.images.begin_delete = lambda rg, name: deleted_images.append(name)
         return compute_mgmt_client
 
     monkeypatch.setattr(Azure, 'resource_mgmt_client', mock_res_mgmt_client)

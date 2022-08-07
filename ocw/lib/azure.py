@@ -206,7 +206,7 @@ class Azure(Provider):
                     if self.dry_run:
                         self.log_info("Deletion of image {} skipped due to dry run mode", item.name)
                     else:
-                        self.compute_mgmt_client().images.delete(self.__resource_group, item.name)
+                        self.compute_mgmt_client().images.begin_delete(self.__resource_group, item.name)
 
     def cleanup_disks_from_rg(self, keep_images):
         for item in self.list_disks_by_resource_group(self.__resource_group):
