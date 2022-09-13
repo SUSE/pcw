@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pcw"
-version = "1.13"
+version = "1.14"
 
 [tool.setuptools]
 py-modules = []
