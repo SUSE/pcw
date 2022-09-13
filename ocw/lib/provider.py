@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from distutils.version import LooseVersion
+from looseversion import LooseVersion
 import logging
 import json
 from pathlib import Path

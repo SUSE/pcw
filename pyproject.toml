@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools >= 40.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pcw"
+version = "1.13"
+
+[tool.setuptools]
+py-modules = []
