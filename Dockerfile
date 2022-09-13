@@ -15,7 +15,7 @@ RUN zypper -n in python310-devel gcc libffi-devel && pip3.10 install -r /pcw/req
 # Copy program files only
 COPY ocw  /pcw/ocw/
 COPY webui  /pcw/webui/
-COPY container-startup manage.py LICENSE README.md setup.cfg setup.py /pcw/
+COPY container-startup manage.py LICENSE README.md setup.cfg pyproject.toml /pcw/
 
 WORKDIR /pcw
 
