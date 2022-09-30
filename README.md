@@ -116,7 +116,7 @@ There is [devel version](Dockerfile_dev) of container file. Main difference is t
 Expected use would be :
 
     make podman-container-devel
-    podman run  -v <local path to ini file>:/etc/pcw.ini -v <local creds storage>:/var/pcw -v <path to this folder>:/pcw  -t pcw-devel <any target from container-startup>
+    podman run  -v <local path to ini file>:/etc/pcw.ini -v <local creds storage>:/var/pcw -v <path to this folder>:/pcw  -t pcw-devel "python3 manage.py <any command available>"
 
 
 ## Codecov

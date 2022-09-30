@@ -14,4 +14,4 @@ RUN zypper -n in python310-devel gcc libffi-devel && pip3.10 install -r /tmp/req
 
 WORKDIR /pcw
 
-ENTRYPOINT ["sh", "-c", "/pcw/container-startup $@"]
+ENTRYPOINT ["sh", "-c"]
