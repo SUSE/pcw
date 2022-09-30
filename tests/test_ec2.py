@@ -326,14 +326,14 @@ def test_cleanup_volumes_cleanupcheck(ec2_patch):
 
 def test_cleanup_uploader_vpc_mail_sent_due_instances_associated(ec2_patch_for_vpc):
     MockedSMTP.mimetext = ''
-    ec2_patch_for_vpc.cleanup_uploader_vpcs()
+    ec2_patch_for_vpc.cleanup_vpcs()
     assert 'Uploader leftover someId (OwnerId=someId) in region1 is locked' in MockedSMTP.mimetext
 
 
 def test_cleanup_uploader_vpc_no_mail_sent_due_dry_run(ec2_patch_for_vpc):
     MockedSMTP.mimetext = ''
     ec2_patch_for_vpc.dry_run = True
-    ec2_patch_for_vpc.cleanup_uploader_vpcs()
+    ec2_patch_for_vpc.cleanup_vpcs()
     assert MockedSMTP.mimetext == ''
 
 
@@ -396,7 +396,7 @@ def test_delete_vpc_no_delete_due_notify_only_config(ec2_patch_for_vpc, monkeypa
 
     monkeypatch.setattr(EC2, 'delete_vpc', mocked_dont_call_it)
     monkeypatch.setattr(PCWConfig, 'getBoolean', mocked_get_boolean)
-    ec2_patch_for_vpc.cleanup_uploader_vpcs()
+    ec2_patch_for_vpc.cleanup_vpcs()
     assert 'VPC someId should be deleted, skipping due vpc-notify-only=True' in MockedSMTP.mimetext
 
 
@@ -451,8 +451,8 @@ def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
     def mocked_cleanup_volumes(self, arg1):
         called_stack.append('cleanup_volumes')
 
-    def mocked_cleanup_uploader_vpcs(self):
-        called_stack.append('cleanup_uploader_vpcs')
+    def mocked_cleanup_vpcs(self):
+        called_stack.append('cleanup_vpcs')
 
     def mocked_get_boolean(config_path, field=None):
         return config_path != 'default/dry_run'
@@ -461,9 +461,9 @@ def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
     monkeypatch.setattr(EC2, 'cleanup_images', mocked_cleanup_images)
     monkeypatch.setattr(EC2, 'cleanup_snapshots', mocked_cleanup_snapshots)
     monkeypatch.setattr(EC2, 'cleanup_volumes', mocked_cleanup_volumes)
-    monkeypatch.setattr(EC2, 'cleanup_uploader_vpcs', mocked_cleanup_uploader_vpcs)
+    monkeypatch.setattr(EC2, 'cleanup_vpcs', mocked_cleanup_vpcs)
     monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda *args, **kwargs: 5)
 
     ec2_patch.cleanup_all()
 
-    assert called_stack == ['cleanup_images', 'cleanup_snapshots', 'cleanup_volumes', 'cleanup_uploader_vpcs']
+    assert called_stack == ['cleanup_images', 'cleanup_snapshots', 'cleanup_volumes', 'cleanup_vpcs']

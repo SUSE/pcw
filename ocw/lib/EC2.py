@@ -262,11 +262,22 @@ class EC2(Provider):
         if cleanup_ec2_max_volumes_age_days >= 0:
             self.cleanup_volumes(cleanup_ec2_max_volumes_age_days)
         if PCWConfig.getBoolean('cleanup/vpc_cleanup', self._namespace):
-            self.cleanup_uploader_vpcs()
+            self.cleanup_vpcs()
+
+    def delete_elastic_ips(self, region):
+        self.log_info('Deleting elastic IPs in {}'.format(region))
+        response = self.ec2_client(region).describe_addresses()
+        for addr in response['Addresses']:
+            if 'AssociationId' in addr:
+                self.log_info('Disassosiate IP with AssociationId:{}'.format(addr['AssociationId']))
+                self.ec2_client(region).disassociate_address(AssociationId=addr['AssociationId'])
+            self.log_info('Release IP with AllocationId:{}'.format(addr['AllocationId']))
+            self.ec2_client(region).release_address(AllocationId=addr['AllocationId'])
 
     def delete_vpc(self, region, vpc, vpcId):
         try:
             self.log_info('{} has no associated instances. Initializing cleanup of it', vpc)
+            self.delete_elastic_ips(region)
             self.delete_internet_gw(vpc)
             self.delete_routing_tables(vpc)
             self.delete_vpc_endpoints(region, vpcId)
@@ -354,10 +365,9 @@ class EC2(Provider):
                 vpc.detach_internet_gateway(InternetGatewayId=gw.id)
                 gw.delete()
 
-    def cleanup_uploader_vpcs(self):
+    def cleanup_vpcs(self):
         for region in self.all_regions:
-            response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']},
-                                                                      {'Name': 'tag:Name', 'Values': ['uploader-*']}])
+            response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
             for response_vpc in response['Vpcs']:
                 self.log_info('{} in {} looks like uploader leftover. (OwnerId={}).', response_vpc['VpcId'], region,
                               response_vpc['OwnerId'])
