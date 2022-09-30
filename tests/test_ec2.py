@@ -303,7 +303,7 @@ def test_cleanup_volumes_cleanupcheck(ec2_patch):
 def test_cleanup_uploader_vpc_mail_sent_due_instances_associated(ec2_patch_for_vpc):
     MockedSMTP.mimetext = ''
     ec2_patch_for_vpc.cleanup_vpcs()
-    assert 'Uploader leftover someId (OwnerId=someId) in region1 is locked' in MockedSMTP.mimetext
+    assert '[Openqa-Cloud-Watch] VPC deletion locked by running VMs' in MockedSMTP.mimetext
 
 
 def test_cleanup_uploader_vpc_no_mail_sent_due_dry_run(ec2_patch_for_vpc):
@@ -314,6 +314,9 @@ def test_cleanup_uploader_vpc_no_mail_sent_due_dry_run(ec2_patch_for_vpc):
 
 
 def test_delete_vpc_deleting_everything(ec2_patch, monkeypatch):
+    def mocked_delete_elastic_ips(arg1, arg2):
+        delete_vpc_calls_stack.append('delete_elastic_ips')
+
     def mocked_delete_internet_gw(arg1, arg2):
         delete_vpc_calls_stack.append('delete_internet_gw')
 
@@ -338,6 +341,7 @@ def test_delete_vpc_deleting_everything(ec2_patch, monkeypatch):
         # emulated that there is no linked running instance to VPC which we trying to delete
 
     MockedInstances.is_empty = True
+    monkeypatch.setattr(EC2, 'delete_elastic_ips', mocked_delete_elastic_ips)
     monkeypatch.setattr(EC2, 'delete_internet_gw', mocked_delete_internet_gw)
     monkeypatch.setattr(EC2, 'delete_routing_tables', mocked_delete_routing_tables)
     monkeypatch.setattr(EC2, 'delete_vpc_endpoints', mocked_delete_vpc_endpoints)
@@ -347,20 +351,19 @@ def test_delete_vpc_deleting_everything(ec2_patch, monkeypatch):
     monkeypatch.setattr(EC2, 'delete_vpc_subnets', mocked_delete_vpc_subnets)
     ec2_patch.delete_vpc('region', MockedVpc('vpcId'), 'vpcId')
 
-    assert delete_vpc_calls_stack == ['delete_internet_gw', 'delete_routing_tables', 'delete_vpc_endpoints',
-                                      'delete_security_groups', 'delete_vpc_peering_connections',
-                                      'delete_network_acls',
+    assert delete_vpc_calls_stack == ['delete_elastic_ips', 'delete_internet_gw', 'delete_routing_tables',
+                                      'delete_vpc_endpoints', 'delete_security_groups',
+                                      'delete_vpc_peering_connections', 'delete_network_acls',
                                       'delete_vpc_subnets', 'boto3_delete_vpc']
 
 
-def test_delete_vpc_exception_swallow(ec2_patch_for_vpc, monkeypatch):
+def test_delete_vpc_return_exception_str(ec2_patch_for_vpc, monkeypatch):
     def mocked_dont_call_it(arg1, arg2):
         raise Exception
 
-    monkeypatch.setattr(EC2, 'delete_internet_gw', mocked_dont_call_it)
-    ec2_patch_for_vpc.delete_vpc('region', MockedVpc('vpcId'), 'vpcId')
-    assert 'Exception on VPC deletion' in MockedSMTP.mimetext
-    assert 'self.delete_internet_gw(vpc)' in MockedSMTP.mimetext
+    monkeypatch.setattr(EC2, 'delete_elastic_ips', mocked_dont_call_it)
+    ret = ec2_patch_for_vpc.delete_vpc('region', MockedVpc('vpcId'), 'vpcId')
+    assert '[vpcId]Exception on VPC deletion. Traceback (most recent call last)' in ret
 
 
 def test_delete_vpc_no_delete_due_notify_only_config(ec2_patch_for_vpc, monkeypatch):
@@ -373,7 +376,7 @@ def test_delete_vpc_no_delete_due_notify_only_config(ec2_patch_for_vpc, monkeypa
     monkeypatch.setattr(EC2, 'delete_vpc', mocked_dont_call_it)
     monkeypatch.setattr(PCWConfig, 'getBoolean', mocked_get_boolean)
     ec2_patch_for_vpc.cleanup_vpcs()
-    assert 'VPC someId should be deleted, skipping due vpc-notify-only=True' in MockedSMTP.mimetext
+    assert '[Openqa-Cloud-Watch] 1 VPC\'s should be deleted, skipping due vpc-notify-only=True' in MockedSMTP.mimetext
 
 
 def test_delete_internet_gw(ec2_patch):
