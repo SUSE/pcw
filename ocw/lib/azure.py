@@ -32,7 +32,7 @@ class Azure(Provider):
         return self.getData('subscription_id')
 
     def check_credentials(self):
-        for i in range(1, 40):
+        for i in range(1, 5):
             try:
                 self.list_resource_groups()
                 return True
