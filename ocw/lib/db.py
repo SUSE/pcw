@@ -67,6 +67,13 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
         update(state=StateChoice.DELETED)
 
 
+def tag_to_boolean(tag_name, csp_info):
+    try:
+        return bool(csp_info['tags'][tag_name])
+    except KeyError:
+        return False
+
+
 def ec2_to_json(i):
     info = {
         'state': i.state['Name'],
@@ -107,6 +114,7 @@ def ec2_to_local_instance(instance, vault_namespace, region):
         csp_info=json.dumps(csp_info, ensure_ascii=False),
         ttl=timedelta(seconds=int(csp_info['tags'].get(
             'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
+        ignore=tag_to_boolean('pcw_ignore', csp_info)
     )
 
 
@@ -134,6 +142,7 @@ def azure_to_local_instance(instance, vault_namespace):
         csp_info=json.dumps(csp_info, ensure_ascii=False),
         ttl=timedelta(seconds=int(csp_info['tags'].get(
             'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
+        ignore=tag_to_boolean('pcw_ignore', csp_info)
     )
 
 
@@ -165,6 +174,7 @@ def gce_to_local_instance(instance, vault_namespace):
         csp_info=json.dumps(csp_info, ensure_ascii=False),
         ttl=timedelta(seconds=int(csp_info['tags'].get(
             'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
+        ignore=tag_to_boolean('pcw_ignore', csp_info)
     )
 
 

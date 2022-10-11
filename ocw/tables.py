@@ -67,6 +67,7 @@ class InstanceTable(tables.Table):
             'class': lambda record: 'old' if record.age.seconds > 60*60 else ''
         }
     })
+    ignore = tables.BooleanColumn()
 
     def render_age(self, record):
         return record.age_formated()
@@ -105,7 +106,8 @@ class InstanceFilter(BaseFilterSet):
     region = django_filters.CharFilter(lookup_expr='icontains')
     instance_id = django_filters.CharFilter(lookup_expr='icontains', field_name='instance_id')
     csp_info = django_filters.CharFilter(lookup_expr='icontains', field_name='csp_info')
+    ignore = django_filters.BooleanFilter(field_name='ignore', initial=False)
 
     class Meta:
         model = Instance
-        fields = ['provider', 'state', 'instance_id', 'region', 'csp_info']
+        fields = ['provider', 'state', 'instance_id', 'region', 'csp_info', 'ignore']
