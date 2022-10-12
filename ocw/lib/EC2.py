@@ -42,7 +42,7 @@ class EC2(Provider):
         self.__secret = self.getData('secret_key')
         self.__key = self.getData('access_key')
 
-        for i in range(1, 60 * 5):
+        for i in range(1, 5):
             try:
                 self.get_all_regions()
                 return True

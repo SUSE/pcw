@@ -28,12 +28,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '%ma*-g0xjs1clg9u3k21mi4av%&j5-4sqn&)&!+owze@+9_es)'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-# This configuration file contains admin credentials for each CSP
 CONFIG_FILE = '/etc/pcw.ini'
 
 ALLOWED_HOSTS = ['*']
+
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 
 # Application definition

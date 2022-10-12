@@ -4,6 +4,7 @@ from ocw.lib.db import ec2_to_json
 from ocw.lib.db import azure_to_json
 from ocw.lib.db import azure_to_local_instance
 from ocw.lib.db import gce_to_json
+from ocw.lib.db import tag_to_boolean
 from ocw.models import ProviderChoice
 from ocw.models import StateChoice
 from ocw.lib.gce import GCE
@@ -140,3 +141,17 @@ def test_gce_to_json_launch_time():
     result = gce_to_json(test_instance)
 
     assert result['launch_time'] == test_time
+
+
+def test_tag_to_boolean():
+    tag_name = 'test'
+    csp_info = {}
+    assert tag_to_boolean(tag_name, csp_info) == False
+    csp_info = {'tags' : {}}
+    assert tag_to_boolean(tag_name, csp_info) == False
+    csp_info = {'tags' : {'test': None}}
+    assert tag_to_boolean(tag_name, csp_info) == False
+    csp_info = {'tags' : {'test': False}}
+    assert tag_to_boolean(tag_name, csp_info) == False
+    csp_info = {'tags' : {'test': '1'}}
+    assert tag_to_boolean(tag_name, csp_info) == True

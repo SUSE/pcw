@@ -306,11 +306,11 @@ def test_check_credentials(monkeypatch):
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
 
     count_list_resource_groups = 0
-    failed_list_resource_groups = 38
+    failed_list_resource_groups = 3
     az = Azure('fake')
-    assert count_list_resource_groups == 39
+    assert count_list_resource_groups == 4
 
     count_list_resource_groups = 0
-    failed_list_resource_groups = 41
+    failed_list_resource_groups = 5
     with pytest.raises(AuthenticationError):
         az = Azure('fake')

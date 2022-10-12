@@ -58,6 +58,7 @@ class Instance(models.Model):
     vault_namespace = models.CharField(max_length=64, default='')
     csp_info = models.TextField(default='')
     notified = models.BooleanField(default=False)
+    ignore = models.BooleanField(default=False)
 
     def age_formated(self):
         return format_seconds(self.age.total_seconds())
