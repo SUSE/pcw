@@ -3,5 +3,5 @@ pytest
 pytest-django
 faker
 flake8
-pytest-cov==2.5.0
+pytest-cov
 codecov
