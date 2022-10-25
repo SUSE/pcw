@@ -34,8 +34,8 @@ def list_clusters():
     for namespace in PCWConfig.get_namespaces_for('clusters'):
         try:
             clusters = EC2(namespace).all_clusters()
-            quantity = sum(len(c1) for c1 in clusters.keys())
-            logger.info("%d clusters found", quantity)
+            quantity = sum(len(clusters[c1]) for c1 in clusters)
+            logger.info("%d cluster(s) found", quantity)
             if quantity > 0:
                 send_cluster_notification(namespace, clusters)
         except Exception as e:

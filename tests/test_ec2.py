@@ -128,6 +128,26 @@ class MockedEC2Client():
     def describe_vpc_peering_connections(self, Filters):
         return MockedEC2Client.response
 
+class MockedEKSClient():
+
+    clusters_list = {}
+
+
+    def list_clusters(self):
+        return self.clusters_list
+
+    def describe_cluster(self, name=None):
+        if name == 'empty':
+            return {}
+        elif name == 'hascluster':
+            return {'cluster':{}}
+        elif name == 'hastags':
+            return {'cluster':{'tags': {}}}
+        elif name == 'ignored':
+            return {'cluster':{'tags': {'pcw_ignore':'1'}}}
+        else:
+            return None
+
 
 class MockedSMTP:
     mimetext = ''
@@ -467,3 +487,25 @@ def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
     ec2_patch.cleanup_all()
 
     assert called_stack == ['cleanup_images', 'cleanup_snapshots', 'cleanup_volumes', 'cleanup_uploader_vpcs']
+
+def test_list_clusters(ec2_patch, monkeypatch):
+    mocked_eks = MockedEKSClient()
+    monkeypatch.setattr(EC2, 'eks_client', lambda self, region: mocked_eks)
+    all_clusters = ec2_patch.all_clusters()
+    assert all_clusters == {}
+
+    mocked_eks.clusters_list = {'clusters' : ['empty']}
+    all_clusters = ec2_patch.all_clusters()
+    assert all_clusters == {}
+
+    mocked_eks.clusters_list = {'clusters' : ['hascluster']}
+    all_clusters = ec2_patch.all_clusters()
+    assert all_clusters == {}
+
+    mocked_eks.clusters_list = {'clusters' : ['hastags']}
+    all_clusters = ec2_patch.all_clusters()
+    assert all_clusters == {'region1': ['hastags']}
+
+    mocked_eks.clusters_list = {'clusters' : ['hastags', 'ignored']}
+    all_clusters = ec2_patch.all_clusters()
+    assert all_clusters == {'region1': ['hastags']}
