@@ -76,8 +76,16 @@ class EC2(Provider):
         clusters = dict()
         for region in self.cluster_regions:
             response = self.eks_client(region).list_clusters()
-            if len(response['clusters']):
-                clusters[region] = response['clusters']
+            if 'clusters' in response and len(response['clusters']) > 0:
+                clusters[region] = []
+                for cl in response['clusters']:
+                    cluster_description = self.eks_client(region).describe_cluster(name=cl)
+                    if 'cluster' not in cluster_description or 'tags' not in cluster_description['cluster']:
+                        self.log_err("Unexpected cluster description: {}", cluster_description)
+                    elif 'pcw_ignore' not in cluster_description['cluster']['tags']:
+                        clusters[region].append(cl)
+                if len(clusters[region]) == 0:
+                    del clusters[region]
         return clusters
 
     @staticmethod
