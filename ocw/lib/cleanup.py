@@ -44,5 +44,5 @@ def list_clusters():
 
 
 def init_cron():
-    getScheduler().add_job(cleanup_run, trigger='interval', minutes=60, id='cleanup_all')
-    getScheduler().add_job(list_clusters, trigger='interval', hours=18, id='list_clusters')
+    getScheduler().add_job(cleanup_run, trigger='interval', minutes=60, id='cleanup_all', misfire_grace_time=1800)
+    getScheduler().add_job(list_clusters, trigger='interval', hours=18, id='list_clusters', misfire_grace_time=10000)
