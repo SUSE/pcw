@@ -18,8 +18,7 @@ def getScheduler():
             }
         job_defaults = {
                 'coalesce': False,
-                'max_instances': 1,
-                'misfire_grace_time': 120,
+                'max_instances': 1
             }
         __scheduler = BackgroundScheduler(executors=executors, job_defaults=job_defaults, timezone=utc)
     return __scheduler
