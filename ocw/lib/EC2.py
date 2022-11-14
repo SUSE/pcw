@@ -1,9 +1,8 @@
-from .provider import Provider, Image
+from .provider import Provider
 from webui.settings import PCWConfig, ConfigFile
 from dateutil.parser import parse
 import boto3
 from botocore.exceptions import ClientError
-import re
 from datetime import date, datetime, timedelta, timezone
 from ocw.lib.emailnotify import send_mail
 import traceback
@@ -89,32 +88,21 @@ class EC2(Provider):
         return clusters
 
     @staticmethod
-    def needs_to_delete_snapshot(snapshot, cleanup_ec2_max_snapshot_age_days) -> bool:
-        delete_older_than = date.today() - timedelta(days=cleanup_ec2_max_snapshot_age_days)
-        if datetime.date(snapshot['StartTime']) < delete_older_than:
-            regexes = [
-                re.compile(r'''^OpenQA upload image$'''),
-                re.compile(r'''^Created by CreateImage\([\w-]+\) for ami-\w+ from vol-\w+$''')
-            ]
-            for regex in regexes:
-                m = re.match(regex, snapshot['Description'].strip())
-                if m:
-                    return True
-        return False
+    def is_outdated(creation_time, valid_period_days) -> bool:
+        return datetime.date(creation_time) < (date.today() - timedelta(days=valid_period_days))
 
-    def cleanup_snapshots(self, cleanup_ec2_max_snapshot_age_days):
+    def cleanup_snapshots(self, valid_period_days):
         for region in self.all_regions:
             response = self.ec2_client(region).describe_snapshots(OwnerIds=['self'])
-            response['Snapshots'].sort(key=lambda snapshot: snapshot['StartTime'].timestamp())
             for snapshot in response['Snapshots']:
-                if EC2.needs_to_delete_snapshot(snapshot, cleanup_ec2_max_snapshot_age_days):
-                    self.log_info("Deleting snapshot {} in region {} with StartTime={}", snapshot['SnapshotId'],
-                                  region, snapshot['StartTime'])
+                if EC2.is_outdated(snapshot['StartTime'], valid_period_days):
                     try:
                         if self.dry_run:
                             self.log_info("Snapshot deletion of {} skipped due to dry run mode",
                                           snapshot['SnapshotId'])
                         else:
+                            self.log_info("Deleting snapshot {} in region {} with StartTime={}",
+                                          snapshot['SnapshotId'], region, snapshot['StartTime'])
                             self.ec2_client(region).delete_snapshot(SnapshotId=snapshot['SnapshotId'])
                     except ClientError as ex:
                         if ex.response['Error']['Code'] == 'InvalidSnapshot.InUse':
@@ -122,14 +110,13 @@ class EC2(Provider):
                         else:
                             raise ex
 
-    def cleanup_volumes(self, cleanup_ec2_max_volumes_age_days):
-        delete_older_than = date.today() - timedelta(days=cleanup_ec2_max_volumes_age_days)
+    def cleanup_volumes(self, valid_period_days):
         for region in self.all_regions:
             response = self.ec2_client(region).describe_volumes()
             for volume in response['Volumes']:
-                if datetime.date(volume['CreateTime']) < delete_older_than:
+                if EC2.is_outdated(volume['CreateTime'], valid_period_days):
                     if self.volume_protected(volume):
-                        self.log_info('Volume {} has tag DO_NOT_DELETE so protected from deletion',
+                        self.log_info('Volume {} has tag pcw_ignore so protected from deletion',
                                       volume['VolumeId'])
                     elif self.dry_run:
                         self.log_info("Volume deletion of {} skipped due to dry run mode", volume['VolumeId'])
@@ -147,7 +134,7 @@ class EC2(Provider):
     def volume_protected(self, volume):
         if 'Tags' in volume:
             for tag in volume['Tags']:
-                if tag['Key'] == 'DO_NOT_DELETE':
+                if tag['Key'] == 'pcw_ignore':
                     return True
         return False
 
@@ -209,66 +196,13 @@ class EC2(Provider):
                         self.log_info("Finally deleting {} cluster", cluster)
                         self.eks_client(region).delete_cluster(name=cluster)
 
-    def parse_image_name(self, img_name):
-        regexes = [
-            # openqa-SLES12-SP5-EC2.x86_64-0.9.1-BYOS-Build1.55.raw.xz
-            re.compile(r'''^openqa-SLES
-                              (?P<version>\d+(-SP\d+)?)
-                              -(?P<flavor>EC2)
-                              \.
-                              (?P<arch>[^-]+)
-                              -
-                              (?P<kiwi>\d+\.\d+\.\d+)
-                              -
-                              (?P<type>(BYOS|On-Demand))
-                              -Build
-                              (?P<build>\d+\.\d+)
-                              \.raw\.xz
-                              ''', re.RegexFlag.X),
-            # openqa-SLES15-SP2.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
-            # openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz'
-            # openqa-SLES15-SP2.aarch64-0.9.3-EC2-HVM-Build1.49.raw.xz'
-            # openqa-SLES15-SP4-SAP-BYOS.x86_64-0.9.3-EC2-Build150400.1.31.raw.xz
-            re.compile(r'''^openqa-SLES
-                              (?P<version>\d+(-SP\d+)?)
-                              (-(?P<type>[^\.]+))?
-                              \.
-                              (?P<arch>[^-]+)
-                              -
-                              (?P<kiwi>\d+\.\d+\.\d+)
-                              -
-                              (?P<flavor>EC2[-\w]*)
-                              -Build(\d+\.)?
-                              (?P<build>\d+\.\d+)
-                              \.raw\.xz
-                              ''', re.RegexFlag.X),
-            # openqa-SLES12-SP4-EC2-HVM-BYOS.x86_64-0.9.2-Build2.56.raw.xz'
-            re.compile(r'''^openqa-SLES
-                              (?P<version>\d+(-SP\d+)?)
-                              -
-                              (?P<flavor>EC2[^\.]+)
-                              \.
-                              (?P<arch>[^-]+)
-                              -
-                              (?P<kiwi>\d+\.\d+\.\d+)
-                              -
-                              Build
-                              (?P<build>\d+\.\d+)
-                              \.raw\.xz
-                              ''', re.RegexFlag.X)
-        ]
-        return self.parse_image_name_helper(img_name, regexes)
-
     def cleanup_all(self):
-        cleanup_ec2_max_snapshot_age_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-snapshot-age-days',
-                                                                           self._namespace)
-        cleanup_ec2_max_volumes_age_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-volumes-age-days',
-                                                                          self._namespace)
-        self.cleanup_images()
-        if cleanup_ec2_max_snapshot_age_days >= 0:
-            self.cleanup_snapshots(cleanup_ec2_max_snapshot_age_days)
-        if cleanup_ec2_max_volumes_age_days >= 0:
-            self.cleanup_volumes(cleanup_ec2_max_volumes_age_days)
+        valid_period_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-age-days', self._namespace)
+
+        if valid_period_days > 0:
+            self.cleanup_images(valid_period_days)
+            self.cleanup_snapshots(valid_period_days)
+            self.cleanup_volumes(valid_period_days)
         if PCWConfig.getBoolean('cleanup/vpc_cleanup', self._namespace):
             self.cleanup_uploader_vpcs()
 
@@ -389,25 +323,13 @@ class EC2(Provider):
                                                                                           region)
                         send_mail('VPC deletion locked by running VMs', body)
 
-    def cleanup_images(self):
+    def cleanup_images(self, valid_period_days):
         for region in self.all_regions:
             response = self.ec2_client(region).describe_images(Owners=['self'])
-            images = list()
             for img in response['Images']:
-                # img is in the format described here:
-                # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.describe_images
-                m = self.parse_image_name(img['Name'])
-                if m:
-                    self.log_dbg("Image {} is candidate for deletion with build {}", img['Name'], m['build'])
-                    images.append(
-                        Image(img['Name'], flavor=m['key'], build=m['build'], date=parse(img['CreationDate']),
-                              img_id=img['ImageId']))
-                else:
-                    self.log_err(" Unable to parse image name '{}'", img['Name'])
-            keep_images = self.get_keeping_image_names(images)
-            for img in [i for i in images if i.name not in keep_images]:
-                self.log_dbg("Delete image '{}' (ami:{})".format(img.name, img.id))
-                if self.dry_run:
-                    self.log_info("Image deletion {} skipped due to dry run mode", img.id)
-                else:
-                    self.ec2_client(region).deregister_image(ImageId=img.id, DryRun=False)
+                if EC2.is_outdated(parse(img['CreationDate']), valid_period_days):
+                    if self.dry_run:
+                        self.log_info("Image deletion {} skipped due to dry run mode", img['ImageId'])
+                    else:
+                        self.log_dbg("Delete image '{}' (ami:{})".format(img['Name'], img['ImageId']))
+                        self.ec2_client(region).deregister_image(ImageId=img['ImageId'], DryRun=False)

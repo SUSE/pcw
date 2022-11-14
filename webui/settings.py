@@ -210,13 +210,10 @@ class PCWConfig():
     @staticmethod
     def get_feature_property(feature: str, property: str, namespace: str = None):
         default_values = {
-            'cleanup/max-images-per-flavor': {'default': 1, 'return_type': int},
-            'cleanup/max-image-age-hours': {'default': 24 * 31, 'return_type': int},
-            'cleanup/min-image-age-hours': {'default': 24, 'return_type': int},
+            'cleanup/max-age-hours': {'default': 24 * 7, 'return_type': int},
             'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload', 'return_type': str},
             'cleanup/azure-storage-account-name': {'default': 'openqa', 'return_type': str},
-            'cleanup/ec2-max-snapshot-age-days': {'default': -1, 'return_type': int},
-            'cleanup/ec2-max-volumes-age-days': {'default': -1, 'return_type': int},
+            'cleanup/ec2-max-age-days': {'default': -1, 'return_type': int},
             'updaterun/default_ttl': {'default': 44400, 'return_type': int},
             'notify/to': {'default': None, 'return_type': str},
             'notify/age-hours': {'default': 12, 'return_type': int},

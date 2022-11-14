@@ -1,13 +1,16 @@
 from ocw.lib.EC2 import EC2, Provider
 from webui.settings import PCWConfig
 from tests.generators import mock_get_feature_property
-from tests.generators import min_image_age_hours, max_image_age_hours, ec2_max_volumes_age_days, \
-    ec2_max_snapshot_age_days
+from tests.generators import ec2_max_age_days
+from faker import Faker
 from datetime import datetime, timezone, timedelta
 from botocore.exceptions import ClientError
 import pytest
 
-older_then_min_age = (datetime.now(timezone.utc) - timedelta(hours=min_image_age_hours + 1)).isoformat()
+older_than_max_age_date = datetime.now(timezone.utc) - timedelta(days=ec2_max_age_days + 1)
+older_than_max_age_str = older_than_max_age_date.strftime("%m/%d/%Y, %H:%M:%S")
+now_age_date = datetime.now(timezone.utc)
+now_age_str = now_age_date.strftime("%m/%d/%Y, %H:%M:%S")
 # used by test_delete_vpc_deleting_everything test. Needs to be global due to use in ec2_patch fixture
 delete_vpc_calls_stack = []
 
@@ -39,7 +42,6 @@ def ec2_patch(monkeypatch):
     monkeypatch.setattr(EC2, 'get_all_regions', lambda self: ['region1'])
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     monkeypatch.setattr(EC2, 'ec2_client', lambda self, region: MockedEC2Client())
-    monkeypatch.setattr(EC2, 'needs_to_delete_snapshot', lambda *args, **kwargs: True)
     monkeypatch.setattr(EC2, 'ec2_resource', lambda self, region: mocked_ec2_resource)
 
     mocked_ec2_resource.Vpc = mocked_vpc
@@ -233,92 +235,48 @@ class MockedVpcPeeringConnection:
         MockedVpcPeeringConnection.delete_called = True
 
 
-def test_parse_image_name(ec2_patch):
-    assert ec2_patch.parse_image_name('openqa-SLES12-SP5-EC2.x86_64-0.9.1-BYOS-Build1.55.raw.xz') == {
-        'key': '12-SP5-EC2-BYOS-x86_64',
-        'build': '0.9.1-1.55'
-    }
-    assert ec2_patch.parse_image_name('openqa-SLES15-SP2.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz') == {
-        'key': '15-SP2-EC2-HVM-x86_64',
-        'build': '0.9.3-1.10'
-    }
-    assert ec2_patch.parse_image_name('openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz') == {
-        'key': '15-SP2-EC2-HVM-BYOS-x86_64',
-        'build': '0.9.3-1.10'
-    }
-    assert ec2_patch.parse_image_name('openqa-SLES15-SP2.aarch64-0.9.3-EC2-HVM-Build1.49.raw.xz') == {
-        'key': '15-SP2-EC2-HVM-aarch64',
-        'build': '0.9.3-1.49'
-    }
-    assert ec2_patch.parse_image_name('openqa-SLES12-SP4-EC2-HVM-BYOS.x86_64-0.9.2-Build2.56.raw.xz') == {
-        'key': '12-SP4-EC2-HVM-BYOS-x86_64',
-        'build': '0.9.2-2.56'
-    }
-    assert ec2_patch.parse_image_name('openqa-SLES15-SP2-CHOST-BYOS.x86_64-0.9.3-EC2-Build1.11.raw.xz') == {
-        'key': '15-SP2-EC2-CHOST-BYOS-x86_64',
-        'build': '0.9.3-1.11'
-    }
-    assert ec2_patch.parse_image_name('do not match') is None
-
-
-def test_cleanup_images_delete_due_time(ec2_patch):
-    newer_then_min_age = datetime.now(timezone.utc).isoformat()
-    older_then_max_age = (datetime.now(timezone.utc) - timedelta(hours=max_image_age_hours + 1)).isoformat()
+def test_cleanup_images_one_old(ec2_patch):
     MockedEC2Client.deleted_images = list()
     MockedEC2Client.response = {
         'Images': [
-            {'Name': 'SomeThingElse',
-             'CreationDate': older_then_max_age, 'ImageId': 0},
-            {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.10.raw.xz',
-             'CreationDate': newer_then_min_age, 'ImageId': 1},
-            {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.11.raw.xz',
-             'CreationDate': older_then_min_age, 'ImageId': 2},
-            {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.12.raw.xz',
-             'CreationDate': older_then_min_age, 'ImageId': 3},
-            {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.13.raw.xz',
-             'CreationDate': older_then_max_age, 'ImageId': 4},
+            {'Name': Faker().uuid4(), 'CreationDate': now_age_str, 'ImageId': 0},
+            {'Name': Faker().uuid4(), 'CreationDate': older_than_max_age_str, 'ImageId': 2},
         ]
     }
-    ec2_patch.cleanup_images()
-    assert MockedEC2Client.deleted_images == [2, 3, 4]
+    ec2_patch.cleanup_images(ec2_max_age_days)
+    assert MockedEC2Client.deleted_images == [2]
 
-
-def test_cleanup_images_delete_due_quantity(ec2_patch):
+def test_cleanup_images_all_new(ec2_patch):
     MockedEC2Client.deleted_images = list()
     MockedEC2Client.response = {
         'Images': [
-            {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.12.raw.xz',
-             'CreationDate': older_then_min_age, 'ImageId': 3},
-            {'Name': 'openqa-SLES15-SP2-BYOS.x86_64-0.9.3-EC2-HVM-Build1.13.raw.xz',
-             'CreationDate': older_then_min_age, 'ImageId': 4},
+            {'Name': Faker().uuid4(), 'CreationDate': now_age_str, 'ImageId': 0},
+            {'Name': Faker().uuid4(), 'CreationDate': now_age_str, 'ImageId': 2},
         ]
     }
-    ec2_patch.cleanup_images()
-    assert MockedEC2Client.deleted_images == [3]
+    ec2_patch.cleanup_images(ec2_max_age_days)
+    assert MockedEC2Client.deleted_images == []
 
 
-def test_needs_to_delete_snapshot():
-    days_to_delete = 1
-    old_enough = datetime.now() - timedelta(days=days_to_delete + 1)
-    correct_description1 = 'OpenQA upload image'
-    correct_description2 = 'Created by CreateImage(jsdkfhsdkj) for ami-sdjhfksdj from vol-sdjfhksdjh'
-    snapshot_to_delete = {'StartTime': old_enough, 'Description': correct_description1}
-    snapshot_to_delete2 = {'StartTime': old_enough, 'Description': correct_description2}
-    not_old_enough = {'StartTime': datetime.now(), 'Description': correct_description1}
-    wrong_description = {'StartTime': old_enough, 'Description': 'DDDDDDDDD'}
-    assert EC2.needs_to_delete_snapshot(snapshot_to_delete, days_to_delete)
-    assert EC2.needs_to_delete_snapshot(snapshot_to_delete2, days_to_delete)
-    assert not EC2.needs_to_delete_snapshot(not_old_enough, days_to_delete)
-    assert not EC2.needs_to_delete_snapshot(wrong_description, days_to_delete)
+
+def test_is_outdated():
+    assert EC2.is_outdated(older_than_max_age_date, ec2_max_age_days)
+    assert not EC2.is_outdated(now_age_date, ec2_max_age_days)
 
 
-def test_cleanup_snapshots_cleanup_check(ec2_patch):
+def test_cleanup_snapshots_cleanup_all_new(ec2_patch):
     MockedEC2Client.response = {
         'Snapshots': [{'SnapshotId': MockedEC2Client.snapshotid_to_delete, 'StartTime': datetime.now()}]
     }
-    ec2_patch.cleanup_snapshots(ec2_max_snapshot_age_days)
-    # snapshot was deleted because setting **is** defined so whole cleanup start actually working
-    assert MockedEC2Client.snapshotid_to_delete not in MockedEC2Client.ec2_snapshots
+    ec2_patch.cleanup_snapshots(ec2_max_age_days)
+    assert len(MockedEC2Client.ec2_snapshots) == 2
+
+def test_cleanup_snapshots_cleanup_one_old(ec2_patch):
+    MockedEC2Client.response = {
+        'Snapshots': [{'SnapshotId': MockedEC2Client.snapshotid_to_delete, 'StartTime': older_than_max_age_date}]
+    }
+    ec2_patch.cleanup_snapshots(ec2_max_age_days)
+    assert len(MockedEC2Client.ec2_snapshots) == 1
 
 
 def test_cleanup_snapshots_have_ami(ec2_patch):
@@ -326,20 +284,18 @@ def test_cleanup_snapshots_have_ami(ec2_patch):
         'Snapshots': [{'SnapshotId': MockedEC2Client.snapshotid_i_have_ami, 'StartTime': datetime.now()}]
     }
     MockedEC2Client.delete_snapshot_raise_error = True
-    ec2_patch.cleanup_snapshots(ec2_max_snapshot_age_days)
+    ec2_patch.cleanup_snapshots(ec2_max_age_days)
     assert MockedEC2Client.snapshotid_i_have_ami in MockedEC2Client.ec2_snapshots
 
 
 def test_cleanup_volumes_cleanupcheck(ec2_patch):
     MockedEC2Client.response = {
-        'Volumes': [{'VolumeId': MockedEC2Client.volumeid_to_delete,
-                     'CreateTime': datetime.now(timezone.utc) - timedelta(days=ec2_max_volumes_age_days + 1)},
-                    {'VolumeId': 'too_young_to_die', 'CreateTime': datetime.now(timezone.utc) - timedelta(days=2)},
-                    {'VolumeId': MockedEC2Client.volumeid_to_delete,
-                     'CreateTime': datetime.now(timezone.utc) - timedelta(days=ec2_max_volumes_age_days + 1),
-                     'Tags': [{'Key': 'DO_NOT_DELETE', 'Value': '1'}]}, ]
+        'Volumes': [{'VolumeId': MockedEC2Client.volumeid_to_delete, 'CreateTime': older_than_max_age_date},
+                    {'VolumeId': 'too_young_to_die', 'CreateTime': now_age_date},
+                    {'VolumeId': MockedEC2Client.volumeid_to_delete, 'CreateTime': older_than_max_age_date,
+                     'Tags': [{'Key': 'pcw_ignore', 'Value': '1'}]}, ]
     }
-    ec2_patch.cleanup_volumes(ec2_max_volumes_age_days)
+    ec2_patch.cleanup_volumes(ec2_max_age_days)
     assert len(MockedEC2Client.deleted_volumes) == 1
     assert MockedEC2Client.deleted_volumes[0] == MockedEC2Client.volumeid_to_delete
 
@@ -462,7 +418,7 @@ def test_delete_vpc_subnets(ec2_patch):
 def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
     called_stack = []
 
-    def mocked_cleanup_images(self):
+    def mocked_cleanup_images(self, arg1):
         called_stack.append('cleanup_images')
 
     def mocked_cleanup_snapshots(self, arg1):

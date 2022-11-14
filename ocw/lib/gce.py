@@ -1,8 +1,8 @@
-from .provider import Provider, Image
+from .provider import Provider
 import googleapiclient.discovery
 from google.oauth2 import service_account
 from dateutil.parser import parse
-import re
+from datetime import timezone
 
 
 class GCE(Provider):
@@ -81,6 +81,7 @@ class GCE(Provider):
                 "Deletion of instance {} skipped due to dry run mode", instance_id
             )
         else:
+            self.log_info("Delete instance {}".format(instance_id))
             self.compute_client().instances().delete(
                 project=self.__project, zone=zone, instance=instance_id
             ).execute()
@@ -89,115 +90,33 @@ class GCE(Provider):
     def url_to_name(url):
         return url[url.rindex("/")+1:]
 
-    def parse_image_name(self, img_name):
-        regexes = [
-            # sles12-sp5-gce-x8664-0-9-1-byos-build1-56
-            re.compile(
-                r"""^sles
-                    (?P<version>\d+(-sp\d+)?)
-                    -
-                    (?P<flavor>gce)
-                    -
-                    (?P<arch>[^-]+)
-                    -
-                    (?P<kiwi>\d+-\d+-\d+)
-                    -
-                    (?P<type>(byos|on-demand))
-                    -build
-                    (?P<build>\d+-\d+)
-                    """,
-                re.RegexFlag.X,
-            ),
-            # sles15-sp2-byos-x8664-0-9-3-gce-build1-10
-            # sles15-sp2-x8664-0-9-3-gce-build1-10
-            re.compile(
-                r"""^sles
-                    (?P<version>\d+(-sp\d+)?)
-                    (-(?P<type>[-\w]+))?
-                    -
-                    (?P<arch>[^-]+)
-                    -
-                    (?P<kiwi>\d+-\d+-\d+)
-                    -
-                    (?P<flavor>gce)
-                    -
-                    build
-                    (?P<build>\d+-\d+)
-                    """,
-                re.RegexFlag.X,
-            ),
-            # sles15-sp1-gce-byos-x8664-1-0-5-build1-101
-            re.compile(
-                r"""^sles
-                (?P<version>\d+(-sp\d+)?)
-                (-(?P<flavor>gce))?
-                -
-                (?P<type>[-\w]+)
-                -
-                (?P<arch>[^-]+)
-                -
-                (?P<kiwi>\d+-\d+-\d+)
-                -
-                build
-                (?P<build>\d+-\d+)
-                """,
-                re.RegexFlag.X,
-            ),
-        ]
-        return self.parse_image_name_helper(img_name, regexes)
-
     def cleanup_all(self):
-        images = list()
         request = self.compute_client().images().list(project=self.__project)
         while request is not None:
             response = request.execute()
             if "items" not in response:
                 break
             for image in response["items"]:
-                # creation:2019-11-04T14:23:06.372-08:00
-                # name:sles12-sp5-gce-x8664-0-9-1-byos-build1-56
-                m = self.parse_image_name(image["name"])
-                if m:
-                    images.append(
-                        Image(
-                            image["name"],
-                            flavor=m["key"],
-                            build=m["build"],
-                            date=parse(image["creationTimestamp"]),
+                if self.is_outdated(parse(image["creationTimestamp"]).astimezone(timezone.utc)):
+                    if self.dry_run:
+                        self.log_info("Deletion of image {} skipped due to dry run mode", image["name"])
+                    else:
+                        self.log_info("Delete image '{}'", image["name"])
+                        request = (
+                            self.compute_client()
+                            .images()
+                            .delete(project=self.__project, image=image["name"])
                         )
-                    )
-                    self.log_dbg(
-                        "Image {} is candidate for deletion with build {}",
-                        image["name"],
-                        m["build"],
-                    )
-                else:
-                    self.log_err("Unable to parse image name '{}'", image["name"])
+                        response = request.execute()
+                        if "error" in response:
+                            for e in response["error"]["errors"]:
+                                self.log_err(e["message"])
+                        if "warnings" in response:
+                            for w in response["warnings"]:
+                                self.log_warn(w["message"])
 
             request = (
                 self.compute_client()
                 .images()
                 .list_next(previous_request=request, previous_response=response)
             )
-
-        keep_images = self.get_keeping_image_names(images)
-
-        for img in [i for i in images if i.name not in keep_images]:
-            self.log_info("Delete image '{}'", img.name)
-            if self.dry_run:
-                self.log_info(
-                    "Deletion of image {} skipped due to dry run mode", img.name
-                )
-            else:
-                request = (
-                    self.compute_client()
-                    .images()
-                    .delete(project=self.__project, image=img.name)
-                )
-                response = request.execute()
-                if "error" in response:
-                    for e in response["error"]["errors"]:
-                        self.log_err(e["message"])
-                if "warnings" in response:
-                    for w in response["warnings"]:
-                        self.log_warn(w["message"])

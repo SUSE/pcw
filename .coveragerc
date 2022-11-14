@@ -2,3 +2,4 @@
 omit =
     */lib/python*
     */migrations/*
+    */tests/*
