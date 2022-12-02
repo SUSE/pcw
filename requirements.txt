@@ -18,3 +18,4 @@ google-cloud-storage==2.4.0
 python-dateutil
 apscheduler
 looseversion
+kubernetes

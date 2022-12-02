@@ -17,3 +17,6 @@ htmlcov/*
 # Configuration and program data
 /db
 pcw.ini
+
+# Development
+run/

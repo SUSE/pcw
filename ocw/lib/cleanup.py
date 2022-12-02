@@ -42,7 +42,21 @@ def list_clusters():
             logger.exception("[{}] List clusters failed!".format(namespace))
             send_mail('{} on List clusters in [{}]'.format(type(e).__name__, namespace), traceback.format_exc())
 
+def cleanup_k8s():
+    for namespace in PCWConfig.get_namespaces_for('k8sclusters'):
+        try:
+            providers = PCWConfig.get_providers_for('k8sclusters', namespace)
+            logger.debug("[{}] Run k8s cleanup for {}".format(namespace, ','.join(providers)))
+
+            if 'ec2' in providers:
+                EC2(namespace).cleanup_k8s_jobs()
+
+        except Exception as e:
+            logger.exception("[{}] k8s cleanup failed!".format(namespace))
+            send_mail('{} on k8s cleanup in [{}]'.format(type(e).__name__, namespace), traceback.format_exc())
+
 
 def init_cron():
     getScheduler().add_job(cleanup_run, trigger='interval', minutes=60, id='cleanup_all', misfire_grace_time=1800)
     getScheduler().add_job(list_clusters, trigger='interval', hours=18, id='list_clusters', misfire_grace_time=10000)
+    getScheduler().add_job(cleanup_k8s, trigger='interval', minutes=1, id='cleanup_k8s_all', misfire_grace_time=1800)

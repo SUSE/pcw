@@ -1,3 +1,7 @@
+import os
+import time
+import subprocess
+from datetime import date
 from .provider import Provider, Image
 from webui.settings import PCWConfig, ConfigFile
 from dateutil.parser import parse
@@ -7,8 +11,7 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from ocw.lib.emailnotify import send_mail
 import traceback
-import time
-
+from kubernetes import client, config
 
 class EC2(Provider):
     __instances = dict()
@@ -38,7 +41,6 @@ class EC2(Provider):
         return EC2.__instances[vault_namespace]
 
     def check_credentials(self):
-
         self.__secret = self.getData('secret_key')
         self.__key = self.getData('access_key')
 
@@ -411,3 +413,43 @@ class EC2(Provider):
                     self.log_info("Image deletion {} skipped due to dry run mode", img.id)
                 else:
                     self.ec2_client(region).deregister_image(ImageId=img.id, DryRun=False)
+
+    def cleanup_k8s_jobs(self):
+        clusters = dict()
+
+        access_key = self.getData("access_key")
+        secret_key = self.getData("secret_key")
+
+        os.mkdir("/root/.aws")
+        with open("/root/.aws/credentials", "w") as f:
+            f.write("[default]\n")
+            f.write(f"aws_access_key_id={access_key}\n")
+            f.write(f"aws_secret_access_key={secret_key}\n")
+
+        subprocess.call(["aws", "sts", "get-caller-identity"])
+
+        for region in self.cluster_regions:
+            response = self.eks_client(region).list_clusters()
+            if 'clusters' in response and len(response['clusters']) > 0:
+                clusters[region] = []
+                for cluster_name in response['clusters']:
+                    cluster_description = self.eks_client(region).describe_cluster(name=cluster_name)
+                    cluster_cert = cluster_description["cluster"]["certificateAuthority"]["data"]
+                    cluster_ep = cluster_description["cluster"]["endpoint"]
+
+                    subprocess.call(["aws", "eks", "update-kubeconfig", "--region", region, "--name", cluster_name])
+
+                    config.load_kube_config()
+                    v1 = client.BatchV1Api()
+                    now = datetime.now(timezone.utc)
+                    if self.dry_run:
+                        dry_run = "All"
+                    else:
+                        dry_run = None
+
+                    ret = v1.list_job_for_all_namespaces(watch=False)
+                    for i in ret.items:
+                        age = (now - i.status.start_time).days
+                        if age > 1:
+                            self.log_info(f"Deleting from region.cluster_name the job {i.metadata.name} with age {age}")
+                            v1.delete_namespaced_job(i.metadata.name, i.metadata.namespace, dry_run=dry_run)
