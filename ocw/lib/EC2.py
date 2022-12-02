@@ -1,9 +1,12 @@
+import os
+import subprocess
 import traceback
 import time
 from datetime import date, datetime, timedelta, timezone
 import boto3
 from botocore.exceptions import ClientError
 from dateutil.parser import parse
+import kubernetes
 from webui.settings import PCWConfig, ConfigFile
 from ocw.lib.emailnotify import send_mail
 from .provider import Provider
@@ -31,6 +34,7 @@ class EC2(Provider):
             self.__ec2_client = {}
             self.__eks_client = {}
             self.__ec2_resource = {}
+            self.__kubectl_client = {}
             self.__secret = None
             self.__key = None
 
@@ -71,6 +75,24 @@ class EC2(Provider):
                                                      aws_secret_access_key=self.__secret,
                                                      region_name=region)
         return self.__eks_client[region]
+
+    def kubectl_client(self, region, cluster_name):
+        region_cluster = f"{region}/{cluster_name}"
+
+        if region_cluster not in self.__kubectl_client:
+            kubeconfig = f"~/.kube/eks_config_{region}_{cluster_name}"
+
+            try:
+                self.cmd_exec(f"aws eks update-kubeconfig --region {region} --name {cluster_name} " +
+                              f"--kubeconfig {kubeconfig}")
+            except subprocess.CalledProcessError:
+                self.log_err(f"Cannot get the kubeconfig for the cluster {cluster_name} on region {region}")
+                return None
+            else:
+                kubernetes.config.load_kube_config(config_file=kubeconfig)
+                self.__kubectl_client[region_cluster] = kubernetes.client.BatchV1Api()
+
+        return self.__kubectl_client[region_cluster]
 
     def all_clusters(self):
         clusters = {}
@@ -334,3 +356,48 @@ class EC2(Provider):
                     else:
                         self.log_dbg("Delete image '{}' (ami:{})".format(img['Name'], img['ImageId']))
                         self.ec2_client(region).deregister_image(ImageId=img['ImageId'], DryRun=False)
+
+    def cleanup_k8s_jobs(self):
+        try:
+            self.create_credentials_file()
+        except Exception as e:
+            self.log_err(str(e))
+            return
+
+        clusters = {}
+        for region in self.cluster_regions:
+            response = self.eks_client(region).list_clusters()
+            if 'clusters' in response and len(response['clusters']) > 0:
+                clusters[region] = []
+                for cluster_name in response['clusters']:
+                    client = self.kubectl_client(region, cluster_name)
+                    if client is not None:
+                        now = datetime.now(timezone.utc)
+
+                        ret = client.list_job_for_all_namespaces(watch=False)
+                        for job in ret.items:
+                            age = (now - job.status.start_time).days
+                            if age > 1:
+                                if not self.dry_run:
+                                    self.log_info(f"Deleting from {cluster_name} the job {job.metadata.name} " +
+                                                  f"with age {age}")
+                                    client.delete_namespaced_job(job.metadata.name, job.metadata.namespace)
+                                else:
+                                    self.log_info(f"Skip deleting from {cluster_name} the job {job.metadata.name} " +
+                                                  f"with age {age}")
+
+    def create_credentials_file(self):
+        directory = "/root/.aws"
+        file = f"{directory}/credentials"
+
+        if not os.path.exists(file):
+            if not os.path.exists(directory):
+                os.mkdir(directory)
+
+            with open(file, "w", encoding="utf8") as file:
+                file.write("[default]\n")
+                file.write(f"aws_access_key_id={self.__key}\n")
+                file.write(f"aws_secret_access_key={self.__secret}\n")
+
+        if self.cmd_exec("aws sts get-caller-identity") != 0:
+            raise Exception("Invalid credentials, the credentials cannot be verified by 'aws sts get-caller-identity'")

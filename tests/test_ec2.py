@@ -430,6 +430,9 @@ def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
     def mocked_cleanup_uploader_vpcs(self):
         called_stack.append('cleanup_uploader_vpcs')
 
+    def mocked_cleanup_k8s_jobss(self):
+        called_stack.append('cleanup_k8s_jobs')
+
     def mocked_get_boolean(config_path, field=None):
         return config_path != 'default/dry_run'
 
@@ -438,6 +441,7 @@ def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
     monkeypatch.setattr(EC2, 'cleanup_snapshots', mocked_cleanup_snapshots)
     monkeypatch.setattr(EC2, 'cleanup_volumes', mocked_cleanup_volumes)
     monkeypatch.setattr(EC2, 'cleanup_uploader_vpcs', mocked_cleanup_uploader_vpcs)
+    monkeypatch.setattr(EC2, 'cleanup_k8s_jobs', mocked_cleanup_k8s_jobss)
     monkeypatch.setattr(PCWConfig, 'get_feature_property', lambda *args, **kwargs: 5)
 
     ec2_patch.cleanup_all()

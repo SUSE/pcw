@@ -3,6 +3,7 @@ from datetime import timedelta
 from datetime import timezone
 import logging
 import json
+import subprocess
 from pathlib import Path
 from webui.settings import PCWConfig
 
@@ -60,3 +61,6 @@ class Provider:
         if args:
             message = message.format(*args)
         self.logger.debug("[%s] %s", self._namespace, message)
+
+    def cmd_exec(self, cmd):
+        return subprocess.call(cmd.split())
