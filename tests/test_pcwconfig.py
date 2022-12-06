@@ -4,10 +4,12 @@ import pytest
 
 
 def test_get_feature_property_with_defaults(pcw_file):
-    assert PCWConfig.get_feature_property('cleanup', 'max-images-per-flavor', 'fake') == 1
-    assert type(PCWConfig.get_feature_property('cleanup', 'max-images-per-flavor', 'fake')) is int
-    assert type(PCWConfig.get_feature_property('cleanup', 'min-image-age-hours', 'fake')) is int
-    assert type(PCWConfig.get_feature_property('cleanup', 'max-image-age-hours', 'fake')) is int
+    assert type(PCWConfig.get_feature_property('cleanup', 'max-age-hours', 'fake')) is int
+    assert type(PCWConfig.get_feature_property('cleanup', 'ec2-max-age-days', 'fake')) is int
+    assert type(PCWConfig.get_feature_property('updaterun', 'default_ttl', 'fake')) is int
+    assert PCWConfig.get_feature_property('cleanup', 'max-age-hours', 'fake') == 24 * 7
+    assert PCWConfig.get_feature_property('cleanup', 'ec2-max-age-days', 'fake') == -1
+    assert PCWConfig.get_feature_property('updaterun', 'default_ttl', 'fake') == 44400
     assert PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', 'fake') == 'openqa-upload'
     assert type(PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', 'fake')) is str
 
@@ -19,11 +21,10 @@ def test_get_feature_property_lookup_error(pcw_file):
 def test_get_feature_property_from_pcw_ini_feature(pcw_file):
     set_pcw_ini(pcw_file, """
 [cleanup]
-max-images-per-flavor = 666
+max-age-hours = 666
 azure-storage-resourcegroup = bla-blub
 """)
-    assert PCWConfig.get_feature_property('cleanup', 'max-images-per-flavor', 'fake') == 666
-    assert type(PCWConfig.get_feature_property('cleanup', 'max-images-per-flavor', 'fake')) is int
+    assert PCWConfig.get_feature_property('cleanup', 'max-age-hours', 'fake') == 666
     assert PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', 'fake') == 'bla-blub'
     assert type(PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', 'fake')) is str
 
@@ -31,14 +32,14 @@ azure-storage-resourcegroup = bla-blub
 def test_get_feature_property_from_pcw_ini_with_namespace(pcw_file):
     set_pcw_ini(pcw_file, """
 [cleanup]
-max-images-per-flavor = 666
+max-age-hours = 666
 azure-storage-resourcegroup = bla-blub
 
 [cleanup.namespace.testns]
-max-images-per-flavor = 42
+max-age-hours = 42
 azure-storage-resourcegroup = bla-blub-ns
 """)
-    cleanup_max_images_per_flavor = PCWConfig.get_feature_property('cleanup', 'max-images-per-flavor', 'testns')
+    cleanup_max_images_per_flavor = PCWConfig.get_feature_property('cleanup', 'max-age-hours', 'testns')
     cleanup_azure_storage_resourcegroup = PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', 'testns')
     assert cleanup_max_images_per_flavor == 42
     assert type(cleanup_max_images_per_flavor) is int

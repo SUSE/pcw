@@ -1,4 +1,4 @@
-from .provider import Provider, Image
+from .provider import Provider
 from webui.settings import PCWConfig
 from azure.identity import ClientSecretCredential
 from azure.mgmt.resource import ResourceManagementClient
@@ -100,126 +100,62 @@ class Azure(Provider):
 
     def list_by_resource_group(self, resource_group, filters=None):
         return [item for item in self.resource_mgmt_client().resources.list_by_resource_group(
-            resource_group, filter=filters)]
-
-    def get_keeping_image_names(self):
-        images = list()
-        for item in self.container_client('sle-images').list_blobs():
-            m = self.parse_image_name(item.name)
-            if m:
-                images.append(Image(item.name, flavor=m['key'], build=m['build'], date=item.last_modified))
-            else:
-                self.log_err("Unable to parse image name '{}'", item.name)
-
-        return super().get_keeping_image_names(images)
+            resource_group, filter=filters, expand="changedTime")]
 
     def cleanup_all(self):
-        ''' Cleanup all autodateed data which might created during automated tests.'''
-        self.cleanup_bootdiagnostics()
+        self.cleanup_images_from_rg()
+        self.cleanup_disks_from_rg()
+        self.cleanup_blob_containers()
 
-        keep_images = self.get_keeping_image_names()
-        self.cleanup_sle_images_container(keep_images)
-        self.cleanup_disks_from_rg(keep_images)
-        self.cleanup_images_from_rg(keep_images)
-        for i in keep_images:
-            self.log_info("Keep image {} ", i)
+    @staticmethod
+    def container_valid_for_cleanup(container):
+        '''
+            under term "container" we meant Azure Blob Storage Container.
+            See https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-introduction
+            for more details
+            Container is valid for cleanup if it met 2 conditions :
+            1. "metadata" of container does not contain special tag (pcw_ignore)
+            2. Container name or contains "bootdiagnostics-" in its name or its name is "sle-images"
+        '''
+        if 'pcw_ignore' in container['metadata']:
+            return False
+        if re.match('^bootdiagnostics-', container.name):
+            return True
+        if container.name == 'sle-images':
+            return True
+        return False
 
-    def cleanup_bootdiagnostics(self):
-        containers = self.bs_client().list_containers()
+    def cleanup_blob_containers(self):
+        containers = self.bs_client().list_containers(include_metadata=True)
         for c in containers:
-            self.log_dbg('Found container {}', c.name)
-            if (re.match('^bootdiagnostics-', c.name)):
-                self.cleanup_bootdiagnostics_container(c)
+            if Azure.container_valid_for_cleanup(c):
+                self.log_dbg('Found container {}', c.name)
+                container_blobs = self.container_client(c.name).list_blobs()
+                for blob in container_blobs:
+                    if (self.is_outdated(blob.last_modified)):
+                        if self.dry_run:
+                            self.log_info("Deletion of blob {} skipped due to dry run mode", blob.name)
+                        else:
+                            self.log_info("Deleting blob {}", blob.name)
+                            self.container_client(c.name).delete_blob(blob.name, delete_snapshots="include")
 
-    def cleanup_bootdiagnostics_container(self, container):
-        latest_modification = container.last_modified
-        container_blobs = self.container_client(container.name).list_blobs()
-        for blob in container_blobs:
-            if (latest_modification > blob.last_modified):
-                latest_modification = blob.last_modified
-        if (self.older_than_min_age(latest_modification)):
-            self.log_info("Mark container for deletion {}", container.name)
-            if self.dry_run:
-                self.log_info("Deletion of boot diagnostic container {} skipped due to dry run mode", container.name)
-            else:
-                self.bs_client().delete_container(container.name)
-
-    def parse_image_name(self, img_name):
-        regexes = [
-            # SLES12-SP5-Azure.x86_64-0.9.1-SAP-BYOS-Build3.3.vhd
-            re.compile(r"""
-                       SLES
-                       (?P<version>\d+(-SP\d+)?)
-                       -Azure\.
-                       (?P<arch>[^-]+)
-                       -
-                       (?P<kiwi>\d+\.\d+\.\d+)
-                       -
-                       (?P<flavor>[-\w]+)
-                       -
-                       Build(?P<build>\d+\.\d+)
-                       \.vhd
-                       """,
-                       re.X),
-
-            # SLES15-SP2-BYOS.x86_64-0.9.3-Azure-Build1.10.vhd
-            # SLES15-SP2.x86_64-0.9.3-Azure-Basic-Build1.11.vhd
-            # SLES15-SP2-SAP-BYOS.x86_64-0.9.2-Azure-Build1.9.vhd
-            # SLES15-SP4-BYOS.x86_64-0.9.1-Azure-Build150400.2.103.vhd
-            re.compile(r"""
-                       SLES
-                       (?P<version>\d+(-SP\d+)?)
-                       (-(?P<type>[^\.]+))?\.
-                       (?P<arch>[^-]+)
-                       -
-                       (?P<kiwi>\d+\.\d+\.\d+)
-                       (-(?P<flavor>Azure[-\w]*))?
-                       -
-                       Build(\d+\.)?(?P<build>\d+\.\d+)
-                       \.vhd
-                       """,
-                       re.X)
-        ]
-        return self.parse_image_name_helper(img_name, regexes)
-
-    def cleanup_sle_images_container(self, keep_images):
-        container_client = self.container_client('sle-images')
-        for img in container_client.list_blobs():
-            m = self.parse_image_name(img.name)
-            if m:
-                self.log_dbg('Blob {} is candidate for deletion with build {} ', img.name, m['build'])
-
-                if img.name not in keep_images:
-                    self.log_info("Delete blob '{}'", img.name)
-                    if self.dry_run:
-                        self.log_info("Deletion of blob image {} skipped due to dry run mode", img.name)
-                    else:
-                        container_client.delete_blob(img.name, delete_snapshots="include")
-
-    def cleanup_images_from_rg(self, keep_images):
+    def cleanup_images_from_rg(self):
         for item in self.list_images_by_resource_group(self.__resource_group):
-            m = self.parse_image_name(item.name)
-            if m:
-                self.log_dbg('Image {} is candidate for deletion with build {} ', item.name, m['build'])
-                if item.name not in keep_images:
+            if self.is_outdated(item.changed_time):
+                if self.dry_run:
+                    self.log_info("Deletion of image {} skipped due to dry run mode", item.name)
+                else:
                     self.log_info("Delete image '{}'", item.name)
-                    if self.dry_run:
-                        self.log_info("Deletion of image {} skipped due to dry run mode", item.name)
-                    else:
-                        self.compute_mgmt_client().images.begin_delete(self.__resource_group, item.name)
+                    self.compute_mgmt_client().images.begin_delete(self.__resource_group, item.name)
 
-    def cleanup_disks_from_rg(self, keep_images):
+    def cleanup_disks_from_rg(self):
         for item in self.list_disks_by_resource_group(self.__resource_group):
-            m = self.parse_image_name(item.name)
-            if m:
-                self.log_dbg('Disk {} is candidate for deletion with build {} ', item.name, m['build'])
-
-                if item.name not in keep_images:
-                    if self.compute_mgmt_client().disks.get(self.__resource_group, item.name).managed_by:
-                        self.log_warn("Disk is in use - unable delete {}", item.name)
+            if self.is_outdated(item.changed_time):
+                if self.compute_mgmt_client().disks.get(self.__resource_group, item.name).managed_by:
+                    self.log_warn("Disk is in use - unable delete {}", item.name)
+                else:
+                    if self.dry_run:
+                        self.log_info("Deletion of disk {} skipped due to dry run mode", item.name)
                     else:
                         self.log_info("Delete disk '{}'", item.name)
-                        if self.dry_run:
-                            self.log_info("Deletion of image {} skipped due to dry run mode", item.name)
-                        else:
-                            self.compute_mgmt_client().disks.begin_delete(self.__resource_group, item.name)
+                        self.compute_mgmt_client().disks.begin_delete(self.__resource_group, item.name)

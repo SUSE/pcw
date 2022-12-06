@@ -2,33 +2,18 @@ from faker import Faker
 from datetime import datetime
 
 fake = Faker()
-min_image_age_hours = 7
-max_images_per_flavor = 1
-max_image_age_hours = 20
+max_age_hours = 7
 azure_storage_resourcegroup = 'openqa'
-ec2_max_snapshot_age_days = 1
-ec2_max_volumes_age_days = 5
-
-
-class MockImage:
-    def __init__(self, name, last_modified=None):
-        self.name = name
-        self.last_modified = last_modified
+ec2_max_age_days = 1
 
 
 def mock_get_feature_property(feature: str, property: str, namespace: str = None):
-    if property == 'min-image-age-hours':
-        return min_image_age_hours
-    elif property == 'max-images-per-flavor':
-        return max_images_per_flavor
-    elif property == 'max-image-age-hours':
-        return max_image_age_hours
+    if property == 'max-age-hours':
+        return max_age_hours
     elif property == 'azure-storage-resourcegroup':
         return azure_storage_resourcegroup
-    elif property == 'ec2-max-snapshot-age-days':
-        return ec2_max_snapshot_age_days
-    elif property == 'ec2-max-volumes-age-days':
-        return ec2_max_volumes_age_days
+    elif property == 'ec2-max-age-days':
+        return ec2_max_age_days
 
 
 class ec2_meta_mock:

@@ -13,11 +13,11 @@ test:
 	flake8 webui
 	flake8 ocw
 	flake8 manage.py
-	pytest --cov=./
+	pytest --cov
 
 .PHONY: codecov
 codecov:
-	pytest -v --cov=./ --cov-report=html && xdg-open htmlcov/index.html
+	pytest -v --cov --cov-report=html && xdg-open htmlcov/index.html
 
 # Build containers
 docker-container:
