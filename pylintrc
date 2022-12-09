@@ -1,0 +1,4 @@
+disable = missing-docstring
+
+[FORMAT]
+line-length = 119
