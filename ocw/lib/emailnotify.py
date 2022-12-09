@@ -1,13 +1,13 @@
-from webui.settings import PCWConfig
-from webui.settings import build_absolute_uri
-from ..models import Instance
 from datetime import timedelta
-from texttable import Texttable
-from django.urls import reverse
 import json
 import smtplib
 import logging
 from email.mime.text import MIMEText
+from texttable import Texttable
+from django.urls import reverse
+from webui.settings import PCWConfig
+from webui.settings import build_absolute_uri
+from ..models import Instance
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,6 @@ def draw_instance_table(objects):
     table.header(['Provider', 'id', 'Created-By', 'Namespace', 'Age', 'Delete', 'openQA'])
     for i in objects:
         j = json.loads(i.csp_info)
-        hours, remainder = divmod(i.age.total_seconds(), 3600)
-        minutes, seconds = divmod(remainder, 60)
         link = i.get_openqa_job_link()
         created_by = 'N/A'
         if 'openqa_created_by' in j['tags']:
@@ -40,18 +38,18 @@ def draw_instance_table(objects):
 
 def send_leftover_notification():
     if PCWConfig.has('notify'):
-        o = Instance.objects
-        o = o.filter(active=True, age__gt=timedelta(hours=PCWConfig.get_feature_property(
+        all_instances = Instance.objects
+        all_instances = all_instances.filter(active=True, age__gt=timedelta(hours=PCWConfig.get_feature_property(
             'notify', 'age-hours'))).exclude(csp_info__icontains='pcw_ignore')
         body_prefix = "Message from {url}\n\n".format(url=build_absolute_uri())
         # Handle namespaces
         for namespace in PCWConfig.get_namespaces_for('notify'):
             receiver_email = PCWConfig.get_feature_property('notify', 'to', namespace)
-            namespace_objects = o.filter(vault_namespace=namespace)
+            namespace_objects = all_instances.filter(vault_namespace=namespace)
             if namespace_objects.filter(notified=False).count() > 0 and receiver_email:
                 send_mail('CSP left overs - {}'.format(namespace),
                           body_prefix + draw_instance_table(namespace_objects), receiver_email=receiver_email)
-        o.update(notified=True)
+        all_instances.update(notified=True)
 
 
 def send_cluster_notification(namespace, clusters):

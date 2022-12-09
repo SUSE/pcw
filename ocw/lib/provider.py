@@ -1,10 +1,10 @@
-from webui.settings import PCWConfig
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import logging
 import json
 from pathlib import Path
+from webui.settings import PCWConfig
 
 
 class Provider:
@@ -18,13 +18,13 @@ class Provider:
     def read_auth_json(self):
         authcachepath = Path('/var/pcw/{}/{}.json'.format(self._namespace, self.__class__.__name__))
         if authcachepath.exists():
-            with authcachepath.open() as f:
-                return json.loads(f.read())
+            with authcachepath.open(encoding="utf-8") as file_handle:
+                return json.loads(file_handle.read())
         else:
             self.log_err('Credentials not found in {}. Terminating', authcachepath)
             raise FileNotFoundError('Credentials not found')
 
-    def getData(self, name=None):
+    def get_data(self, name=None):
         if name is None:
             return self.auth_json
         return self.auth_json[name]
@@ -44,19 +44,19 @@ class Provider:
     def log_info(self,  message: str, *args: object):
         if args:
             message = message.format(*args)
-        self.logger.info("[{}] {}".format(self._namespace, message))
+        self.logger.info("[%s] %s", self._namespace, message)
 
     def log_warn(self,  message: str, *args: object):
         if args:
             message = message.format(*args)
-        self.logger.warning("[{}] {}".format(self._namespace, message))
+        self.logger.warning("[%s] %s", self._namespace, message)
 
     def log_err(self,  message: str, *args: object):
         if args:
             message = message.format(*args)
-        self.logger.error("[{}] {}".format(self._namespace, message))
+        self.logger.error("[%s] %s", self._namespace, message)
 
     def log_dbg(self,  message: str, *args: object):
         if args:
             message = message.format(*args)
-        self.logger.debug("[{}] {}".format(self._namespace, message))
+        self.logger.debug("[%s] %s", self._namespace, message)

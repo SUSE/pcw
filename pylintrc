@@ -1,4 +1,36 @@
-disable = missing-docstring
+[MASTER]
+disable=
+    C0114,
+    C0115,
+    C0116,
+    C0206,
+    C0209,
+    C0415,
+    E1101,
+    R0904,
+    R1702,
+    W0201,
+    W0237,
+    W0603,
+    W0703
 
-[FORMAT]
-line-length = 119
+recursive = true
+
+[tool.pylint.format]
+expected-line-ending-format = 
+ignore-long-lines = "^\\s*(# )?<?https?://\\S+>?$"
+indent-after-paren = 4
+indent-string = "    "
+max-line-length = 130
+max-module-lines = 1000
+single-line-class-stmt = false
+single-line-if-stmt = false
+
+
+[tool.pylint.main]
+jobs = 1
+limit-inference-results = 100
+persistent = true
+reports = false
+score = true
+suggestion-mode = true
