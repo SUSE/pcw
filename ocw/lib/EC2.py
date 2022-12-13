@@ -1,16 +1,16 @@
-from .provider import Provider
-from webui.settings import PCWConfig, ConfigFile
-from dateutil.parser import parse
-import boto3
-from botocore.exceptions import ClientError
-from datetime import date, datetime, timedelta, timezone
-from ocw.lib.emailnotify import send_mail
 import traceback
 import time
+from datetime import date, datetime, timedelta, timezone
+import boto3
+from botocore.exceptions import ClientError
+from dateutil.parser import parse
+from webui.settings import PCWConfig, ConfigFile
+from ocw.lib.emailnotify import send_mail
+from .provider import Provider
 
 
 class EC2(Provider):
-    __instances = dict()
+    __instances = {}
     default_region = 'eu-central-1'
 
     def __init__(self, namespace: str):
@@ -28,9 +28,9 @@ class EC2(Provider):
     def __new__(cls, vault_namespace):
         if vault_namespace not in EC2.__instances:
             EC2.__instances[vault_namespace] = self = object.__new__(cls)
-            self.__ec2_client = dict()
-            self.__eks_client = dict()
-            self.__ec2_resource = dict()
+            self.__ec2_client = {}
+            self.__eks_client = {}
+            self.__ec2_resource = {}
             self.__secret = None
             self.__key = None
 
@@ -38,8 +38,8 @@ class EC2(Provider):
 
     def check_credentials(self):
 
-        self.__secret = self.getData('secret_key')
-        self.__key = self.getData('access_key')
+        self.__secret = self.get_data('secret_key')
+        self.__key = self.get_data('access_key')
 
         for i in range(1, 5):
             try:
@@ -49,6 +49,7 @@ class EC2(Provider):
                 self.log_info("check_credentials (attemp:{}) with key {}", i, self.__key)
                 time.sleep(1)
         self.get_all_regions()
+        return True
 
     def ec2_resource(self, region):
         if region not in self.__ec2_resource:
@@ -72,17 +73,17 @@ class EC2(Provider):
         return self.__eks_client[region]
 
     def all_clusters(self):
-        clusters = dict()
+        clusters = {}
         for region in self.cluster_regions:
             response = self.eks_client(region).list_clusters()
             if 'clusters' in response and len(response['clusters']) > 0:
                 clusters[region] = []
-                for cl in response['clusters']:
-                    cluster_description = self.eks_client(region).describe_cluster(name=cl)
+                for cluster in response['clusters']:
+                    cluster_description = self.eks_client(region).describe_cluster(name=cluster)
                     if 'cluster' not in cluster_description or 'tags' not in cluster_description['cluster']:
                         self.log_err("Unexpected cluster description: {}", cluster_description)
                     elif 'pcw_ignore' not in cluster_description['cluster']['tags']:
-                        clusters[region].append(cl)
+                        clusters[region].append(cluster)
                 if len(clusters[region]) == 0:
                     del clusters[region]
         return clusters
@@ -139,7 +140,7 @@ class EC2(Provider):
         return False
 
     def list_instances(self, region):
-        return [i for i in self.ec2_resource(region).instances.all()]
+        return list(self.ec2_resource(region).instances.all())
 
     def get_all_regions(self):
         regions_resp = self.ec2_client(EC2.default_region).describe_regions()
@@ -158,17 +159,17 @@ class EC2(Provider):
             else:
                 raise ex
 
-    def wait_for_empty_nodegroup_list(self, region, clusterName, timeout_minutes=20):
+    def wait_for_empty_nodegroup_list(self, region, cluster_name, timeout_minutes=20):
         if self.dry_run:
             self.log_info("Skip waiting due to dry-run mode")
             return True
-        self.log_info("Waiting empty nodegroup list in {}", clusterName)
+        self.log_info("Waiting empty nodegroup list in {}", cluster_name)
         end = datetime.now(timezone.utc) + timedelta(minutes=timeout_minutes)
-        resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=clusterName)
+        resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster_name)
 
         while datetime.now(timezone.utc) < end and len(resp_nodegroup['nodegroups']) > 0:
             time.sleep(20)
-            resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=clusterName)
+            resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster_name)
             if len(resp_nodegroup['nodegroups']) > 0:
                 self.log_info("Still waiting for {} nodegroups to disappear", len(resp_nodegroup['nodegroups']))
 
@@ -206,24 +207,24 @@ class EC2(Provider):
         if PCWConfig.getBoolean('cleanup/vpc_cleanup', self._namespace):
             self.cleanup_uploader_vpcs()
 
-    def delete_vpc(self, region, vpc, vpcId):
+    def delete_vpc(self, region, vpc, vpc_id):
         try:
             self.log_info('{} has no associated instances. Initializing cleanup of it', vpc)
             self.delete_internet_gw(vpc)
             self.delete_routing_tables(vpc)
-            self.delete_vpc_endpoints(region, vpcId)
+            self.delete_vpc_endpoints(region, vpc_id)
             self.delete_security_groups(vpc)
-            self.delete_vpc_peering_connections(region, vpcId)
+            self.delete_vpc_peering_connections(region, vpc_id)
             self.delete_network_acls(vpc)
             self.delete_vpc_subnets(vpc)
             if self.dry_run:
                 self.log_info('Deletion of VPC skipped due to dry_run mode')
             else:
                 # finally, delete the vpc
-                self.ec2_resource(region).meta.client.delete_vpc(VpcId=vpcId)
-        except Exception as e:
-            self.log_err("{} on VPC deletion. {}", type(e).__name__, traceback.format_exc())
-            send_mail('{} on VPC deletion in [{}]'.format(type(e).__name__, self._namespace), traceback.format_exc())
+                self.ec2_resource(region).meta.client.delete_vpc(VpcId=vpc_id)
+        except Exception as ex:
+            self.log_err("{} on VPC deletion. {}", type(ex).__name__, traceback.format_exc())
+            send_mail('{} on VPC deletion in [{}]'.format(type(ex).__name__, self._namespace), traceback.format_exc())
 
     def delete_vpc_subnets(self, vpc):
         for subnet in vpc.subnets.all():
@@ -248,9 +249,9 @@ class EC2(Provider):
                     self.log_info('Deleting {}', netacl)
                     netacl.delete()
 
-    def delete_vpc_peering_connections(self, region, vpcId):
+    def delete_vpc_peering_connections(self, region, vpc_id):
         response = self.ec2_client(region).describe_vpc_peering_connections(
-            Filters=[{'Name': 'requester-vpc-info.vpc-id', 'Values': [vpcId]}])
+            Filters=[{'Name': 'requester-vpc-info.vpc-id', 'Values': [vpc_id]}])
         for vpcpeer in response['VpcPeeringConnections']:
             vpcpeer_connection = self.ec2_resource(region).VpcPeeringConnection(vpcpeer['VpcPeeringConnectionId'])
             if self.dry_run:
@@ -260,41 +261,41 @@ class EC2(Provider):
                 vpcpeer_connection.delete()
 
     def delete_security_groups(self, vpc):
-        for sg in vpc.security_groups.all():
-            if sg.group_name != 'default':
+        for sgroup in vpc.security_groups.all():
+            if sgroup.group_name != 'default':
                 if self.dry_run:
-                    self.log_info('Deletion of {} skipped due to dry_run mode', sg)
+                    self.log_info('Deletion of {} skipped due to dry_run mode', sgroup)
                 else:
-                    self.log_info('Deleting {}', sg)
-                    sg.delete()
+                    self.log_info('Deleting {}', sgroup)
+                    sgroup.delete()
 
-    def delete_vpc_endpoints(self, region, vpcId):
-        response = self.ec2_client(region).describe_vpc_endpoints(Filters=[{'Name': 'vpc-id', 'Values': [vpcId]}])
-        for ep in response['VpcEndpoints']:
+    def delete_vpc_endpoints(self, region, vpc_id):
+        response = self.ec2_client(region).describe_vpc_endpoints(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])
+        for end_point in response['VpcEndpoints']:
             if self.dry_run:
-                self.log_info('Deletion of {} skipped due to dry_run mode', ep)
+                self.log_info('Deletion of {} skipped due to dry_run mode', end_point)
             else:
-                self.log_info('Deleting {}', ep)
-                self.ec2_client(region).delete_vpc_endpoints(VpcEndpointIds=[ep['VpcEndpointId']])
+                self.log_info('Deleting {}', end_point)
+                self.ec2_client(region).delete_vpc_endpoints(VpcEndpointIds=[end_point['VpcEndpointId']])
 
     def delete_routing_tables(self, vpc):
-        for rt in vpc.route_tables.all():
+        for rtable in vpc.route_tables.all():
             # we can not delete main RouteTable's , not main one don't have associations_attributes
-            if len(rt.associations_attribute) == 0:
+            if len(rtable.associations_attribute) == 0:
                 if self.dry_run:
-                    self.log_info('{} will be not deleted due to dry_run mode', rt)
+                    self.log_info('{} will be not deleted due to dry_run mode', rtable)
                 else:
-                    self.log_info('Deleting {}', rt)
-                    rt.delete()
+                    self.log_info('Deleting {}', rtable)
+                    rtable.delete()
 
     def delete_internet_gw(self, vpc):
-        for gw in vpc.internet_gateways.all():
+        for gate in vpc.internet_gateways.all():
             if self.dry_run:
-                self.log_info('{} will be not deleted due to dry_run mode', gw)
+                self.log_info('{} will be not deleted due to dry_run mode', gate)
             else:
-                self.log_info('Deleting {}', gw)
-                vpc.detach_internet_gateway(InternetGatewayId=gw.id)
-                gw.delete()
+                self.log_info('Deleting {}', gate)
+                vpc.detach_internet_gateway(InternetGatewayId=gate.id)
+                gate.delete()
 
     def cleanup_uploader_vpcs(self):
         for region in self.all_regions:
@@ -310,7 +311,7 @@ class EC2(Provider):
                     resource_vpc = self.ec2_resource(region).Vpc(response_vpc['VpcId'])
                     can_be_deleted = True
                     for subnet in resource_vpc.subnets.all():
-                        if len(list(subnet.instances.all())):
+                        if len(list(subnet.instances.all())) > 0:
                             self.log_warn('{} has associated instance(s) so can not be deleted',
                                           response_vpc['VpcId'])
                             can_be_deleted = False

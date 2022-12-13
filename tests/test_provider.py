@@ -25,10 +25,10 @@ def test_older_than_max_age_hours_younger(provider_patch):
     assert provider.is_outdated(datetime.now(timezone.utc) - timedelta(hours=23)) == False
 
 
-def test_getData(monkeypatch):
+def test_get_data(monkeypatch):
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: {"param1": "value1"})
     provider = Provider('testneedstodelete')
 
-    assert provider.getData() == {'param1': 'value1'}
-    assert provider.getData('param1') == 'value1'
+    assert provider.get_data() == {'param1': 'value1'}
+    assert provider.get_data('param1') == 'value1'

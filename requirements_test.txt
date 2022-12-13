@@ -5,3 +5,4 @@ faker
 flake8
 pytest-cov
 codecov
+pylint

@@ -1,18 +1,18 @@
-from .provider import Provider
-from webui.settings import PCWConfig
+import re
+import time
+from typing import Dict
 from azure.identity import ClientSecretCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.storage import StorageManagementClient
 from azure.storage.blob import BlobServiceClient
 from msrest.exceptions import AuthenticationError
-import re
-import time
-from typing import Dict
+from webui.settings import PCWConfig
+from .provider import Provider
 
 
 class Azure(Provider):
-    __instances: Dict[str, "Azure"] = dict()
+    __instances: Dict[str, "Azure"] = {}
 
     def __init__(self, namespace: str):
         super().__init__(namespace)
@@ -29,7 +29,7 @@ class Azure(Provider):
         return Azure.__instances[vault_namespace]
 
     def subscription(self):
-        return self.getData('subscription_id')
+        return self.get_data('subscription_id')
 
     def check_credentials(self):
         for i in range(1, 5):
@@ -37,12 +37,12 @@ class Azure(Provider):
                 self.list_resource_groups()
                 return True
             except AuthenticationError:
-                self.log_info("Check credentials failed (attemp:{}) - client_id {}", i, self.getData('client_id'))
+                self.log_info("Check credentials failed (attemp:{}) - client_id {}", i, self.get_data('client_id'))
                 time.sleep(1)
         raise AuthenticationError("Invalid Azure credentials")
 
     def bs_client(self):
-        if (self.__blob_service_client is None):
+        if self.__blob_service_client is None:
             storage_account = PCWConfig.get_feature_property(
                 'cleanup', 'azure-storage-account-name', self._namespace)
             storage_key = self.get_storage_key(storage_account)
@@ -55,19 +55,19 @@ class Azure(Provider):
         return self.bs_client().get_container_client(container_name)
 
     def sp_credentials(self):
-        if (self.__sp_credentials is None):
-            self.__sp_credentials = ClientSecretCredential(client_id=self.getData(
-                'client_id'), client_secret=self.getData('client_secret'), tenant_id=self.getData('tenant_id'))
+        if self.__sp_credentials is None:
+            self.__sp_credentials = ClientSecretCredential(client_id=self.get_data(
+                'client_id'), client_secret=self.get_data('client_secret'), tenant_id=self.get_data('tenant_id'))
         return self.__sp_credentials
 
     def compute_mgmt_client(self):
-        if (self.__compute_mgmt_client is None):
+        if self.__compute_mgmt_client is None:
             self.__compute_mgmt_client = ComputeManagementClient(
                 self.sp_credentials(), self.subscription())
         return self.__compute_mgmt_client
 
     def resource_mgmt_client(self):
-        if (self.__resource_mgmt_client is None):
+        if self.__resource_mgmt_client is None:
             self.__resoure_mgmt_client = ResourceManagementClient(
                 self.sp_credentials(), self.subscription())
         return self.__resoure_mgmt_client
@@ -79,10 +79,10 @@ class Azure(Provider):
         return storage_keys[0]
 
     def list_instances(self):
-        return [i for i in self.compute_mgmt_client().virtual_machines.list_all()]
+        return list(self.compute_mgmt_client().virtual_machines.list_all())
 
     def list_resource_groups(self):
-        return [r for r in self.resource_mgmt_client().resource_groups.list()]
+        return list(self.resource_mgmt_client().resource_groups.list())
 
     def delete_resource(self, resource_id):
         if self.dry_run:
@@ -99,8 +99,8 @@ class Azure(Provider):
                                            filters="resourceType eq 'Microsoft.Compute/disks'")
 
     def list_by_resource_group(self, resource_group, filters=None):
-        return [item for item in self.resource_mgmt_client().resources.list_by_resource_group(
-            resource_group, filter=filters, expand="changedTime")]
+        return list(self.resource_mgmt_client().resources.list_by_resource_group(
+            resource_group, filter=filters, expand="changedTime"))
 
     def cleanup_all(self):
         self.cleanup_images_from_rg()
@@ -127,17 +127,17 @@ class Azure(Provider):
 
     def cleanup_blob_containers(self):
         containers = self.bs_client().list_containers(include_metadata=True)
-        for c in containers:
-            if Azure.container_valid_for_cleanup(c):
-                self.log_dbg('Found container {}', c.name)
-                container_blobs = self.container_client(c.name).list_blobs()
+        for container in containers:
+            if Azure.container_valid_for_cleanup(container):
+                self.log_dbg('Found container {}', container.name)
+                container_blobs = self.container_client(container.name).list_blobs()
                 for blob in container_blobs:
-                    if (self.is_outdated(blob.last_modified)):
+                    if self.is_outdated(blob.last_modified):
                         if self.dry_run:
                             self.log_info("Deletion of blob {} skipped due to dry run mode", blob.name)
                         else:
                             self.log_info("Deleting blob {}", blob.name)
-                            self.container_client(c.name).delete_blob(blob.name, delete_snapshots="include")
+                            self.container_client(container.name).delete_blob(blob.name, delete_snapshots="include")
 
     def cleanup_images_from_rg(self):
         for item in self.list_images_by_resource_group(self.__resource_group):

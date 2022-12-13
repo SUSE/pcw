@@ -1,12 +1,12 @@
-from .provider import Provider
+from datetime import timezone
+from dateutil.parser import parse
 import googleapiclient.discovery
 from google.oauth2 import service_account
-from dateutil.parser import parse
-from datetime import timezone
+from .provider import Provider
 
 
 class GCE(Provider):
-    __instances = dict()
+    __instances = {}
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in GCE.__instances:
@@ -16,7 +16,7 @@ class GCE(Provider):
         return GCE.__instances[vault_namespace]
 
     def compute_client(self):
-        self.private_key_data = self.getData()
+        self.private_key_data = self.get_data()
         self.__project = self.private_key_data["project_id"]
         if self.__compute_client is None:
             credentials = service_account.Credentials.from_service_account_info(self.private_key_data)
@@ -109,11 +109,11 @@ class GCE(Provider):
                         )
                         response = request.execute()
                         if "error" in response:
-                            for e in response["error"]["errors"]:
-                                self.log_err(e["message"])
+                            for err in response["error"]["errors"]:
+                                self.log_err(err["message"])
                         if "warnings" in response:
-                            for w in response["warnings"]:
-                                self.log_warn(w["message"])
+                            for warn in response["warnings"]:
+                                self.log_warn(warn["message"])
 
             request = (
                 self.compute_client()

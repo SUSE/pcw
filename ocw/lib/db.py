@@ -1,26 +1,25 @@
+import time
+import json
+import traceback
+import logging
+from datetime import datetime, timedelta
+import dateutil.parser
+from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
+from ocw.apps import getScheduler
 from webui.settings import PCWConfig
 from ..models import Instance
 from ..models import StateChoice
 from ..models import ProviderChoice
-from django.db import transaction
-from django.db.models import F
-from django.utils import timezone
-import time
-import json
-import dateutil.parser
 from .emailnotify import send_mail, send_leftover_notification
-import traceback
-import logging
 from .azure import Azure
 from .EC2 import EC2
 from .gce import GCE
-from datetime import datetime
-from datetime import timedelta
-from ocw.apps import getScheduler
 
 logger = logging.getLogger(__name__)
-__running = False
-__last_update = None
+RUNNING = False
+LAST_UPDATE = None
 
 
 @transaction.atomic
@@ -36,20 +35,20 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
 
         if Instance.objects.filter(provider=i.provider, instance_id=i.instance_id, vault_namespace=namespace).exists():
             logger.debug("[%s] Update instance %s:%s", namespace, provider, i.instance_id)
-            o = Instance.objects.get(provider=i.provider, instance_id=i.instance_id, vault_namespace=namespace)
-            if o.region != i.region:
+            obj = Instance.objects.get(provider=i.provider, instance_id=i.instance_id, vault_namespace=namespace)
+            if obj.region != i.region:
                 logger.info("[%s] Instance %s:%s changed region from %s to %s",
-                            namespace, provider, i.instance_id, o.region, i.region)
-                o.region = i.region
-            if o.state == StateChoice.DELETED:
+                            namespace, provider, i.instance_id, obj.region, i.region)
+                obj.region = i.region
+            if obj.state == StateChoice.DELETED:
                 logger.info("[%s] %s:%s instance which still exists has DELETED state in DB. Reactivating %s",
                             namespace, provider, i.instance_id, i.all_time_fields())
-                o.first_seen = i.first_seen
-            if o.state != StateChoice.DELETING:
-                o.state = StateChoice.ACTIVE
+                obj.first_seen = i.first_seen
+            if obj.state != StateChoice.DELETING:
+                obj.state = StateChoice.ACTIVE
         else:
             logger.debug("[%s] Create instance %s:%s", namespace, provider, i.instance_id)
-            o = Instance(
+            obj = Instance(
                 provider=provider,
                 vault_namespace=namespace,
                 first_seen=i.first_seen,
@@ -58,11 +57,11 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
                 ttl=i.ttl,
                 region=i.region
             )
-        o.csp_info = i.csp_info
-        o.last_seen = t_now
-        o.active = True
-        o.age = o.last_seen - o.first_seen
-        o.save()
+        obj.csp_info = i.csp_info
+        obj.last_seen = t_now
+        obj.active = True
+        obj.age = obj.last_seen - obj.first_seen
+        obj.save()
     Instance.objects.filter(provider=provider, vault_namespace=namespace, active=False). \
         update(state=StateChoice.DELETED)
 
@@ -206,20 +205,22 @@ def update_run():
     Instance.state is used to reflect the "local" state, e.g. if someone triggered a delete, the
     state will moved to DELETING. If the instance is gone from CSP, the state will set to DELETED.
     '''
-    global __running, __last_update
-    __running = True
+    global RUNNING, LAST_UPDATE
+    RUNNING = True
     max_retries = 3
     error_occured = False
     for namespace in PCWConfig.get_namespaces_for('default'):
         for provider in PCWConfig.get_providers_for('default', namespace):
             logger.info("[%s] Check provider %s", namespace, provider)
             email_text = set()
-            for n in range(max_retries):
+            itr = 0
+            while itr < max_retries:
                 try:
                     _update_provider(provider, namespace)
                 except Exception:
                     logger.exception("[%s] Update failed for %s", namespace, provider)
                     email_text.add(traceback.format_exc())
+                    itr += 1
                     time.sleep(5)
                 else:
                     break
@@ -230,9 +231,9 @@ def update_run():
 
     auto_delete_instances()
     send_leftover_notification()
-    __running = False
+    RUNNING = False
     if not error_occured:
-        __last_update = datetime.now(timezone.utc)
+        LAST_UPDATE = datetime.now(timezone.utc)
 
     if not getScheduler().get_job('update_db'):
         init_cron()
@@ -240,11 +241,11 @@ def update_run():
 
 def delete_instance(instance):
     logger.debug("[%s] Delete instance %s:%s", instance.vault_namespace, instance.provider, instance.instance_id)
-    if (instance.provider == ProviderChoice.AZURE):
+    if instance.provider == ProviderChoice.AZURE:
         Azure(instance.vault_namespace).delete_resource(instance.instance_id)
-    elif (instance.provider == ProviderChoice.EC2):
+    elif instance.provider == ProviderChoice.EC2:
         EC2(instance.vault_namespace).delete_instance(instance.region, instance.instance_id)
-    elif (instance.provider == ProviderChoice.GCE):
+    elif instance.provider == ProviderChoice.GCE:
         GCE(instance.vault_namespace).delete_instance(instance.instance_id, instance.region)
     else:
         raise NotImplementedError(
@@ -256,11 +257,11 @@ def delete_instance(instance):
 
 def auto_delete_instances():
     for namespace in PCWConfig.get_namespaces_for('default'):
-        o = Instance.objects
-        o = o.filter(state=StateChoice.ACTIVE, vault_namespace=namespace, ttl__gt=timedelta(0),
-                     age__gte=F('ttl')).exclude(csp_info__icontains='pcw_ignore')
+        obj = Instance.objects
+        obj = obj.filter(state=StateChoice.ACTIVE, vault_namespace=namespace, ttl__gt=timedelta(0),
+                         age__gte=F('ttl')).exclude(csp_info__icontains='pcw_ignore')
         email_text = set()
-        for i in o:
+        for i in obj:
             logger.info("[%s] TTL expire for instance %s:%s %s", i.vault_namespace,
                         i.provider, i.instance_id, i.all_time_fields())
             try:
@@ -276,18 +277,18 @@ def auto_delete_instances():
 
 
 def is_updating():
-    global __running
-    return __running
+    global RUNNING
+    return RUNNING
 
 
 def last_update():
-    global __last_update
-    return __last_update if __last_update is not None else ''
+    global LAST_UPDATE
+    return LAST_UPDATE if LAST_UPDATE is not None else ''
 
 
 def start_update():
-    global __running
-    if not __running:
+    global RUNNING
+    if not RUNNING:
         getScheduler().get_job('update_db').reschedule(trigger='date', run_date=datetime.now(timezone.utc))
 
 
