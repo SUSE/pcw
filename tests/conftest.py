@@ -1,5 +1,4 @@
 import pytest
-from webui.settings import ConfigFile
 import webui
 import tempfile
 import os

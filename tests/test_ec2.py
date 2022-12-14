@@ -130,10 +130,9 @@ class MockedEC2Client():
     def describe_vpc_peering_connections(self, Filters):
         return MockedEC2Client.response
 
+
 class MockedEKSClient():
-
     clusters_list = {}
-
 
     def list_clusters(self):
         return self.clusters_list
@@ -142,11 +141,11 @@ class MockedEKSClient():
         if name == 'empty':
             return {}
         elif name == 'hascluster':
-            return {'cluster':{}}
+            return {'cluster': {}}
         elif name == 'hastags':
-            return {'cluster':{'tags': {}}}
+            return {'cluster': {'tags': {}}}
         elif name == 'ignored':
-            return {'cluster':{'tags': {'pcw_ignore':'1'}}}
+            return {'cluster': {'tags': {'pcw_ignore': '1'}}}
         else:
             return None
 
@@ -246,6 +245,7 @@ def test_cleanup_images_one_old(ec2_patch):
     ec2_patch.cleanup_images(ec2_max_age_days)
     assert MockedEC2Client.deleted_images == [2]
 
+
 def test_cleanup_images_all_new(ec2_patch):
     MockedEC2Client.deleted_images = list()
     MockedEC2Client.response = {
@@ -256,7 +256,6 @@ def test_cleanup_images_all_new(ec2_patch):
     }
     ec2_patch.cleanup_images(ec2_max_age_days)
     assert MockedEC2Client.deleted_images == []
-
 
 
 def test_is_outdated():
@@ -270,6 +269,7 @@ def test_cleanup_snapshots_cleanup_all_new(ec2_patch):
     }
     ec2_patch.cleanup_snapshots(ec2_max_age_days)
     assert len(MockedEC2Client.ec2_snapshots) == 2
+
 
 def test_cleanup_snapshots_cleanup_one_old(ec2_patch):
     MockedEC2Client.response = {
@@ -444,24 +444,25 @@ def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
 
     assert called_stack == ['cleanup_images', 'cleanup_snapshots', 'cleanup_volumes', 'cleanup_uploader_vpcs']
 
+
 def test_list_clusters(ec2_patch, monkeypatch):
     mocked_eks = MockedEKSClient()
     monkeypatch.setattr(EC2, 'eks_client', lambda self, region: mocked_eks)
     all_clusters = ec2_patch.all_clusters()
     assert all_clusters == {}
 
-    mocked_eks.clusters_list = {'clusters' : ['empty']}
+    mocked_eks.clusters_list = {'clusters': ['empty']}
     all_clusters = ec2_patch.all_clusters()
     assert all_clusters == {}
 
-    mocked_eks.clusters_list = {'clusters' : ['hascluster']}
+    mocked_eks.clusters_list = {'clusters': ['hascluster']}
     all_clusters = ec2_patch.all_clusters()
     assert all_clusters == {}
 
-    mocked_eks.clusters_list = {'clusters' : ['hastags']}
+    mocked_eks.clusters_list = {'clusters': ['hastags']}
     all_clusters = ec2_patch.all_clusters()
     assert all_clusters == {'region1': ['hastags']}
 
-    mocked_eks.clusters_list = {'clusters' : ['hastags', 'ignored']}
+    mocked_eks.clusters_list = {'clusters': ['hastags', 'ignored']}
     all_clusters = ec2_patch.all_clusters()
     assert all_clusters == {'region1': ['hastags']}
