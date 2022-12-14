@@ -1,9 +1,7 @@
 from ocw.lib.gce import GCE, Provider
 from webui.settings import PCWConfig
 from tests.generators import max_age_hours, mock_get_feature_property
-from tests import generators
 from datetime import datetime, timezone, timedelta
-from faker import Faker
 
 
 class FakeRequest:

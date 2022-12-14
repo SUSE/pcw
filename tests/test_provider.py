@@ -2,10 +2,8 @@ from ocw.lib.provider import Provider
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
-from tests import generators
 from webui.settings import PCWConfig
 from .generators import mock_get_feature_property
-from .generators import max_age_hours
 import pytest
 
 
@@ -17,12 +15,12 @@ def provider_patch(monkeypatch):
 
 def test_older_than_max_age_hours_older(provider_patch):
     provider = Provider('testolderminage')
-    assert provider.is_outdated(datetime.now(timezone.utc) - timedelta(hours=25)) == True
+    assert provider.is_outdated(datetime.now(timezone.utc) - timedelta(hours=25)) is True
 
 
 def test_older_than_max_age_hours_younger(provider_patch):
     provider = Provider('testolderminage')
-    assert provider.is_outdated(datetime.now(timezone.utc) - timedelta(hours=23)) == False
+    assert provider.is_outdated(datetime.now(timezone.utc) - timedelta(hours=23)) is False
 
 
 def test_get_data(monkeypatch):

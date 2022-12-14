@@ -10,6 +10,7 @@ import pytest
 
 deleted_images = list()
 
+
 @pytest.fixture
 def azure_patch(monkeypatch):
     monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
@@ -17,11 +18,13 @@ def azure_patch(monkeypatch):
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     return Azure('fake')
 
+
 @pytest.fixture
 def container_client_all_new(monkeypatch):
     fakecontainerclient = FakeContainerClient([FakeBlob(), FakeBlob()])
     monkeypatch.setattr(Azure, 'container_client', lambda *args, **kwargs: fakecontainerclient)
     return fakecontainerclient
+
 
 @pytest.fixture
 def container_client_one_old(monkeypatch):
@@ -30,15 +33,18 @@ def container_client_one_old(monkeypatch):
     monkeypatch.setattr(Azure, 'container_client', lambda *args, **kwargs: fakecontainerclient)
     return fakecontainerclient
 
+
 @pytest.fixture
 def bs_client_no_pcw_ignore(monkeypatch):
-    fakeblobserviceclient = FakeBlobServiceClient([ FakeBlobContainer(), FakeBlobContainer() ])
+    fakeblobserviceclient = FakeBlobServiceClient([FakeBlobContainer(), FakeBlobContainer()])
     monkeypatch.setattr(Azure, 'bs_client', lambda *args, **kwargs: fakeblobserviceclient)
+
 
 @pytest.fixture
 def bs_client_one_pcw_ignore(monkeypatch):
-    fakeblobserviceclient = FakeBlobServiceClient([ FakeBlobContainer({"pcw_ignore": "1"}), FakeBlobContainer() ])
+    fakeblobserviceclient = FakeBlobServiceClient([FakeBlobContainer({"pcw_ignore": "1"}), FakeBlobContainer()])
     monkeypatch.setattr(Azure, 'bs_client', lambda *args, **kwargs: fakeblobserviceclient)
+
 
 @pytest.fixture
 def mock_compute_mgmt_client(monkeypatch):
@@ -56,14 +62,16 @@ def mock_compute_mgmt_client(monkeypatch):
 
     monkeypatch.setattr(Azure, 'compute_mgmt_client', mock_compute_mgmt_client)
 
+
 class FakeDisk:
 
-    def __init__(self, managed_by = None):
+    def __init__(self, managed_by=None):
         self.managed_by = managed_by
+
 
 class FakeBlobContainer:
 
-    def __init__(self, metadata = [], name = None):
+    def __init__(self, metadata=[], name=None):
         if name is None:
             self.name = "sle-images"
         else:
@@ -76,7 +84,7 @@ class FakeBlobContainer:
 
 class FakeBlob:
 
-    def __init__(self, last_modified=None, name = None):
+    def __init__(self, last_modified=None, name=None):
         if name is None:
             self.name = Faker().uuid4()
         else:
@@ -85,6 +93,7 @@ class FakeBlob:
             self.last_modified = datetime.now(timezone.utc)
         else:
             self.last_modified = last_modified
+
 
 class FakeBlobServiceClient:
 
@@ -107,9 +116,9 @@ class FakeContainerClient:
     def delete_blob(self, img_name, delete_snapshots):
         self.deleted_blobs.append(img_name)
 
-class FakeItem:
 
-    def __init__(self, changed_time=None, name = None):
+class FakeItem:
+    def __init__(self, changed_time=None, name=None):
         if changed_time is None:
             self.changed_time = datetime.now(timezone.utc)
         else:
@@ -119,17 +128,21 @@ class FakeItem:
         else:
             self.name = name
 
+
 def test_cleanup_blob_containers_all_new_no_pcw_ignore(azure_patch, container_client_all_new, bs_client_no_pcw_ignore):
     azure_patch.cleanup_blob_containers()
     assert container_client_all_new.deleted_blobs == []
+
 
 def test_cleanup_blob_containers_one_old_no_pcw_ignore(azure_patch, container_client_one_old, bs_client_no_pcw_ignore):
     azure_patch.cleanup_blob_containers()
     assert container_client_one_old.deleted_blobs == ["to_be_deleted", "to_be_deleted"]
 
+
 def test_cleanup_blob_containers_one_old_one_pcw_ignore(azure_patch, container_client_one_old, bs_client_one_pcw_ignore):
     azure_patch.cleanup_blob_containers()
     assert container_client_one_old.deleted_blobs == ["to_be_deleted"]
+
 
 def test_cleanup_blob_containers_all_new_one_pcw_ignore(azure_patch, container_client_all_new, bs_client_one_pcw_ignore):
     azure_patch.cleanup_blob_containers()
@@ -137,11 +150,11 @@ def test_cleanup_blob_containers_all_new_one_pcw_ignore(azure_patch, container_c
 
 
 def test_cleanup_images_from_rg_all_new(azure_patch, monkeypatch, mock_compute_mgmt_client):
-
     monkeypatch.setattr(Azure, 'list_by_resource_group', lambda *args, **kwargs: [FakeItem(), FakeItem()])
     azure_patch.cleanup_images_from_rg()
 
     assert len(deleted_images) == 0
+
 
 def test_cleanup_images_from_rg_one_old(azure_patch, monkeypatch, mock_compute_mgmt_client):
     old_times = datetime.now(timezone.utc) - timedelta(hours=generators.max_age_hours+1)
@@ -176,8 +189,8 @@ def test_cleanup_disks_from_rg_all_new(azure_patch, monkeypatch):
 
     assert len(deleted_images) == 0
 
-def test_cleanup_disks_from_rg_one_old_no_managed_by(azure_patch, monkeypatch):
 
+def test_cleanup_disks_from_rg_one_old_no_managed_by(azure_patch, monkeypatch):
     global deleted_images
     # to make sure that we not failing due to other test left dirty env.
     deleted_images = list()
@@ -202,8 +215,8 @@ def test_cleanup_disks_from_rg_one_old_no_managed_by(azure_patch, monkeypatch):
     assert len(deleted_images) == 1
     assert deleted_images[0] == "to_delete"
 
-def test_cleanup_disks_from_rg_one_old_with_managed_by(azure_patch, monkeypatch):
 
+def test_cleanup_disks_from_rg_one_old_with_managed_by(azure_patch, monkeypatch):
     global deleted_images
     # to make sure that we not failing due to other test left dirty env.
     deleted_images = list()
@@ -265,18 +278,18 @@ def test_check_credentials(monkeypatch):
 
     count_list_resource_groups = 0
     failed_list_resource_groups = 3
-    az = Azure('fake')
+    Azure('fake')
     assert count_list_resource_groups == 4
 
     count_list_resource_groups = 0
     failed_list_resource_groups = 5
     with pytest.raises(AuthenticationError):
-        az = Azure('fake')
+        Azure('fake')
+
 
 def test_container_valid_for_cleanup():
-
-    assert Azure.container_valid_for_cleanup(FakeBlobContainer({},"random name")) == False
-    assert Azure.container_valid_for_cleanup(FakeBlobContainer({}, "sle-images")) == True
-    assert Azure.container_valid_for_cleanup(FakeBlobContainer({}, "bootdiagnostics-dsfsdfsdf")) == True
-    assert Azure.container_valid_for_cleanup(FakeBlobContainer({"pcw_ignore": "1"}, "bootdiagnostics-sdafsdfs")) == False
-    assert Azure.container_valid_for_cleanup(FakeBlobContainer({"pcw_ignore": "1"}, "sle-images")) == False
+    assert Azure.container_valid_for_cleanup(FakeBlobContainer({}, "random name")) is False
+    assert Azure.container_valid_for_cleanup(FakeBlobContainer({}, "sle-images")) is True
+    assert Azure.container_valid_for_cleanup(FakeBlobContainer({}, "bootdiagnostics-dsfsdfsdf")) is True
+    assert Azure.container_valid_for_cleanup(FakeBlobContainer({"pcw_ignore": "1"}, "bootdiagnostics-asdxyz")) is False
+    assert Azure.container_valid_for_cleanup(FakeBlobContainer({"pcw_ignore": "1"}, "sle-images")) is False

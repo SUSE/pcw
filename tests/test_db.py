@@ -146,12 +146,12 @@ def test_gce_to_json_launch_time():
 def test_tag_to_boolean():
     tag_name = 'test'
     csp_info = {}
-    assert tag_to_boolean(tag_name, csp_info) == False
-    csp_info = {'tags' : {}}
-    assert tag_to_boolean(tag_name, csp_info) == False
-    csp_info = {'tags' : {'test': None}}
-    assert tag_to_boolean(tag_name, csp_info) == False
-    csp_info = {'tags' : {'test': False}}
-    assert tag_to_boolean(tag_name, csp_info) == False
-    csp_info = {'tags' : {'test': '1'}}
-    assert tag_to_boolean(tag_name, csp_info) == True
+    assert tag_to_boolean(tag_name, csp_info) is False
+    csp_info = {'tags': {}}
+    assert tag_to_boolean(tag_name, csp_info) is False
+    csp_info = {'tags': {'test': None}}
+    assert tag_to_boolean(tag_name, csp_info) is False
+    csp_info = {'tags': {'test': False}}
+    assert tag_to_boolean(tag_name, csp_info) is False
+    csp_info = {'tags': {'test': '1'}}
+    assert tag_to_boolean(tag_name, csp_info) is True

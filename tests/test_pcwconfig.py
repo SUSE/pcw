@@ -13,6 +13,7 @@ def test_get_feature_property_with_defaults(pcw_file):
     assert PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', 'fake') == 'openqa-upload'
     assert type(PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', 'fake')) is str
 
+
 def test_get_feature_property_lookup_error(pcw_file):
     with pytest.raises(LookupError):
         PCWConfig.get_feature_property('notexisting', 'notexisting', 'fake')
@@ -43,13 +44,15 @@ azure-storage-resourcegroup = bla-blub-ns
     cleanup_azure_storage_resourcegroup = PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', 'testns')
     assert cleanup_max_images_per_flavor == 42
     assert type(cleanup_max_images_per_flavor) is int
-    assert  cleanup_azure_storage_resourcegroup == 'bla-blub-ns'
+    assert cleanup_azure_storage_resourcegroup == 'bla-blub-ns'
     assert type(cleanup_azure_storage_resourcegroup) is str
+
 
 def test_get_namespaces_for_feature_not_defined(pcw_file):
     namespaces = PCWConfig.get_namespaces_for('test_get_namespaces_for_feature_not_defined')
     assert type(namespaces) is list
     assert len(namespaces) == 0
+
 
 def test_get_namespaces_for_feature_default_only(pcw_file):
     set_pcw_ini(pcw_file, """
@@ -72,6 +75,7 @@ some_other_property = value
     assert type(namespaces) is list
     assert len(namespaces) == 2
     assert not {'test1', 'test2'} ^ set(namespaces)
+
 
 def test_get_namespaces_for_feature_default_feature_exists_namespace_in_feature(pcw_file):
     set_pcw_ini(pcw_file, """
@@ -101,11 +105,14 @@ def test_get_providers_for_existed_feature(pcw_file):
     providers = PCWConfig.get_providers_for('providerfeature', 'fake')
     assert not {'azure'} ^ set(providers)
 
+
 def test_getBoolean_notdefined(pcw_file):
     assert not PCWConfig.getBoolean('feature/bool_property')
 
+
 def test_getBoolean_notdefined_namespace(pcw_file):
-    assert not PCWConfig.getBoolean('feature/bool_property','random_namespace')
+    assert not PCWConfig.getBoolean('feature/bool_property', 'random_namespace')
+
 
 def test_getBoolean_defined(pcw_file):
     set_pcw_ini(pcw_file, """
@@ -114,6 +121,7 @@ def test_getBoolean_defined(pcw_file):
     """)
     assert PCWConfig.getBoolean('feature/bool_property')
 
+
 def test_getBoolean_defined_namespace(pcw_file):
     set_pcw_ini(pcw_file, """
     [feature]
@@ -121,7 +129,8 @@ def test_getBoolean_defined_namespace(pcw_file):
     [feature.namespace.random_namespace]
     bool_property = True
     """)
-    assert PCWConfig.getBoolean('feature/bool_property','random_namespace')
+    assert PCWConfig.getBoolean('feature/bool_property', 'random_namespace')
+
 
 def test_getBoolean_namespace_but_not_defined(pcw_file):
     set_pcw_ini(pcw_file, """
@@ -130,4 +139,4 @@ def test_getBoolean_namespace_but_not_defined(pcw_file):
     [feature.namespace.random_namespace]
     providers = azure
     """)
-    assert PCWConfig.getBoolean('feature/bool_property','random_namespace')
+    assert PCWConfig.getBoolean('feature/bool_property', 'random_namespace')

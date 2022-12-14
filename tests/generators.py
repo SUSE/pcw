@@ -27,8 +27,9 @@ class ec2_image_mock:
         self.meta = ec2_meta_mock()
         self.name = fake.uuid4()
 
+
 def ec2_tags_mock(tags={fake.uuid4(): fake.uuid4()}):
-    return [ {'Key': key, 'Value': tags[key]} for key in tags]
+    return [{'Key': key, 'Value': tags[key]} for key in tags]
 
 
 class ec2_instance_mock:
