@@ -30,3 +30,20 @@ def test_get_data(monkeypatch):
 
     assert provider.get_data() == {'param1': 'value1'}
     assert provider.get_data('param1') == 'value1'
+
+
+def test_exec_cmd(provider_patch):
+    provider = Provider('testexeccmd')
+    out = provider.cmd_exec("echo 'test'")
+    assert out == 0
+
+    out = provider.cmd_exec("ls /invalid_dir")
+    assert out == 2
+
+    error = False
+    try:
+        provider.cmd_exec("invalid_command")
+    except FileNotFoundError:
+        error = True
+
+    assert error, 'An invalid command should raise an exception'

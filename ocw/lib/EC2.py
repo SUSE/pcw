@@ -360,8 +360,8 @@ class EC2(Provider):
     def cleanup_k8s_jobs(self):
         try:
             self.create_credentials_file()
-        except Exception as e:
-            self.log_err(str(e))
+        except Exception as exception:
+            self.log_err(str(exception))
             return
 
         clusters = {}
@@ -373,11 +373,10 @@ class EC2(Provider):
                     client = self.kubectl_client(region, cluster_name)
                     if client is not None:
                         now = datetime.now(timezone.utc)
-
                         ret = client.list_job_for_all_namespaces(watch=False)
                         for job in ret.items:
                             age = (now - job.status.start_time).days
-                            if age > 1:
+                            if age >= 1:
                                 if not self.dry_run:
                                     self.log_info(f"Deleting from {cluster_name} the job {job.metadata.name} " +
                                                   f"with age {age}")
@@ -386,8 +385,8 @@ class EC2(Provider):
                                     self.log_info(f"Skip deleting from {cluster_name} the job {job.metadata.name} " +
                                                   f"with age {age}")
 
-    def create_credentials_file(self):
-        directory = "/root/.aws"
+    def create_credentials_file(self, dir="/root"):
+        directory = f"{dir}/.aws"
         file = f"{directory}/credentials"
 
         if not os.path.exists(file):
