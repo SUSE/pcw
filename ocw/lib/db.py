@@ -1,4 +1,3 @@
-import time
 import json
 import traceback
 import logging
@@ -9,9 +8,7 @@ from django.db.models import F
 from django.utils import timezone
 from ocw.apps import getScheduler
 from webui.settings import PCWConfig
-from ..models import Instance
-from ..models import StateChoice
-from ..models import ProviderChoice
+from ..models import Instance, StateChoice, ProviderChoice, CspInfo
 from .emailnotify import send_mail, send_leftover_notification
 from .azure import Azure
 from .EC2 import EC2
@@ -62,6 +59,13 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
         obj.active = True
         obj.age = obj.last_seen - obj.first_seen
         obj.save()
+        csp_info_json = json.loads(i.csp_info)
+        if hasattr(i, 'cspinfo'):
+            i.cspinfo.tags = csp_info_json['tags']
+            i.cspinfo.save()
+        else:
+            csp_info = CspInfo(tags=csp_info_json['tags'], type=csp_info_json['type'], instance=obj)
+            csp_info.save()
     Instance.objects.filter(provider=provider, vault_namespace=namespace, active=False). \
         update(state=StateChoice.DELETED)
 
@@ -73,36 +77,12 @@ def tag_to_boolean(tag_name, csp_info):
         return False
 
 
-def ec2_to_json(i):
-    info = {
-        'state': i.state['Name'],
-        'image_id': i.image_id,
-        'instance_lifecycle': i.instance_lifecycle,
-        'instance_type': i.instance_type,
-        'kernel_id': i.kernel_id,
-        'launch_time': i.launch_time.isoformat(),
-        'public_ip_address': i.public_ip_address,
-        'security_groups': [sg['GroupName'] for sg in i.security_groups],
-        'sriov_net_support': i.sriov_net_support,
-        'tags': {t['Key']: t['Value'] for t in i.tags} if i.tags else {}
-    }
-    if i.state_reason:
-        info['state_reason'] = i.state_reason['Message']
-
-    if i.image:
-        img = i.image
-        info['image'] = {
-            'image_id': img.image_id
-        }
-        # This happen, if the image was already deleted
-        if img.meta.data is not None:
-            info['image']['name'] = img.name
-
-    return info
-
-
 def ec2_to_local_instance(instance, vault_namespace, region):
-    csp_info = ec2_to_json(instance)
+    csp_info = {
+        'type': instance.instance_type,
+        'launch_time': instance.launch_time.isoformat(),
+        'tags': {t['Key']: t['Value'] for t in instance.tags} if instance.tags else {}
+    }
     return Instance(
         provider=ProviderChoice.EC2,
         vault_namespace=vault_namespace,
@@ -120,11 +100,8 @@ def ec2_to_local_instance(instance, vault_namespace, region):
 def azure_to_json(i):
     info = {
         'tags': i.tags if i.tags else {},
-        'name': i.name,
-        'id': i.id,
-        'type': i.type,
-        'location': i.location
-    }
+        'type': i.type
+        }
     if (i.tags is not None and 'openqa_created_date' in i.tags):
         info['launch_time'] = i.tags.get('openqa_created_date')
     return info
@@ -148,13 +125,8 @@ def azure_to_local_instance(instance, vault_namespace):
 def gce_to_json(i):
     info = {
         'tags': {m['key']: m['value'] for m in i['metadata']['items']} if 'items' in i['metadata'] else {},
-        'name': i['name'],
-        'id': i['id'],
-        'machineType': GCE.url_to_name(i['machineType']),
-        'zone': GCE.url_to_name(i['zone']),
-        'status': i['status'],
-        'launch_time': i['creationTimestamp'],
-        'creation_time': i['creationTimestamp'],
+        'type': GCE.url_to_name(i['machineType']),
+        'launch_time': str(i['creationTimestamp'])
     }
     if 'openqa_created_date' in info['tags']:
         info['launch_time'] = info['tags']['openqa_created_date']
@@ -167,7 +139,7 @@ def gce_to_local_instance(instance, vault_namespace):
     return Instance(
         provider=ProviderChoice.GCE,
         vault_namespace=vault_namespace,
-        first_seen=dateutil.parser.parse(csp_info.get('launch_time', str(timezone.now()))),
+        first_seen=dateutil.parser.parse(csp_info.get('launch_time')),
         instance_id=instance['id'],
         region=GCE.url_to_name(instance['zone']),
         csp_info=json.dumps(csp_info, ensure_ascii=False),
@@ -207,27 +179,17 @@ def update_run():
     '''
     global RUNNING, LAST_UPDATE
     RUNNING = True
-    max_retries = 3
     error_occured = False
     for namespace in PCWConfig.get_namespaces_for('default'):
         for provider in PCWConfig.get_providers_for('default', namespace):
             logger.info("[%s] Check provider %s", namespace, provider)
-            email_text = set()
-            itr = 0
-            while itr < max_retries:
-                try:
-                    _update_provider(provider, namespace)
-                except Exception:
-                    logger.exception("[%s] Update failed for %s", namespace, provider)
-                    email_text.add(traceback.format_exc())
-                    itr += 1
-                    time.sleep(5)
-                else:
-                    break
-            else:
+            try:
+                _update_provider(provider, namespace)
+            except Exception:
+                logger.exception("[%s] Update failed for %s", namespace, provider)
                 error_occured = True
                 send_mail('Error on update {} in namespace {}'.format(provider, namespace),
-                          "\n{}\n".format('#'*79).join(email_text))
+                          "\n{}\n".format('#'*79).join(traceback.format_exc()))
 
     auto_delete_instances()
     send_leftover_notification()
