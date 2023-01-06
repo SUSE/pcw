@@ -95,3 +95,13 @@ class Instance(models.Model):
 
     class Meta:
         unique_together = (('provider', 'instance_id', 'vault_namespace'),)
+
+
+class CspInfo(models.Model):
+    instance = models.OneToOneField(
+        Instance,
+        on_delete=models.CASCADE,
+        primary_key=True,
+    )
+    tags = models.TextField(default='')
+    type = models.CharField(max_length=200)

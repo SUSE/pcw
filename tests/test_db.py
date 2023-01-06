@@ -1,62 +1,29 @@
 import json
-from ocw.lib.db import ec2_to_local_instance
-from ocw.lib.db import ec2_to_json
-from ocw.lib.db import azure_to_json
-from ocw.lib.db import azure_to_local_instance
-from ocw.lib.db import gce_to_json
-from ocw.lib.db import tag_to_boolean
-from ocw.models import ProviderChoice
-from ocw.models import StateChoice
+from ocw.lib.db import ec2_to_local_instance, azure_to_local_instance, gce_to_json, tag_to_boolean, azure_to_json, \
+    gce_to_local_instance, update_run
+from ocw.models import ProviderChoice, StateChoice
 from ocw.lib.gce import GCE
-from tests.generators import ec2_instance_mock
-from tests.generators import azure_instance_mock
-from tests.generators import gce_instance_mock
+from webui.settings import PCWConfig
+from tests.generators import ec2_instance_mock, azure_instance_mock, gce_instance_mock
 from faker import Faker
 from datetime import datetime
 import dateutil.parser
+import pytest
 
 fake = Faker()
 
 
-def test_ec2_to_json():
-    test_instance = ec2_instance_mock()
-    test_instance.state_reason = None
-    test_instance.image = None
-    result = ec2_to_json(test_instance)
-    assert result['state'] == test_instance.state['Name']
-    assert result['image_id'] == test_instance.image_id
-    assert result['instance_lifecycle'] == test_instance.instance_lifecycle
-    assert result['instance_type'] == test_instance.instance_type
-    assert result['kernel_id'] == test_instance.kernel_id
-    assert result['launch_time'] == test_instance.launch_time.isoformat()
-    assert result['public_ip_address'] == test_instance.public_ip_address
-    assert len(result['security_groups']) == len(test_instance.security_groups)
-    # TODO compare values of 'security_groups'
-    assert result['sriov_net_support'] == test_instance.sriov_net_support
-    for t in test_instance.tags:
-        assert result['tags'][t['Key']] == t['Value']
-    assert 'state_reason' not in result
-    assert 'image' not in result
+@pytest.fixture
+def update_run_patch(monkeypatch):
 
+    class Mock_Scheduler:
 
-def test_ec2_to_json_state_reason():
-    test_instance = ec2_instance_mock()
-    result = ec2_to_json(test_instance)
-    assert result['state_reason'] == test_instance.state_reason['Message']
+        def get_job(self, val1):
+            return True
 
-
-def test_ec2_to_json_image_without_meta():
-    test_instance = ec2_instance_mock()
-    test_instance.image.meta.data = None
-    result = ec2_to_json(test_instance)
-    assert result['image']['image_id'] == test_instance.image.image_id
-    assert 'name' not in result['image']
-
-
-def test_ec2_to_json_image_with_meta():
-    test_instance = ec2_instance_mock()
-    result = ec2_to_json(test_instance)
-    assert result['image']['name'] == test_instance.image.name
+    monkeypatch.setattr(PCWConfig, 'get_namespaces_for', lambda namespace: ['namespace1'])
+    monkeypatch.setattr(PCWConfig, 'get_providers_for', lambda namespace, region: ['provider1'])
+    monkeypatch.setattr('ocw.apps.getScheduler', lambda namespace: Mock_Scheduler())
 
 
 def test_ec2_to_local_instance():
@@ -80,10 +47,7 @@ def test_azure_to_json():
     result = azure_to_json(test_instance)
 
     assert result['tags'] == test_instance.tags
-    assert result['name'] == test_instance.name
-    assert result['id'] == test_instance.id
     assert result['type'] == test_instance.type
-    assert result['location'] == test_instance.location
     assert 'launch_time' not in result
 
 
@@ -113,13 +77,8 @@ def test_gce_to_json():
     test_instance = gce_instance_mock()
     result = gce_to_json(test_instance)
 
-    assert result['name'] == test_instance['name']
-    assert result['id'] == test_instance['id']
-    assert result['machineType'] == GCE.url_to_name(test_instance['machineType'])
-    assert result['zone'] == GCE.url_to_name(test_instance['zone'])
-    assert result['status'] == test_instance['status']
-    assert result['launch_time'] == test_instance['creationTimestamp']
-    assert result['creation_time'] == test_instance['creationTimestamp']
+    assert result['type'] == GCE.url_to_name(test_instance['machineType'])
+    assert result['launch_time'] == str(test_instance['creationTimestamp'])
     assert len(result['tags']) == 0
     assert 'sshKeys' not in result['tags']
 
@@ -143,6 +102,17 @@ def test_gce_to_json_launch_time():
     assert result['launch_time'] == test_time
 
 
+def test_gce_to_local_instance():
+    test_instance = gce_instance_mock()
+    test_vault = fake.uuid4()
+    result = gce_to_local_instance(test_instance, test_vault)
+
+    test_csp_info = gce_to_json(test_instance)
+    assert result.provider == ProviderChoice.GCE
+    assert result.vault_namespace == test_vault
+    assert str(result.first_seen) == test_csp_info.get('launch_time')
+
+
 def test_tag_to_boolean():
     tag_name = 'test'
     csp_info = {}
@@ -155,3 +125,52 @@ def test_tag_to_boolean():
     assert tag_to_boolean(tag_name, csp_info) is False
     csp_info = {'tags': {'test': '1'}}
     assert tag_to_boolean(tag_name, csp_info) is True
+
+
+def test__update_run(update_run_patch, monkeypatch):
+
+    call_stack = []
+
+    def mocked__update_provider(arg1, arg2):
+        call_stack.append('_update_provider')
+
+    def mocked_auto_delete_instances():
+        call_stack.append('auto_delete_instances')
+
+    def mocked_send_leftover_notification():
+        call_stack.append('send_leftover_notification')
+
+    monkeypatch.setattr('ocw.lib.db._update_provider', mocked__update_provider)
+    monkeypatch.setattr('ocw.lib.db.auto_delete_instances', mocked_auto_delete_instances)
+    monkeypatch.setattr('ocw.lib.db.send_leftover_notification', mocked_send_leftover_notification)
+
+    update_run()
+
+    assert call_stack == ['_update_provider', 'auto_delete_instances', 'send_leftover_notification']
+
+
+def test__update_run_update_provider_throw_exception(update_run_patch, monkeypatch):
+
+    call_stack = []
+
+    def mocked__update_provider(arg1, arg2):
+        call_stack.append('_update_provider')
+        raise Exception
+
+    def mocked_auto_delete_instances():
+        call_stack.append('auto_delete_instances')
+
+    def mocked_send_leftover_notification():
+        call_stack.append('send_leftover_notification')
+
+    def mocked_send_mail(arg1, arg2):
+        call_stack.append('send_mail')
+
+    monkeypatch.setattr('ocw.lib.db._update_provider', mocked__update_provider)
+    monkeypatch.setattr('ocw.lib.db.auto_delete_instances', mocked_auto_delete_instances)
+    monkeypatch.setattr('ocw.lib.db.send_leftover_notification', mocked_send_leftover_notification)
+    monkeypatch.setattr('ocw.lib.db.send_mail', mocked_send_mail)
+
+    update_run()
+
+    assert call_stack == ['_update_provider', 'send_mail', 'auto_delete_instances', 'send_leftover_notification']
