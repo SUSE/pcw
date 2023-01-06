@@ -88,6 +88,7 @@ class Azure(Provider):
         if self.dry_run:
             self.log_info("Deletion of resource group {} skipped due to dry run mode", resource_id)
         else:
+            self.log_info("Deleting of resource group {}", resource_id)
             self.resource_mgmt_client().resource_groups.begin_delete(resource_id)
 
     def list_images_by_resource_group(self, resource_group):
@@ -103,6 +104,7 @@ class Azure(Provider):
             resource_group, filter=filters, expand="changedTime"))
 
     def cleanup_all(self):
+        self.log_dbg("Call cleanup_all")
         self.cleanup_images_from_rg()
         self.cleanup_disks_from_rg()
         self.cleanup_blob_containers()
@@ -126,6 +128,7 @@ class Azure(Provider):
         return False
 
     def cleanup_blob_containers(self):
+        self.log_dbg("Call cleanup_blob_containers")
         containers = self.bs_client().list_containers(include_metadata=True)
         for container in containers:
             if Azure.container_valid_for_cleanup(container):
@@ -140,6 +143,7 @@ class Azure(Provider):
                             self.container_client(container.name).delete_blob(blob.name, delete_snapshots="include")
 
     def cleanup_images_from_rg(self):
+        self.log_dbg("Call cleanup_images_from_rg")
         for item in self.list_images_by_resource_group(self.__resource_group):
             if self.is_outdated(item.changed_time):
                 if self.dry_run:
@@ -149,6 +153,7 @@ class Azure(Provider):
                     self.compute_mgmt_client().images.begin_delete(self.__resource_group, item.name)
 
     def cleanup_disks_from_rg(self):
+        self.log_dbg("Call cleanup_disks_from_rg")
         for item in self.list_disks_by_resource_group(self.__resource_group):
             if self.is_outdated(item.changed_time):
                 if self.compute_mgmt_client().disks.get(self.__resource_group, item.name).managed_by:

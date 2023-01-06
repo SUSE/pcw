@@ -12,7 +12,7 @@ __scheduler = None
 def getScheduler():
     global __scheduler
     if __scheduler is None:
-        logger.debug("Create new BackgrounScheduler")
+        logger.info("Create new BackgrounScheduler")
         executors = {
                 'default': ThreadPoolExecutor(1),
             }
