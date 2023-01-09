@@ -189,7 +189,7 @@ def update_run():
                 logger.exception("[%s] Update failed for %s", namespace, provider)
                 error_occured = True
                 send_mail('Error on update {} in namespace {}'.format(provider, namespace),
-                          "\n{}\n".format('#'*79).join(traceback.format_exc()))
+                          traceback.format_exc())
 
     auto_delete_instances()
     send_leftover_notification()
