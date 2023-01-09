@@ -155,7 +155,7 @@ logging.config.dictConfig({
             'handlers': ['console'],
         },
         'ocw': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'handlers': ['console'],
             'propagate': False,
         }
