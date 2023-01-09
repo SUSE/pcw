@@ -14,7 +14,7 @@ def cleanup_run():
     for namespace in PCWConfig.get_namespaces_for('cleanup'):
         try:
             providers = PCWConfig.get_providers_for('cleanup', namespace)
-            logger.debug("[%s] Run cleanup for %s", namespace, ','.join(providers))
+            logger.info("[%s] Run cleanup for %s", namespace, ','.join(providers))
             if 'azure' in providers:
                 Azure(namespace).cleanup_all()
 

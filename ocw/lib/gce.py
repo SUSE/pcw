@@ -27,6 +27,7 @@ class GCE(Provider):
 
     def list_instances(self, zone):
         """ List all instances by zone."""
+        self.log_dbg("Call list_instances for {}", zone)
         result = []
         request = (
             self.compute_client().instances().list(project=self.__project, zone=zone)
@@ -44,6 +45,7 @@ class GCE(Provider):
 
     def list_all_instances(self):
         result = []
+        self.log_dbg("Call list_all_instances")
         for region in self.list_regions():
             for zone in self.list_zones(region):
                 result += self.list_instances(zone=zone)
@@ -92,6 +94,7 @@ class GCE(Provider):
 
     def cleanup_all(self):
         request = self.compute_client().images().list(project=self.__project)
+        self.log_dbg("Call cleanup_all")
         while request is not None:
             response = request.execute()
             if "items" not in response:

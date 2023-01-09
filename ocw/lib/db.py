@@ -161,7 +161,7 @@ def _update_provider(name, vault_namespace):
         for region in EC2(vault_namespace).all_regions:
             instances_csp = EC2(vault_namespace).list_instances(region=region)
             instances += [ec2_to_local_instance(i, vault_namespace, region) for i in instances_csp]
-            logger.info("Got %d instances from EC2 in region %s", len(instances), region)
+        logger.info("Got %d instances from EC2", len(instances))
         sync_csp_to_local_db(instances, ProviderChoice.EC2, vault_namespace)
 
     if 'gce' in name:
@@ -202,7 +202,7 @@ def update_run():
 
 
 def delete_instance(instance):
-    logger.debug("[%s] Delete instance %s:%s", instance.vault_namespace, instance.provider, instance.instance_id)
+    logger.info("[%s] Delete instance %s:%s", instance.vault_namespace, instance.provider, instance.instance_id)
     if instance.provider == ProviderChoice.AZURE:
         Azure(instance.vault_namespace).delete_resource(instance.instance_id)
     elif instance.provider == ProviderChoice.EC2:
@@ -224,8 +224,8 @@ def auto_delete_instances():
                          age__gte=F('ttl')).exclude(csp_info__icontains='pcw_ignore')
         email_text = set()
         for i in obj:
-            logger.info("[%s] TTL expire for instance %s:%s %s", i.vault_namespace,
-                        i.provider, i.instance_id, i.all_time_fields())
+            logger.debug("[%s] TTL expire for instance %s:%s %s", i.vault_namespace,
+                         i.provider, i.instance_id, i.all_time_fields())
             try:
                 delete_instance(i)
             except Exception:

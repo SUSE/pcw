@@ -74,7 +74,7 @@ def send_mail(subject, message, receiver_email=None):
         mimetext['Subject'] = '[Openqa-Cloud-Watch] {}'.format(subject)
         mimetext['From'] = sender_email
         mimetext['To'] = receiver_email
-        logger.info("Send Email To:'%s' Subject:'[Openqa-Cloud-Watch] %s'", receiver_email, subject)
+        logger.debug("Send Email To:'%s' Subject:'[Openqa-Cloud-Watch] %s'", receiver_email, subject)
         server = smtplib.SMTP(smtp_server, port)
         server.ehlo()
         server.sendmail(sender_email, receiver_email.split(','), mimetext.as_string())
