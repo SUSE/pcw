@@ -81,6 +81,18 @@ class Azure(Provider):
     def list_instances(self):
         return list(self.compute_mgmt_client().virtual_machines.list_all())
 
+    def get_vm_types_in_resource_group(self, resource_group):
+        self.log_dbg("Listing VMs for {}", resource_group)
+        vms = self.compute_mgmt_client().virtual_machines.list(resource_group)
+        type_str = "N/A"
+        for azure_vm in vms:
+            if type_str == "N/A":
+                type_str = azure_vm.hardware_profile.vm_size
+            else:
+                type_str = "{},{}".format(type_str, azure_vm.hardware_profile.vm_size)
+                self.log_warn('{} resource group has more than one VM', resource_group)
+        return type_str
+
     def list_resource_groups(self):
         return list(self.resource_mgmt_client().resource_groups.list())
 

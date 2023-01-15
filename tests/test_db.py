@@ -47,7 +47,6 @@ def test_azure_to_json():
     result = azure_to_json(test_instance)
 
     assert result['tags'] == test_instance.tags
-    assert result['type'] == test_instance.type
     assert 'launch_time' not in result
 
 

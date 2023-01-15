@@ -404,18 +404,18 @@ class EC2(Provider):
                                     self.log_info(f"Skip deleting from {cluster_name} the job {job.metadata.name} " +
                                                   f"with age {age}")
 
-    def create_credentials_file(self, dir="/root"):
-        directory = f"{dir}/.aws"
-        file = f"{directory}/credentials"
+    def create_credentials_file(self, user_home_dir="/root"):
+        aws_dir = f"{user_home_dir}/.aws"
+        creds_file = f"{aws_dir}/credentials"
 
-        if not os.path.exists(file):
-            if not os.path.exists(directory):
-                os.mkdir(directory)
+        if not os.path.exists(creds_file):
+            if not os.path.exists(aws_dir):
+                os.mkdir(aws_dir)
 
-            with open(file, "w", encoding="utf8") as file:
-                file.write("[default]\n")
-                file.write(f"aws_access_key_id={self.__key}\n")
-                file.write(f"aws_secret_access_key={self.__secret}\n")
+            with open(creds_file, "w", encoding="utf8") as file_handle:
+                file_handle.write("[default]\n")
+                file_handle.write(f"aws_access_key_id={self.__key}\n")
+                file_handle.write(f"aws_secret_access_key={self.__secret}\n")
 
         if self.cmd_exec("aws sts get-caller-identity") != 0:
             raise Exception("Invalid credentials, the credentials cannot be verified by 'aws sts get-caller-identity'")

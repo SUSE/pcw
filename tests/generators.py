@@ -32,7 +32,6 @@ class azure_instance_mock:
     def __init__(self):
         self.tags = fake.uuid4()
         self.name = fake.uuid4()
-        self.type = fake.uuid4()
         self.location = fake.uuid4()
 
 

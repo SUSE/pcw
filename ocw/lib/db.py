@@ -64,7 +64,11 @@ def sync_csp_to_local_db(pc_instances, provider, namespace):
             i.cspinfo.tags = csp_info_json['tags']
             i.cspinfo.save()
         else:
-            csp_info = CspInfo(tags=csp_info_json['tags'], type=csp_info_json['type'], instance=obj)
+            if obj.provider == ProviderChoice.AZURE:
+                type_str = Azure(obj.vault_namespace).get_vm_types_in_resource_group(obj.instance_id)
+                csp_info = CspInfo(tags=csp_info_json['tags'], type=type_str, instance=obj)
+            else:
+                csp_info = CspInfo(tags=csp_info_json['tags'], type=csp_info_json['type'], instance=obj)
             csp_info.save()
     Instance.objects.filter(provider=provider, vault_namespace=namespace, active=False). \
         update(state=StateChoice.DELETED)
@@ -98,10 +102,7 @@ def ec2_to_local_instance(instance, vault_namespace, region):
 
 
 def azure_to_json(i):
-    info = {
-        'tags': i.tags if i.tags else {},
-        'type': i.type
-        }
+    info = {'tags': i.tags if i.tags else {}}
     if (i.tags is not None and 'openqa_created_date' in i.tags):
         info['launch_time'] = i.tags.get('openqa_created_date')
     return info
