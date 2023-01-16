@@ -9,6 +9,7 @@ from azure.storage.blob import BlobServiceClient
 from msrest.exceptions import AuthenticationError
 from webui.settings import PCWConfig
 from .provider import Provider
+from ..models import Instance
 
 
 class Azure(Provider):
@@ -131,7 +132,7 @@ class Azure(Provider):
             1. "metadata" of container does not contain special tag (pcw_ignore)
             2. Container name or contains "bootdiagnostics-" in its name or its name is "sle-images"
         '''
-        if 'pcw_ignore' in container['metadata']:
+        if Instance.TAG_IGNORE in container['metadata']:
             return False
         if re.match('^bootdiagnostics-', container.name):
             return True

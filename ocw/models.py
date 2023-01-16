@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from enum import Enum
 from datetime import timedelta
 from webui.settings import PCWConfig
@@ -24,6 +25,17 @@ class ProviderChoice(ChoiceEnum):
     GCE = 'Google'
     EC2 = 'EC2'
     AZURE = 'Azure'
+
+    @staticmethod
+    def from_str(provider):
+        if provider.upper() == ProviderChoice.GCE:
+            return ProviderChoice.GCE
+        elif provider.upper() == ProviderChoice.EC2:
+            return ProviderChoice.EC2
+        elif provider.upper() == ProviderChoice.AZURE:
+            return ProviderChoice.AZURE
+        else:
+            raise ValueError("{} is not convertable to ProviderChoice".format(provider))
 
 
 class StateChoice(ChoiceEnum):
@@ -56,9 +68,9 @@ class Instance(models.Model):
     instance_id = models.CharField(max_length=200)
     region = models.CharField(max_length=64, default='')
     vault_namespace = models.CharField(max_length=64, default='')
-    csp_info = models.TextField(default='')
     notified = models.BooleanField(default=False)
     ignore = models.BooleanField(default=False)
+    TAG_IGNORE = 'pcw_ignore'
 
     def age_formated(self):
         return format_seconds(self.age.total_seconds())
@@ -76,22 +88,16 @@ class Instance(models.Model):
             last_fmt = self.last_seen.strftime('%Y-%m-%d %H:%M')
         return all_time_pattern.format(self.age_formated(), first_fmt, last_fmt, self.ttl_formated())
 
-    def tags(self):
-        try:
-            info = json.loads(self.csp_info)
-            if 'tags' in info:
-                return info['tags']
-        except json.JSONDecodeError:
-            pass
-        return dict()
+    def set_alive(self):
+        self.last_seen = timezone.now()
+        self.active = True
+        self.age = self.last_seen - self.first_seen
+        if self.state != StateChoice.DELETING:
+            self.state = StateChoice.ACTIVE
+        self.ignore = bool(self.cspinfo.get_tag(Instance.TAG_IGNORE))
 
-    def get_openqa_job_link(self):
-        tags = self.tags()
-        if tags.get('openqa_created_by', '') == 'openqa-suse-de' and 'openqa_var_JOB_ID' in tags:
-            url = '{}/t{}'.format(PCWConfig.get_feature_property('webui', 'openqa_url'), tags['openqa_var_JOB_ID'])
-            title = tags.get('openqa_var_NAME', '')
-            return {'url': url, 'title': title}
-        return None
+    def get_type(self):
+        return self.cspinfo.type
 
     class Meta:
         unique_together = (('provider', 'instance_id', 'vault_namespace'),)
@@ -105,3 +111,14 @@ class CspInfo(models.Model):
     )
     tags = models.TextField(default='')
     type = models.CharField(max_length=200)
+
+    def get_openqa_job_link(self):
+        if self.get_tag('openqa_created_by') == 'openqa-suse-de' and self.get_tag('openqa_var_JOB_ID') is not None:
+            url = '{}/t{}'.format(PCWConfig.get_feature_property('webui', 'openqa_url'),
+                                  self.get_tag('openqa_var_JOB_ID'))
+            title = self.get_tag('openqa_var_NAME', '')
+            return {'url': url, 'title': title}
+        return None
+
+    def get_tag(self, tag_name, default_value=None):
+        return json.loads(self.tags).get(tag_name, default_value)

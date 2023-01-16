@@ -46,13 +46,13 @@ def cleanup_k8s():
     for namespace in PCWConfig.get_namespaces_for('k8sclusters'):
         try:
             providers = PCWConfig.get_providers_for('k8sclusters', namespace)
-            logger.debug(f"[{namespace}] Run k8s cleanup for {','.join(providers)}")
+            logger.debug("[%s] Run k8s cleanup for %s", namespace, ','.join(providers))
 
             if 'ec2' in providers:
                 EC2(namespace).cleanup_k8s_jobs()
 
         except Exception as exception:
-            logger.exception(f"[{namespace}] k8s cleanup failed!")
+            logger.exception("[%s] k8s cleanup failed!", namespace)
             send_mail('{} on k8s cleanup in [{}]'.format(type(exception).__name__, namespace), traceback.format_exc())
 
 

@@ -10,6 +10,7 @@ import kubernetes
 from webui.settings import PCWConfig, ConfigFile
 from ocw.lib.emailnotify import send_mail
 from .provider import Provider
+from ..models import Instance
 
 
 class EC2(Provider):
@@ -106,7 +107,7 @@ class EC2(Provider):
                     cluster_description = self.eks_client(region).describe_cluster(name=cluster)
                     if 'cluster' not in cluster_description or 'tags' not in cluster_description['cluster']:
                         self.log_err("Unexpected cluster description: {}", cluster_description)
-                    elif 'pcw_ignore' not in cluster_description['cluster']['tags']:
+                    elif Instance.TAG_IGNORE not in cluster_description['cluster']['tags']:
                         clusters[region].append(cluster)
                 if len(clusters[region]) == 0:
                     del clusters[region]
@@ -163,7 +164,7 @@ class EC2(Provider):
     def volume_protected(self, volume):
         if 'Tags' in volume:
             for tag in volume['Tags']:
-                if tag['Key'] == 'pcw_ignore':
+                if tag['Key'] == Instance.TAG_IGNORE:
                     return True
         return False
 
