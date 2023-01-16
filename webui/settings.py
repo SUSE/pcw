@@ -34,6 +34,8 @@ CONFIG_FILE = '/etc/pcw.ini'
 
 ALLOWED_HOSTS = ['*']
 
+CSRF_TRUSTED_ORIGINS = ['https://' + os.getenv('DOMAINNAME', os.uname().nodename)]
+
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 
