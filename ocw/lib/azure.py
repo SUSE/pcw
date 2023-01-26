@@ -20,7 +20,7 @@ class Azure(Provider):
         self.__resource_group = PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', namespace)
         self.check_credentials()
 
-    def __new__(cls, vault_namespace):
+    def __new__(cls, vault_namespace: str) -> 'Azure':
         if vault_namespace not in Azure.__instances:
             Azure.__instances[vault_namespace] = self = object.__new__(cls)
             self.__compute_mgmt_client = None
@@ -29,10 +29,10 @@ class Azure(Provider):
             self.__blob_service_client = None
         return Azure.__instances[vault_namespace]
 
-    def subscription(self):
+    def subscription(self) -> str:
         return self.get_data('subscription_id')
 
-    def check_credentials(self):
+    def check_credentials(self) -> bool:
         for i in range(1, 5):
             try:
                 self.list_resource_groups()
@@ -52,7 +52,7 @@ class Azure(Provider):
             self.__blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         return self.__blob_service_client
 
-    def container_client(self, container_name):
+    def container_client(self, container_name: str):
         return self.bs_client().get_container_client(container_name)
 
     def sp_credentials(self):
@@ -73,16 +73,16 @@ class Azure(Provider):
                 self.sp_credentials(), self.subscription())
         return self.__resoure_mgmt_client
 
-    def get_storage_key(self, storage_account):
+    def get_storage_key(self, storage_account: str) -> str:
         storage_client = StorageManagementClient(self.sp_credentials(), self.subscription())
         storage_keys = storage_client.storage_accounts.list_keys(self.__resource_group, storage_account)
         storage_keys = [v.value for v in storage_keys.keys]
         return storage_keys[0]
 
-    def list_instances(self):
+    def list_instances(self) -> list:
         return list(self.compute_mgmt_client().virtual_machines.list_all())
 
-    def get_vm_types_in_resource_group(self, resource_group):
+    def get_vm_types_in_resource_group(self, resource_group: str) -> str:
         self.log_dbg("Listing VMs for {}", resource_group)
         vms = self.compute_mgmt_client().virtual_machines.list(resource_group)
         type_str = "N/A"
@@ -94,10 +94,10 @@ class Azure(Provider):
                 self.log_warn('{} resource group has more than one VM', resource_group)
         return type_str
 
-    def list_resource_groups(self):
+    def list_resource_groups(self) -> list:
         return list(self.resource_mgmt_client().resource_groups.list())
 
-    def delete_resource(self, resource_id):
+    def delete_resource(self, resource_id: str) -> None:
         if self.dry_run:
             self.log_info("Deletion of resource group {} skipped due to dry run mode", resource_id)
         else:
@@ -112,18 +112,18 @@ class Azure(Provider):
         return self.list_by_resource_group(resource_group,
                                            filters="resourceType eq 'Microsoft.Compute/disks'")
 
-    def list_by_resource_group(self, resource_group, filters=None):
+    def list_by_resource_group(self, resource_group, filters=None) -> list:
         return list(self.resource_mgmt_client().resources.list_by_resource_group(
             resource_group, filter=filters, expand="changedTime"))
 
-    def cleanup_all(self):
+    def cleanup_all(self) -> None:
         self.log_dbg("Call cleanup_all")
         self.cleanup_images_from_rg()
         self.cleanup_disks_from_rg()
         self.cleanup_blob_containers()
 
     @staticmethod
-    def container_valid_for_cleanup(container):
+    def container_valid_for_cleanup(container) -> bool:
         '''
             under term "container" we meant Azure Blob Storage Container.
             See https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-introduction
@@ -140,7 +140,7 @@ class Azure(Provider):
             return True
         return False
 
-    def cleanup_blob_containers(self):
+    def cleanup_blob_containers(self) -> None:
         self.log_dbg("Call cleanup_blob_containers")
         containers = self.bs_client().list_containers(include_metadata=True)
         for container in containers:
@@ -155,7 +155,7 @@ class Azure(Provider):
                             self.log_info("Deleting blob {}", blob.name)
                             self.container_client(container.name).delete_blob(blob.name, delete_snapshots="include")
 
-    def cleanup_images_from_rg(self):
+    def cleanup_images_from_rg(self) -> None:
         self.log_dbg("Call cleanup_images_from_rg")
         for item in self.list_images_by_resource_group(self.__resource_group):
             if self.is_outdated(item.changed_time):
@@ -165,7 +165,7 @@ class Azure(Provider):
                     self.log_info("Delete image '{}'", item.name)
                     self.compute_mgmt_client().images.begin_delete(self.__resource_group, item.name)
 
-    def cleanup_disks_from_rg(self):
+    def cleanup_disks_from_rg(self) -> None:
         self.log_dbg("Call cleanup_disks_from_rg")
         for item in self.list_disks_by_resource_group(self.__resource_group):
             if self.is_outdated(item.changed_time):

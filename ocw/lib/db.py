@@ -19,7 +19,7 @@ RUNNING = False
 LAST_UPDATE = None
 
 
-def save_or_update_instance(csp_data):
+def save_or_update_instance(csp_data: dict) -> None:
     provider = csp_data['provider']
     namespace = csp_data['namespace']
     if Instance.objects.filter(provider=provider, instance_id=csp_data['id'], vault_namespace=namespace).exists():
@@ -50,7 +50,7 @@ def save_or_update_instance(csp_data):
     local_instance.cspinfo.save()
 
 
-def ec2_extract_data(csp_instance, namespace, region, default_ttl):
+def ec2_extract_data(csp_instance, namespace: str, region: str, default_ttl: int) -> dict:
     return {
         'tags': {t['Key']: t['Value'] for t in csp_instance.tags} if csp_instance.tags else {},
         'id': csp_instance.instance_id,
@@ -63,7 +63,7 @@ def ec2_extract_data(csp_instance, namespace, region, default_ttl):
     }
 
 
-def azure_extract_data(csp_instance, namespace, default_ttl):
+def azure_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
     if csp_instance.tags:
         tags = csp_instance.tags
         first_seen = dateparser.parse(tags.get('openqa_created_date', str(timezone.now())))
@@ -82,7 +82,7 @@ def azure_extract_data(csp_instance, namespace, default_ttl):
     }
 
 
-def gce_extract_data(csp_instance, namespace, default_ttl):
+def gce_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
     tags = {m['key']: m['value'] for m in csp_instance['metadata']
             ['items']} if 'items' in csp_instance['metadata'] else {}
     tags.pop('sshKeys', '')
@@ -100,7 +100,7 @@ def gce_extract_data(csp_instance, namespace, default_ttl):
 
 
 @transaction.atomic
-def _update_provider(provider, namespace, default_ttl):
+def _update_provider(provider: str, namespace: str, default_ttl: int) -> None:
     Instance.objects.filter(provider=provider, vault_namespace=namespace).update(active=False)
     if ProviderChoice.from_str(provider) == ProviderChoice.AZURE:
         instances = Azure(namespace).list_resource_groups()
@@ -126,7 +126,7 @@ def _update_provider(provider, namespace, default_ttl):
                             active=False).update(state=StateChoice.DELETED)
 
 
-def update_run():
+def update_run() -> None:
     '''
     Each update is using Instance.active to mark the model is still availalbe on CSP.
     Instance.state is used to reflect the "local" state, e.g. if someone triggered a delete, the
@@ -157,13 +157,7 @@ def update_run():
         init_cron()
 
 
-<<<<<<< Updated upstream
-def delete_instance(instance):
-||||||| constructed merge base
-def delete_instance(instance : type[Instance]) -> None:
-=======
 def delete_instance(instance: type[Instance]) -> None:
->>>>>>> Stashed changes
     logger.info("[%s] Delete instance %s:%s", instance.vault_namespace, instance.provider, instance.instance_id)
     if instance.provider == ProviderChoice.AZURE:
         Azure(instance.vault_namespace).delete_resource(instance.instance_id)
@@ -179,7 +173,7 @@ def delete_instance(instance: type[Instance]) -> None:
     instance.save()
 
 
-def auto_delete_instances():
+def auto_delete_instances() -> None:
     for namespace in PCWConfig.get_namespaces_for('default'):
         obj = Instance.objects
         obj = obj.filter(state=StateChoice.ACTIVE, vault_namespace=namespace, ttl__gt=timedelta(0),

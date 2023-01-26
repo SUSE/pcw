@@ -25,7 +25,7 @@ class Provider:
             self.log_err('Credentials not found in {}. Terminating', authcachepath)
             raise FileNotFoundError('Credentials not found')
 
-    def get_data(self, name=None):
+    def get_data(self, name=None) -> str:
         if name is None:
             return self.auth_json
         return self.auth_json[name]
