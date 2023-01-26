@@ -4,6 +4,7 @@ from datetime import timezone
 import logging
 import json
 import subprocess
+import os
 from pathlib import Path
 from webui.settings import PCWConfig
 
@@ -62,5 +63,10 @@ class Provider:
             message = message.format(*args)
         self.logger.debug("[%s] %s", self._namespace, message)
 
-    def cmd_exec(self, cmd):
-        return subprocess.call(cmd.split())
+    def cmd_exec(self, cmd, aditional_env={}, expected_returncode = 0):
+        env = os.environ | aditional_env
+        res = subprocess.run(cmd.split(), env=env, capture_output=True)
+        if res.returncode != expected_returncode:
+            raise f"Invalid execution of {cmd}"
+        else:
+            return res

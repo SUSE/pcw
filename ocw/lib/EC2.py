@@ -417,5 +417,7 @@ class EC2(Provider):
                 file.write(f"aws_access_key_id={self.__key}\n")
                 file.write(f"aws_secret_access_key={self.__secret}\n")
 
-        if self.cmd_exec("aws sts get-caller-identity") != 0:
+        try:
+            self.cmd_exec("aws sts get-caller-identity")
+        except:
             raise Exception("Invalid credentials, the credentials cannot be verified by 'aws sts get-caller-identity'")

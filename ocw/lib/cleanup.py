@@ -51,6 +51,9 @@ def cleanup_k8s():
             if 'ec2' in providers:
                 EC2(namespace).cleanup_k8s_jobs()
 
+            if 'gce' in providers:
+                GCE(namespace).cleanup_k8s_jobs()
+
         except Exception as exception:
             logger.exception(f"[{namespace}] k8s cleanup failed!")
             send_mail('{} on k8s cleanup in [{}]'.format(type(exception).__name__, namespace), traceback.format_exc())

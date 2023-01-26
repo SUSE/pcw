@@ -10,7 +10,9 @@ COPY requirements.txt /pcw/
 # * Install system requirements
 # * Install pip requirements
 # * Empty system cache to conserve some space
-RUN zypper -n in python310-devel gcc libffi-devel aws-cli && pip3.10 install -r /pcw/requirements.txt && rm -rf /var/cache
+RUN zypper -n in python310-devel gcc libffi-devel aws-cli tar gzip && pip3.10 install -r /pcw/requirements.txt && rm -rf /var/cache
+RUN cd /opt && curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-415.0.0-linux-x86_64.tar.gz && tar -xf google-cloud-cli-415.0.0-linux-x86_64.tar.gz && google-cloud-sdk/bin/gcloud components install gke-gcloud-auth-plugin
+ENV PATH ${PATH}:/opt/google-cloud-sdk/bin/
 
 # Copy program files only
 COPY ocw  /pcw/ocw/
