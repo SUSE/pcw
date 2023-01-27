@@ -10,14 +10,16 @@ class GCE(Provider):
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in GCE.__instances:
-            GCE.__instances[vault_namespace] = self = object.__new__(cls)
-            self.__compute_client = None
-            self.__project = None
+            GCE.__instances[vault_namespace] = object.__new__(cls)
         return GCE.__instances[vault_namespace]
 
-    def compute_client(self):
+    def __init__(self, namespace):
+        super().__init__(namespace)
+        self.__compute_client = None
         self.private_key_data = self.get_data()
-        self.__project = self.private_key_data["project_id"]
+        self.project = self.private_key_data["project_id"]
+
+    def compute_client(self):
         if self.__compute_client is None:
             credentials = service_account.Credentials.from_service_account_info(self.private_key_data)
             self.__compute_client = googleapiclient.discovery.build(
@@ -30,7 +32,7 @@ class GCE(Provider):
         self.log_dbg("Call list_instances for {}", zone)
         result = []
         request = (
-            self.compute_client().instances().list(project=self.__project, zone=zone)
+            self.compute_client().instances().list(project=self.project, zone=zone)
         )
         while request is not None:
             response = request.execute()
@@ -55,7 +57,7 @@ class GCE(Provider):
         """Walk through all regions->zones and collect all instances to return them as list.
         @see https://cloud.google.com/compute/docs/reference/rest/v1/instances/list#examples"""
         result = []
-        request = self.compute_client().regions().list(project=self.__project)
+        request = self.compute_client().regions().list(project=self.project)
         while request is not None:
             response = request.execute()
 
@@ -72,7 +74,7 @@ class GCE(Provider):
         region = (
             self.compute_client()
             .regions()
-            .get(project=self.__project, region=region)
+            .get(project=self.project, region=region)
             .execute()
         )
         return [GCE.url_to_name(z) for z in region["zones"]]
@@ -85,7 +87,7 @@ class GCE(Provider):
         else:
             self.log_info("Delete instance {}".format(instance_id))
             self.compute_client().instances().delete(
-                project=self.__project, zone=zone, instance=instance_id
+                project=self.project, zone=zone, instance=instance_id
             ).execute()
 
     @staticmethod
@@ -93,7 +95,7 @@ class GCE(Provider):
         return url[url.rindex("/")+1:]
 
     def cleanup_all(self):
-        request = self.compute_client().images().list(project=self.__project)
+        request = self.compute_client().images().list(project=self.project)
         self.log_dbg("Call cleanup_all")
         while request is not None:
             response = request.execute()
@@ -108,7 +110,7 @@ class GCE(Provider):
                         request = (
                             self.compute_client()
                             .images()
-                            .delete(project=self.__project, image=image["name"])
+                            .delete(project=self.project, image=image["name"])
                         )
                         response = request.execute()
                         if "error" in response:

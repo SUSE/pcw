@@ -56,7 +56,7 @@ def test_cleanup_all(monkeypatch):
         pass
     mocked_compute_client.images = lambda *args, **kwargs: fmi
     monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)
-
+    monkeypatch.setattr(GCE, 'get_data', lambda *args, **kwargs: {"project_id": "project"})
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
 

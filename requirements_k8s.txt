@@ -1,0 +1,3 @@
+oauth2client
+kubernetes
+google-api-python-client==2.55.0

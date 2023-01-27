@@ -1,9 +1,11 @@
+import os
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import logging
 import json
 import subprocess
+import shlex
 from pathlib import Path
 from webui.settings import PCWConfig
 
@@ -16,8 +18,11 @@ class Provider:
         self.logger = logging.getLogger(self.__module__)
         self.auth_json = self.read_auth_json()
 
+    def get_creds_location(self):
+        return f'/var/pcw/{self._namespace}/{self.__class__.__name__}.json'
+
     def read_auth_json(self):
-        authcachepath = Path('/var/pcw/{}/{}.json'.format(self._namespace, self.__class__.__name__))
+        authcachepath = Path(self.get_creds_location())
         if authcachepath.exists():
             with authcachepath.open(encoding="utf-8") as file_handle:
                 return json.loads(file_handle.read())
@@ -62,5 +67,9 @@ class Provider:
             message = message.format(*args)
         self.logger.debug("[%s] %s", self._namespace, message)
 
-    def cmd_exec(self, cmd):
-        return subprocess.call(cmd.split())
+    def cmd_exec(self, cmd: str, **kwargs):
+        env = os.environ
+        if "aditional_env" in kwargs:
+            env = env | kwargs["aditional_env"]
+
+        return subprocess.run(shlex.split(cmd), env=env, capture_output=True, check=False)
