@@ -1,18 +1,11 @@
 from ocw.lib.emailnotify import draw_instance_table
-from ocw.lib.db import ec2_to_local_instance
-from tests.generators import ec2_instance_mock
+from tests.generators import generate_model_instance
 
 
 def test_draw_instance_table():
     objects = [
-            ec2_to_local_instance(ec2_instance_mock(tags={
-                    'openqa_var_JOB_ID': 123,
-                    'openqa_created_by': 'openqa-suse-de'
-                }), 'ns', 'moon-west'),
-            ec2_to_local_instance(ec2_instance_mock(tags={
-                'openqa_var_JOB_ID': 666,
-                'openqa_created_by': 'i-dont-have-a-link'
-            }), 'ns', 'moon-west')
+            generate_model_instance(123, 'openqa-suse-de'),
+            generate_model_instance(666, 'i-dont-have-a-link')
             ]
     s = draw_instance_table(objects)
 

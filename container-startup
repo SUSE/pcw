@@ -39,7 +39,7 @@ case "$CMD" in
 		;;
 	"run")
 		python3 manage.py migrate
-		uwsgi --enable-threads --http-socket 0.0.0.0:8000  --plugins python3 --module webui.wsgi --static-map /static=/pcw/ocw/static
+		uwsgi --enable-threads -L --http-socket 0.0.0.0:8000  --plugins python3 --module webui.wsgi --static-map /static=/pcw/ocw/static
 		;;
 	"check")
 		python3 manage.py check

@@ -1,5 +1,4 @@
 from datetime import timedelta
-import json
 import smtplib
 import logging
 from email.mime.text import MIMEText
@@ -18,19 +17,15 @@ def draw_instance_table(objects):
     table = Texttable(max_width=0)
     table.set_deco(Texttable.HEADER)
     table.header(['Provider', 'id', 'Created-By', 'Namespace', 'Age', 'Delete', 'openQA'])
-    for i in objects:
-        j = json.loads(i.csp_info)
-        link = i.get_openqa_job_link()
-        created_by = 'N/A'
-        if 'openqa_created_by' in j['tags']:
-            created_by = j['tags']['openqa_created_by']
+    for obj in objects:
+        link = obj.cspinfo.get_openqa_job_link()
         table.add_row([
-            i.provider,
-            i.instance_id,
-            created_by,
-            i.vault_namespace,
-            i.age_formated(),
-            build_absolute_uri(reverse(views.delete, args=[i.id])),
+            obj.provider,
+            obj.instance_id,
+            obj.cspinfo.get_tag('openqa_created_by', 'N/A'),
+            obj.vault_namespace,
+            obj.age_formated(),
+            build_absolute_uri(reverse(views.delete, args=[obj.id])),
             "" if link is None else link['url']
         ])
     return table.draw()
@@ -40,7 +35,7 @@ def send_leftover_notification():
     if PCWConfig.has('notify'):
         all_instances = Instance.objects
         all_instances = all_instances.filter(active=True, age__gt=timedelta(hours=PCWConfig.get_feature_property(
-            'notify', 'age-hours'))).exclude(csp_info__icontains='pcw_ignore')
+            'notify', 'age-hours'))).exclude(ignore=True)
         body_prefix = "Message from {url}\n\n".format(url=build_absolute_uri())
         # Handle namespaces
         for namespace in PCWConfig.get_namespaces_for('notify'):

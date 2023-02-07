@@ -1,0 +1,14 @@
+{% load ocw_utils %}
+{% if record.cspinfo.tags|length > 30 %}
+<div id="tags_short_{{record.id}}" class="tags_short" >
+  <span class="text-monospace" style="font-size: 10px">{{ record.cspinfo.tags|slice:":30" }}</span>
+  <button type="button" class="btn btn-link btn-sm" onclick="toggle_tags_row({{record.id}})" >...</button>
+</div>
+<div style="display:none" id="tags_long_{{record.id}}" class="tags_long">
+  <pre class="text-monospace" style="font-size: 10px">{{ record.cspinfo.tags|pretty_json_string }}</pre>
+</div>
+{% else %}
+<div>
+  <pre class="text-monospace" style="font-size: 10px">{{ record.cspinfo.tags|pretty_json_string }}</pre>
+</div>
+{% endif %}

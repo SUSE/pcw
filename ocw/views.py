@@ -48,8 +48,7 @@ def instance_json(request):
             "ttl",
             "instance_id",
             "region",
-            "vault_namespace",
-            "csp_info",
+            "vault_namespace"
         ),
     )
     return HttpResponse(data, content_type="application/json")

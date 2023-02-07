@@ -1,16 +1,48 @@
-import json
-from ocw.lib.db import ec2_to_local_instance, azure_to_local_instance, gce_to_json, tag_to_boolean, azure_to_json, \
-    gce_to_local_instance, update_run
+from ocw.lib.db import update_run, ec2_extract_data, gce_extract_data, azure_extract_data, delete_instance
+from webui.settings import PCWConfig
+from faker import Faker
+from tests.generators import ec2_csp_instance_mock, gce_instance_mock, azure_instance_mock
 from ocw.models import ProviderChoice, StateChoice
 from ocw.lib.gce import GCE
-from webui.settings import PCWConfig
-from tests.generators import ec2_instance_mock, azure_instance_mock, gce_instance_mock
-from faker import Faker
-from datetime import datetime
-import dateutil.parser
+from ocw.lib.azure import Azure
+from ocw.lib.EC2 import EC2
 import pytest
+import dateutil.parser as dateparser
+from django.utils import timezone
+from datetime import datetime
 
 fake = Faker()
+
+
+class AzureMock:
+    def get_vm_types_in_resource_group(self, name):
+        return name
+
+    def delete_resource(self, id):
+        pass
+
+
+class EC2Mock:
+    def delete_instance(self, region, instance_id):
+        pass
+
+
+class GCEMock:
+    def delete_instance(self, instance_id, region):
+        pass
+
+
+class InstanceMock:
+    def __init__(self, provider):
+        self.state = None
+        self.instance_id = fake.uuid4()
+        self.region = None
+        self.save_called = False
+        self.provider = provider
+        self.vault_namespace = fake.uuid4()
+
+    def save(self):
+        self.save_called = True
 
 
 @pytest.fixture
@@ -26,111 +58,122 @@ def update_run_patch(monkeypatch):
     monkeypatch.setattr('ocw.apps.getScheduler', lambda namespace: Mock_Scheduler())
 
 
-def test_ec2_to_local_instance():
-    test_instance = ec2_instance_mock()
-    test_vault_namespace = fake.uuid4()
-    test_region = fake.uuid4()
-
-    result = ec2_to_local_instance(test_instance, test_vault_namespace, test_region)
-
-    assert result.provider == ProviderChoice.EC2
-    assert result.vault_namespace == test_vault_namespace
-    assert result.first_seen == test_instance.launch_time
-    assert result.instance_id == test_instance.instance_id
-    assert result.state == StateChoice.ACTIVE
-    assert result.region == test_region
-    json.loads(result.csp_info)
+@pytest.fixture
+def extract_data():
+    return {
+        'namespace': fake.uuid4(),
+        'default_ttl': 1111,
+        'region': fake.uuid4()
+    }
 
 
-def test_azure_to_json():
-    test_instance = azure_instance_mock()
-    result = azure_to_json(test_instance)
-
-    assert result['tags'] == test_instance.tags
-    assert 'launch_time' not in result
+@pytest.fixture
+def azure_fixture(monkeypatch, extract_data):
+    monkeypatch.setattr(Azure, '__new__', lambda cls, vault_namespace: AzureMock())
+    return extract_data
 
 
-def test_azure_to_json_launch_time():
-    test_instance = azure_instance_mock()
-    test_time = datetime.now()
-    test_instance.tags = {'openqa_created_date': test_time}
-    result = azure_to_json(test_instance)
-    assert result['launch_time'] == test_time
+def test_ec2_extract_data(extract_data):
+
+    csp_instance = ec2_csp_instance_mock("random")
+    rez = ec2_extract_data(csp_instance, extract_data['namespace'],
+                           extract_data['region'], extract_data['default_ttl'])
+
+    assert csp_instance.tags[0]['Key'] in rez['tags']
+    assert rez['id'] == csp_instance.instance_id
+    assert rez['first_seen'] == csp_instance.launch_time
+    assert rez['namespace'] == extract_data['namespace']
+    assert rez['region'] == extract_data['region']
+    assert rez['provider'] == ProviderChoice.EC2
+    assert rez['type'] == csp_instance.instance_type
+    assert rez['default_ttl'] == extract_data['default_ttl']
 
 
-def test_azure_to_local_instance():
-    test_instance = azure_instance_mock()
-    test_instance.tags = {'openqa_created_date': str(datetime.now())}
-    test_vault_namespace = fake.uuid4()
-    result = azure_to_local_instance(test_instance, test_vault_namespace)
-
-    assert result.provider == ProviderChoice.AZURE
-    assert result.vault_namespace == test_vault_namespace
-    assert result.first_seen == dateutil.parser.parse(test_instance.tags.get('openqa_created_date'))
-    assert result.instance_id == test_instance.name
-    assert result.region == test_instance.location
-    json.loads(result.csp_info)
+def test_ec2_extract_data_empty_tags(extract_data):
+    csp_instance = ec2_csp_instance_mock("empty")
+    rez = ec2_extract_data(csp_instance, extract_data['namespace'],
+                           extract_data['region'], extract_data['default_ttl'])
+    assert rez['tags'] == {}
 
 
-def test_gce_to_json():
-    test_instance = gce_instance_mock()
-    result = gce_to_json(test_instance)
+def test_gce_extract_data(extract_data):
 
-    assert result['type'] == GCE.url_to_name(test_instance['machineType'])
-    assert result['launch_time'] == str(test_instance['creationTimestamp'])
-    assert len(result['tags']) == 0
-    assert 'sshKeys' not in result['tags']
+    csp_instance = gce_instance_mock("random_with_sshkey")
+    rez = gce_extract_data(csp_instance, extract_data['namespace'], extract_data['default_ttl'])
 
-
-def test_gce_to_json_metadata_items():
-    test_instance = gce_instance_mock()
-    test_items = [{'key': fake.uuid4(), 'value': fake.uuid4()}, {'key': fake.uuid4(), 'value': fake.uuid4()}]
-    test_instance['metadata'] = {'items': test_items}
-    result = gce_to_json(test_instance)
-
-    assert len(result['tags']) == 2
+    assert csp_instance['metadata']['items'][0]['key'] in rez['tags']
+    assert 'sshKeys' not in rez['tags']
+    assert rez['id'] == csp_instance['id']
+    assert rez['first_seen'] == csp_instance['creationTimestamp']
+    assert rez['namespace'] == extract_data['namespace']
+    assert rez['region'] == GCE.url_to_name(csp_instance['zone'])
+    assert rez['provider'] == ProviderChoice.GCE
+    assert rez['type'] == GCE.url_to_name(csp_instance['machineType'])
+    assert rez['default_ttl'] == extract_data['default_ttl']
 
 
-def test_gce_to_json_launch_time():
-    test_instance = gce_instance_mock()
-    test_time = datetime.now()
-    test_items = [{'key': 'openqa_created_date', 'value': test_time}]
-    test_instance['metadata'] = {'items': test_items}
-    result = gce_to_json(test_instance)
+def test_gce_extract_data_items_empty(extract_data):
 
-    assert result['launch_time'] == test_time
+    csp_instance = gce_instance_mock("empty_items")
+    rez = gce_extract_data(csp_instance, extract_data['namespace'], extract_data['default_ttl'])
 
-
-def test_gce_to_local_instance():
-    test_instance = gce_instance_mock()
-    test_vault = fake.uuid4()
-    result = gce_to_local_instance(test_instance, test_vault)
-
-    test_csp_info = gce_to_json(test_instance)
-    assert result.provider == ProviderChoice.GCE
-    assert result.vault_namespace == test_vault
-    assert str(result.first_seen) == test_csp_info.get('launch_time')
+    assert len(rez['tags']) == 0
+    assert rez['first_seen'] == csp_instance['creationTimestamp']
 
 
-def test_tag_to_boolean():
-    tag_name = 'test'
-    csp_info = {}
-    assert tag_to_boolean(tag_name, csp_info) is False
-    csp_info = {'tags': {}}
-    assert tag_to_boolean(tag_name, csp_info) is False
-    csp_info = {'tags': {'test': None}}
-    assert tag_to_boolean(tag_name, csp_info) is False
-    csp_info = {'tags': {'test': False}}
-    assert tag_to_boolean(tag_name, csp_info) is False
-    csp_info = {'tags': {'test': '1'}}
-    assert tag_to_boolean(tag_name, csp_info) is True
+def test_gce_extract_data_creation_date_tag(extract_data):
+    csp_instance = gce_instance_mock("creation_date_tag")
+    rez = gce_extract_data(csp_instance, extract_data['namespace'], extract_data['default_ttl'])
+
+    assert len(rez['tags']) == 1
+    assert rez['first_seen'] == dateparser.parse(csp_instance['metadata']['items'][0]['value'])
 
 
-def test__update_run(update_run_patch, monkeypatch):
+def test_gce_extract_data_metadata_empty(extract_data):
+
+    csp_instance = gce_instance_mock("empty_metadata")
+    rez = gce_extract_data(csp_instance, extract_data['namespace'], extract_data['default_ttl'])
+
+    assert len(rez['tags']) == 0
+    assert rez['first_seen'] == csp_instance['creationTimestamp']
+
+
+def test_azure_extract_data(azure_fixture):
+
+    csp_instance = azure_instance_mock("openqa_created_date")
+    rez = azure_extract_data(csp_instance, azure_fixture['namespace'], azure_fixture['default_ttl'])
+
+    assert csp_instance.tags == rez['tags']
+    assert rez['id'] == csp_instance.name
+    assert rez['first_seen'] == dateparser.parse(csp_instance.tags.get('openqa_created_date'))
+    assert rez['namespace'] == azure_fixture['namespace']
+    assert rez['region'] == csp_instance.location
+    assert rez['provider'] == ProviderChoice.AZURE
+    assert rez['type'] == csp_instance.name
+    assert rez['default_ttl'] == azure_fixture['default_ttl']
+
+
+def test_azure_extract_data_no_created_date(azure_fixture):
+
+    csp_instance = azure_instance_mock("random")
+    rez = azure_extract_data(csp_instance, azure_fixture['namespace'], azure_fixture['default_ttl'])
+
+    assert (datetime.now(timezone.utc) - rez['first_seen']).days == 0
+
+
+def test_azure_extract_data_no_tags(azure_fixture):
+
+    csp_instance = azure_instance_mock("no_tags")
+    rez = azure_extract_data(csp_instance, azure_fixture['namespace'], azure_fixture['default_ttl'])
+
+    assert rez['tags'] == {}
+
+
+def test_update_run(update_run_patch, monkeypatch):
 
     call_stack = []
 
-    def mocked__update_provider(arg1, arg2):
+    def mocked__update_provider(arg1, arg2, arg3):
         call_stack.append('_update_provider')
 
     def mocked_auto_delete_instances():
@@ -148,11 +191,11 @@ def test__update_run(update_run_patch, monkeypatch):
     assert call_stack == ['_update_provider', 'auto_delete_instances', 'send_leftover_notification']
 
 
-def test__update_run_update_provider_throw_exception(update_run_patch, monkeypatch):
+def test_update_run_update_provider_throw_exception(update_run_patch, monkeypatch):
 
     call_stack = []
 
-    def mocked__update_provider(arg1, arg2):
+    def mocked__update_provider(arg1, arg2, arg3):
         call_stack.append('_update_provider')
         raise Exception
 
@@ -173,3 +216,36 @@ def test__update_run_update_provider_throw_exception(update_run_patch, monkeypat
     update_run()
 
     assert call_stack == ['_update_provider', 'send_mail', 'auto_delete_instances', 'send_leftover_notification']
+
+
+def test_delete_instances_azure(monkeypatch):
+    monkeypatch.setattr(Azure, '__new__', lambda cls, vault_namespace: AzureMock())
+
+    instance = InstanceMock(ProviderChoice.AZURE)
+
+    delete_instance(instance)
+
+    assert instance.save_called
+    assert instance.state == StateChoice.DELETING
+
+
+def test_delete_instances_ec2(monkeypatch):
+    monkeypatch.setattr(EC2, '__new__', lambda cls, vault_namespace: EC2Mock())
+
+    instance = InstanceMock(ProviderChoice.EC2)
+
+    delete_instance(instance)
+
+    assert instance.save_called
+    assert instance.state == StateChoice.DELETING
+
+
+def test_delete_instances_gce(monkeypatch):
+    monkeypatch.setattr(GCE, '__new__', lambda cls, vault_namespace: GCEMock())
+
+    instance = InstanceMock(ProviderChoice.GCE)
+
+    delete_instance(instance)
+
+    assert instance.save_called
+    assert instance.state == StateChoice.DELETING

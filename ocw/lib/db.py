@@ -2,7 +2,7 @@ import json
 import traceback
 import logging
 from datetime import datetime, timedelta
-import dateutil.parser
+import dateutil.parser as dateparser
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
@@ -19,160 +19,114 @@ RUNNING = False
 LAST_UPDATE = None
 
 
+def save_or_update_instance(csp_data: dict) -> None:
+    provider = csp_data['provider']
+    namespace = csp_data['namespace']
+    if Instance.objects.filter(provider=provider, instance_id=csp_data['id'], vault_namespace=namespace).exists():
+        logger.debug("[%s] Update instance %s:%s", namespace, provider, csp_data['id'])
+        local_instance = Instance.objects.get(provider=provider, instance_id=csp_data['id'], vault_namespace=namespace)
+        if local_instance.region != csp_data['region']:
+            logger.info("[%s] Instance %s:%s changed region from %s to %s", namespace,
+                        provider, csp_data['id'], local_instance.region, csp_data['region'])
+            local_instance.region = csp_data['region']
+        if local_instance.state == StateChoice.DELETED:
+            logger.info("[%s] %s:%s instance which still exists has DELETED state in DB.",
+                        namespace, provider, csp_data['id'])
+            local_instance.first_seen = csp_data['first_seen']
+        local_instance.cspinfo.tags = json.dumps(csp_data['tags'])
+    else:
+        logger.debug("[%s] Create instance %s:%s", namespace, provider, csp_data['id'])
+        local_instance = Instance(
+            provider=provider,
+            vault_namespace=namespace,
+            first_seen=csp_data['first_seen'],
+            instance_id=csp_data['id'],
+            ttl=timedelta(seconds=int(csp_data['tags'].get('openqa_ttl', csp_data['default_ttl']))),
+            region=csp_data['region']
+        )
+        CspInfo(tags=json.dumps(csp_data['tags']), type=csp_data['type'], instance=local_instance)
+    local_instance.set_alive()
+    local_instance.save()
+    local_instance.cspinfo.save()
+
+
+def ec2_extract_data(csp_instance, namespace: str, region: str, default_ttl: int) -> dict:
+    return {
+        'tags': {t['Key']: t['Value'] for t in csp_instance.tags} if csp_instance.tags else {},
+        'id': csp_instance.instance_id,
+        'first_seen': dateparser.parse(csp_instance.launch_time.isoformat()),
+        'namespace': namespace,
+        'region': region,
+        'provider': ProviderChoice.EC2,
+        'type': csp_instance.instance_type,
+        'default_ttl': default_ttl
+    }
+
+
+def azure_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
+    if csp_instance.tags:
+        tags = csp_instance.tags
+        first_seen = dateparser.parse(tags.get('openqa_created_date', str(timezone.now())))
+    else:
+        tags = {}
+        first_seen = dateparser.parse(str(timezone.now()))
+    return {
+        'tags': tags,
+        'id': csp_instance.name,
+        'first_seen': first_seen,
+        'namespace': namespace,
+        'region': csp_instance.location,
+        'provider': ProviderChoice.AZURE,
+        'type': Azure(namespace).get_vm_types_in_resource_group(csp_instance.name),
+        'default_ttl': default_ttl
+    }
+
+
+def gce_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
+    tags = {m['key']: m['value'] for m in csp_instance['metadata']
+            ['items']} if 'items' in csp_instance['metadata'] else {}
+    tags.pop('sshKeys', '')
+    first_seen = dateparser.parse(tags.get('openqa_created_date', str(csp_instance['creationTimestamp'])))
+    return {
+        'tags': tags,
+        'id': csp_instance['id'],
+        'first_seen': first_seen,
+        'namespace': namespace,
+        'region': GCE.url_to_name(csp_instance['zone']),
+        'provider': ProviderChoice.GCE,
+        'type': GCE.url_to_name(csp_instance['machineType']),
+        'default_ttl': default_ttl
+    }
+
+
 @transaction.atomic
-def sync_csp_to_local_db(pc_instances, provider, namespace):
-    t_now = timezone.now()
+def _update_provider(provider: str, namespace: str, default_ttl: int) -> None:
     Instance.objects.filter(provider=provider, vault_namespace=namespace).update(active=False)
+    if ProviderChoice.from_str(provider) == ProviderChoice.AZURE:
+        instances = Azure(namespace).list_resource_groups()
+        for i in instances:
+            save_or_update_instance(azure_extract_data(i, namespace, default_ttl))
+        logger.info("%d resources groups from Azure succesfully processed", len(instances))
 
-    for i in pc_instances:
-        if i.provider != provider:
-            raise ValueError('Instance {} does not belong to {}'.format(i, provider))
-        if i.vault_namespace != namespace:
-            raise ValueError('Instance {} does not belong to {}'.format(i, namespace))
+    if ProviderChoice.from_str(provider) == ProviderChoice.EC2:
+        instance_quantity = 0
+        for region in EC2(namespace).all_regions:
+            instances = EC2(namespace).list_instances(region=region)
+            instance_quantity += len(instances)
+            for i in instances:
+                save_or_update_instance(ec2_extract_data(i, namespace, region, default_ttl))
+        logger.info("%d instances from EC2 successfully processed", instance_quantity)
 
-        if Instance.objects.filter(provider=i.provider, instance_id=i.instance_id, vault_namespace=namespace).exists():
-            logger.debug("[%s] Update instance %s:%s", namespace, provider, i.instance_id)
-            obj = Instance.objects.get(provider=i.provider, instance_id=i.instance_id, vault_namespace=namespace)
-            if obj.region != i.region:
-                logger.info("[%s] Instance %s:%s changed region from %s to %s",
-                            namespace, provider, i.instance_id, obj.region, i.region)
-                obj.region = i.region
-            if obj.state == StateChoice.DELETED:
-                logger.info("[%s] %s:%s instance which still exists has DELETED state in DB. Reactivating %s",
-                            namespace, provider, i.instance_id, i.all_time_fields())
-                obj.first_seen = i.first_seen
-            if obj.state != StateChoice.DELETING:
-                obj.state = StateChoice.ACTIVE
-        else:
-            logger.debug("[%s] Create instance %s:%s", namespace, provider, i.instance_id)
-            obj = Instance(
-                provider=provider,
-                vault_namespace=namespace,
-                first_seen=i.first_seen,
-                instance_id=i.instance_id,
-                state=StateChoice.ACTIVE,
-                ttl=i.ttl,
-                region=i.region
-            )
-        obj.csp_info = i.csp_info
-        obj.last_seen = t_now
-        obj.active = True
-        obj.age = obj.last_seen - obj.first_seen
-        obj.save()
-        csp_info_json = json.loads(i.csp_info)
-        if hasattr(i, 'cspinfo'):
-            i.cspinfo.tags = csp_info_json['tags']
-            i.cspinfo.save()
-        else:
-            if obj.provider == ProviderChoice.AZURE:
-                type_str = Azure(obj.vault_namespace).get_vm_types_in_resource_group(obj.instance_id)
-                csp_info = CspInfo(tags=csp_info_json['tags'], type=type_str, instance=obj)
-            else:
-                csp_info = CspInfo(tags=csp_info_json['tags'], type=csp_info_json['type'], instance=obj)
-            csp_info.save()
-    Instance.objects.filter(provider=provider, vault_namespace=namespace, active=False). \
-        update(state=StateChoice.DELETED)
+    if ProviderChoice.from_str(provider) == ProviderChoice.GCE:
+        instances = GCE(namespace).list_all_instances()
+        for i in instances:
+            save_or_update_instance(gce_extract_data(i, namespace, default_ttl))
+        logger.info("%d instances from GCE successfully processed", len(instances))
+    Instance.objects.filter(provider=provider, vault_namespace=namespace,
+                            active=False).update(state=StateChoice.DELETED)
 
 
-def tag_to_boolean(tag_name, csp_info):
-    try:
-        return bool(csp_info['tags'][tag_name])
-    except KeyError:
-        return False
-
-
-def ec2_to_local_instance(instance, vault_namespace, region):
-    csp_info = {
-        'type': instance.instance_type,
-        'launch_time': instance.launch_time.isoformat(),
-        'tags': {t['Key']: t['Value'] for t in instance.tags} if instance.tags else {}
-    }
-    return Instance(
-        provider=ProviderChoice.EC2,
-        vault_namespace=vault_namespace,
-        first_seen=dateutil.parser.parse(csp_info.get('launch_time', str(timezone.now()))),
-        instance_id=instance.instance_id,
-        state=StateChoice.ACTIVE,
-        region=region,
-        csp_info=json.dumps(csp_info, ensure_ascii=False),
-        ttl=timedelta(seconds=int(csp_info['tags'].get(
-            'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
-        ignore=tag_to_boolean('pcw_ignore', csp_info)
-    )
-
-
-def azure_to_json(i):
-    info = {'tags': i.tags if i.tags else {}}
-    if (i.tags is not None and 'openqa_created_date' in i.tags):
-        info['launch_time'] = i.tags.get('openqa_created_date')
-    return info
-
-
-def azure_to_local_instance(instance, vault_namespace):
-    csp_info = azure_to_json(instance)
-    return Instance(
-        provider=ProviderChoice.AZURE,
-        vault_namespace=vault_namespace,
-        first_seen=dateutil.parser.parse(csp_info.get('launch_time', str(timezone.now()))),
-        instance_id=instance.name,
-        region=instance.location,
-        csp_info=json.dumps(csp_info, ensure_ascii=False),
-        ttl=timedelta(seconds=int(csp_info['tags'].get(
-            'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
-        ignore=tag_to_boolean('pcw_ignore', csp_info)
-    )
-
-
-def gce_to_json(i):
-    info = {
-        'tags': {m['key']: m['value'] for m in i['metadata']['items']} if 'items' in i['metadata'] else {},
-        'type': GCE.url_to_name(i['machineType']),
-        'launch_time': str(i['creationTimestamp'])
-    }
-    if 'openqa_created_date' in info['tags']:
-        info['launch_time'] = info['tags']['openqa_created_date']
-    info['tags'].pop('sshKeys', '')
-    return info
-
-
-def gce_to_local_instance(instance, vault_namespace):
-    csp_info = gce_to_json(instance)
-    return Instance(
-        provider=ProviderChoice.GCE,
-        vault_namespace=vault_namespace,
-        first_seen=dateutil.parser.parse(csp_info.get('launch_time')),
-        instance_id=instance['id'],
-        region=GCE.url_to_name(instance['zone']),
-        csp_info=json.dumps(csp_info, ensure_ascii=False),
-        ttl=timedelta(seconds=int(csp_info['tags'].get(
-            'openqa_ttl', PCWConfig.get_feature_property('updaterun', 'default_ttl', vault_namespace)))),
-        ignore=tag_to_boolean('pcw_ignore', csp_info)
-    )
-
-
-def _update_provider(name, vault_namespace):
-    if 'azure' in name:
-        instances = Azure(vault_namespace).list_resource_groups()
-        instances = [azure_to_local_instance(i, vault_namespace) for i in instances]
-        logger.info("Got %d resources groups from Azure", len(instances))
-        sync_csp_to_local_db(instances, ProviderChoice.AZURE, vault_namespace)
-
-    if 'ec2' in name:
-        instances = []
-        for region in EC2(vault_namespace).all_regions:
-            instances_csp = EC2(vault_namespace).list_instances(region=region)
-            instances += [ec2_to_local_instance(i, vault_namespace, region) for i in instances_csp]
-        logger.info("Got %d instances from EC2", len(instances))
-        sync_csp_to_local_db(instances, ProviderChoice.EC2, vault_namespace)
-
-    if 'gce' in name:
-        instances = GCE(vault_namespace).list_all_instances()
-        instances = [gce_to_local_instance(i, vault_namespace) for i in instances]
-        logger.info("Got %d instances from GCE", len(instances))
-        sync_csp_to_local_db(instances, ProviderChoice.GCE, vault_namespace)
-
-
-def update_run():
+def update_run() -> None:
     '''
     Each update is using Instance.active to mark the model is still availalbe on CSP.
     Instance.state is used to reflect the "local" state, e.g. if someone triggered a delete, the
@@ -182,10 +136,11 @@ def update_run():
     RUNNING = True
     error_occured = False
     for namespace in PCWConfig.get_namespaces_for('default'):
+        default_ttl = PCWConfig.get_feature_property('updaterun', 'default_ttl', namespace)
         for provider in PCWConfig.get_providers_for('default', namespace):
             logger.info("[%s] Check provider %s", namespace, provider)
             try:
-                _update_provider(provider, namespace)
+                _update_provider(provider, namespace, default_ttl)
             except Exception:
                 logger.exception("[%s] Update failed for %s", namespace, provider)
                 error_occured = True
@@ -202,7 +157,7 @@ def update_run():
         init_cron()
 
 
-def delete_instance(instance):
+def delete_instance(instance: type[Instance]) -> None:
     logger.info("[%s] Delete instance %s:%s", instance.vault_namespace, instance.provider, instance.instance_id)
     if instance.provider == ProviderChoice.AZURE:
         Azure(instance.vault_namespace).delete_resource(instance.instance_id)
@@ -218,11 +173,11 @@ def delete_instance(instance):
     instance.save()
 
 
-def auto_delete_instances():
+def auto_delete_instances() -> None:
     for namespace in PCWConfig.get_namespaces_for('default'):
         obj = Instance.objects
         obj = obj.filter(state=StateChoice.ACTIVE, vault_namespace=namespace, ttl__gt=timedelta(0),
-                         age__gte=F('ttl')).exclude(csp_info__icontains='pcw_ignore')
+                         age__gte=F('ttl')).exclude(ignore=True)
         email_text = set()
         for i in obj:
             logger.debug("[%s] TTL expire for instance %s:%s %s", i.vault_namespace,
