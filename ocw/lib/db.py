@@ -101,7 +101,8 @@ def gce_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
 
 @transaction.atomic
 def _update_provider(provider: str, namespace: str, default_ttl: int) -> None:
-    Instance.objects.filter(provider=provider, vault_namespace=namespace).update(active=False)
+    instance_cnt = Instance.objects.filter(provider=provider, vault_namespace=namespace).update(active=False)
+    logger.debug("%d got active state false", instance_cnt)
     if ProviderChoice.from_str(provider) == ProviderChoice.AZURE:
         instances = Azure(namespace).list_resource_groups()
         for i in instances:

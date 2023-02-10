@@ -180,6 +180,12 @@ class ConfigFile:
         return [i.strip() for i in self.get(config_path, ','.join(default)).split(',')]
 
 
+loglevel = 'INFO'
+
+if os.path.exists(CONFIG_FILE):
+    loglevel = ConfigFile().get('default/loglevel', loglevel)
+
+
 logging.config.dictConfig({
     'version': 1,
     'disable_existing_loggers': False,
@@ -200,7 +206,7 @@ logging.config.dictConfig({
             'handlers': ['console'],
         },
         'ocw': {
-            'level': ConfigFile().get('default/loglevel', 'INFO'),
+            'level': loglevel,
             'handlers': ['console'],
             'propagate': False,
         }
@@ -245,7 +251,7 @@ class PCWConfig():
     @staticmethod
     def get_providers_for(feature: str, namespace: str):
         return ConfigFile().getList('{}.namespace.{}/providers'.format(feature, namespace),
-                                    ConfigFile().getList('{}/providers'.format(feature), ['ec2', 'azure', 'gce']))
+                                    ConfigFile().getList('{}/providers'.format(feature), ['EC2', 'AZURE', 'GCE']))
 
     @staticmethod
     def has(setting: str) -> bool:
