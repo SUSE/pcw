@@ -137,33 +137,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 
 STATIC_URL = '/static/'
 
-logging.config.dictConfig({
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'console': {
-            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'console',
-        },
-    },
-    'loggers': {
-        '': {
-            'level': 'WARNING',
-            'handlers': ['console'],
-        },
-        'ocw': {
-            'level': 'INFO',
-            'handlers': ['console'],
-            'propagate': False,
-        }
-    },
-})
-
 
 class ConfigFile:
     __instance = None
@@ -207,6 +180,40 @@ class ConfigFile:
         return [i.strip() for i in self.get(config_path, ','.join(default)).split(',')]
 
 
+loglevel = 'INFO'
+
+if os.path.exists(CONFIG_FILE):
+    loglevel = ConfigFile().get('default/loglevel', loglevel)
+
+
+logging.config.dictConfig({
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+        },
+    },
+    'loggers': {
+        '': {
+            'level': 'WARNING',
+            'handlers': ['console'],
+        },
+        'ocw': {
+            'level': loglevel,
+            'handlers': ['console'],
+            'propagate': False,
+        }
+    },
+})
+
+
 class PCWConfig():
 
     @staticmethod
@@ -244,7 +251,7 @@ class PCWConfig():
     @staticmethod
     def get_providers_for(feature: str, namespace: str):
         return ConfigFile().getList('{}.namespace.{}/providers'.format(feature, namespace),
-                                    ConfigFile().getList('{}/providers'.format(feature), ['ec2', 'azure', 'gce']))
+                                    ConfigFile().getList('{}/providers'.format(feature), ['EC2', 'AZURE', 'GCE']))
 
     @staticmethod
     def has(setting: str) -> bool:

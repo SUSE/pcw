@@ -94,7 +94,7 @@ namespaces = namespace1
 def test_get_providers_for_not_existed_feature(pcw_file):
     providers = PCWConfig.get_providers_for('get_providers_for', 'not_existent')
     assert type(providers) is list
-    assert not {'ec2', 'azure', 'gce'} ^ set(providers)
+    assert not {'EC2', 'AZURE', 'GCE'} ^ set(providers)
 
 
 def test_get_providers_for_existed_feature(pcw_file):
