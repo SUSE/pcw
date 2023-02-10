@@ -137,33 +137,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 
 STATIC_URL = '/static/'
 
-logging.config.dictConfig({
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'console': {
-            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'console',
-        },
-    },
-    'loggers': {
-        '': {
-            'level': 'WARNING',
-            'handlers': ['console'],
-        },
-        'ocw': {
-            'level': 'INFO',
-            'handlers': ['console'],
-            'propagate': False,
-        }
-    },
-})
-
 
 class ConfigFile:
     __instance = None
@@ -205,6 +178,34 @@ class ConfigFile:
 
     def getList(self, config_path: str, default: list = []) -> list:
         return [i.strip() for i in self.get(config_path, ','.join(default)).split(',')]
+
+
+logging.config.dictConfig({
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+        },
+    },
+    'loggers': {
+        '': {
+            'level': 'WARNING',
+            'handlers': ['console'],
+        },
+        'ocw': {
+            'level': ConfigFile().get('default/loglevel', 'INFO'),
+            'handlers': ['console'],
+            'propagate': False,
+        }
+    },
+})
 
 
 class PCWConfig():
