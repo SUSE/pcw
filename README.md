@@ -103,7 +103,7 @@ The `pcw` container runs by default the `/pcw/container-startup` startup helper 
 
     podman exec pcw /pcw/container-startup help
 
-    podman run -ti --rm --hostname pcw -e SECRET_KEY=CHANGE_ME --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v <local creds storage>:/var/pcw -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
+    podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v <local creds storage>:/var/pcw -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
 
 To create the admin superuser within the created container named `pcw`, run
 

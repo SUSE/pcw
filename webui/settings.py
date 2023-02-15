@@ -3,6 +3,7 @@ import re
 import os
 import hashlib
 import logging.config
+from django.core.management import utils
 
 
 """
@@ -25,7 +26,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # See https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = utils.get_random_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('PCW_DEBUG', False)
