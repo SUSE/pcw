@@ -5,7 +5,7 @@
 CMD=$1
 shift
 
-function usage() {
+usage() {
 	echo "pcw startup helper"
 	echo "Usage: $0 COMMAND"
 	echo "COMMANDS:"
@@ -13,7 +13,7 @@ function usage() {
 	echo "   check                   Run system health checks"
 	echo "   run                     Standart publiccloud-watcher run procedure"
 	echo "   migrate                 Run database migration"
-	echo "   createsuperuser         Create superuser. Requires --email and --username argument"
+	echo "   createuser USER PASS    Create user"
 	echo "	 updaterun 							 Do a regular instance scan and persist results to local DB"
 	echo "	 rmclusters							 Scan whole AWS account and delete ANY EKS clusters"
 	echo ""
@@ -47,8 +47,13 @@ case "$CMD" in
 	"migrate")
 		python3 manage.py migrate
 		;;
-	"createsuperuser")
-		python3 manage.py createsuperuser $@
+	"createuser")
+		if [ "$#" -ne 2 ] ; then
+			usage
+			exit 1
+		fi
+		python3 manage.py shell -c "from django.contrib.auth.models import User; user = User.objects.create_user('$1', password='$2'); user.save()"
+		echo "$PASSWORD"
 		;;
 	"updaterun")
 		python3 manage.py updaterun
@@ -57,5 +62,5 @@ case "$CMD" in
 		python3 manage.py rmclusters
 		;;
 	*)
-		python3 manage.py $@
+		python3 manage.py "$@"
 esac
