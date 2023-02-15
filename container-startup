@@ -38,7 +38,8 @@ case "$CMD" in
 		exit 0
 		;;
 	"run")
-		python3 manage.py migrate
+		python3 manage.py migrate --database auth_db --run-syncdb && \
+		python3 manage.py migrate && \
 		uwsgi --enable-threads -L --http-socket 0.0.0.0:8000  --plugins python3 --module webui.wsgi --static-map /static=/pcw/ocw/static
 		;;
 	"check")
