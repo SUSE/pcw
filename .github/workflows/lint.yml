@@ -19,7 +19,7 @@ jobs:
         pip install -r requirements_test.txt
     - name: Analysing the code with pylint
       run: |
-        pylint ./ocw/lib/*.py
+        pylint ./ocw/lib/*.py cleanup_k8s.py
   flake8-lint:
     runs-on: ubuntu-latest
     name: flake8

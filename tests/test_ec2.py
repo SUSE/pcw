@@ -1,4 +1,3 @@
-import subprocess
 import os
 import kubernetes
 from ocw.lib.EC2 import EC2, Provider
@@ -514,8 +513,10 @@ class MockedKubernetesJob():
         self.metadata = MockedKubernetesJobMetadata(name)
 
 
-def cmd_exec_exception(object, cmd):
-    raise subprocess.CalledProcessError(1, cmd)
+class MockedSubprocessReturn():
+    def __init__(self, returncode=0, stderr=""):
+        self.returncode = returncode
+        self.stderr = stderr
 
 
 @pytest.fixture
@@ -529,7 +530,7 @@ def k8s_patch(monkeypatch):
 
 
 def test_kubectl_client(k8s_patch, monkeypatch):
-    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: 1)
+    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: MockedSubprocessReturn(0))
     monkeypatch.setattr(kubernetes, 'config', MockedKubernetesConfig())
     mocked_client1 = MockedKubernetesClient(1)
     monkeypatch.setattr(kubernetes, 'client', mocked_client1)
@@ -541,17 +542,17 @@ def test_kubectl_client(k8s_patch, monkeypatch):
     assert k8s_patch.kubectl_client("region1", "cluster") == mocked_client1
 
     # Invalid 'aws eks update-kubeconfig' execution should return None
-    monkeypatch.setattr(Provider, 'cmd_exec', cmd_exec_exception)
+    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: MockedSubprocessReturn(1))
     assert k8s_patch.kubectl_client("region2", "cluster") is None
 
 
 def test_create_credentials_file(k8s_patch, monkeypatch):
-    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: 0)
+    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: MockedSubprocessReturn(0))
     k8s_patch.create_credentials_file("/tmp")
     assert os.path.exists("/tmp/.aws/credentials")
 
     # Invalid credentials, 'aws sts get-caller-identity' fails
-    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: 1)
+    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: MockedSubprocessReturn(1, "test"))
     error = None
     try:
         k8s_patch.create_credentials_file("/tmp")
@@ -559,7 +560,8 @@ def test_create_credentials_file(k8s_patch, monkeypatch):
         error = exception
 
     assert error is not None
-    assert str(error) == "Invalid credentials, the credentials cannot be verified by 'aws sts get-caller-identity'"
+    assert str(error) == "Invalid credentials, the credentials cannot be verified by'aws " + \
+                         "sts get-caller-identity' with the error: test"
 
 
 def test_cleanup_k8s_jobs(k8s_patch, monkeypatch):
@@ -570,11 +572,12 @@ def test_cleanup_k8s_jobs(k8s_patch, monkeypatch):
     monkeypatch.setattr(EC2, 'create_credentials_file', lambda *args, **kwargs: True)
     monkeypatch.setattr(kubernetes, 'config', MockedKubernetesConfig())
     mocked_kubernetes = MockedKubernetesClient([MockedKubernetesJob("job1", 1), MockedKubernetesJob("job2", 0)])
-    monkeypatch.setattr(kubernetes, 'client', mocked_kubernetes)
+    monkeypatch.setattr(EC2, "kubectl_client", lambda *args, **kwargs: mocked_kubernetes)
     k8s_patch.cleanup_k8s_jobs()
     assert len(mocked_kubernetes.deleted_jobs) == 1
     assert mocked_kubernetes.deleted_jobs[0] == "job1"
 
+    # test dry_run
     k8s_patch.dry_run = True
     mocked_kubernetes.deleted_jobs = []
     k8s_patch.cleanup_k8s_jobs()

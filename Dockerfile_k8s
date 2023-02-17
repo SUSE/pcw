@@ -1,0 +1,20 @@
+FROM registry.suse.com/bci/python:3.10
+
+RUN zypper -n in gcc tar gzip kubernetes1.23-client aws-cli && rm -rf /var/cache
+
+# Google cli installation
+RUN curl -s https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-415.0.0-linux-x86_64.tar.gz | tar -zxf - -C /opt \
+&& /opt/google-cloud-sdk/bin/gcloud components install gke-gcloud-auth-plugin
+
+# Install python dependences
+COPY requirements_k8s.txt /pcw/
+RUN  pip3.10 install --no-cache-dir -r /pcw/requirements_k8s.txt
+
+# Copy program files only
+COPY ocw  /pcw/ocw/
+COPY cleanup_k8s.py LICENSE README.md setup.cfg /pcw/
+
+ENV PATH ${PATH}:/opt/google-cloud-sdk/bin/
+
+WORKDIR /pcw
+CMD ["python3", "cleanup_k8s.py"]

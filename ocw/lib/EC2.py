@@ -1,5 +1,4 @@
 import os
-import subprocess
 import traceback
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -10,6 +9,7 @@ from dateutil.parser import parse
 import kubernetes
 from webui.settings import PCWConfig, ConfigFile
 from ocw.lib.emailnotify import send_mail
+from ocw.lib.k8s import clean_jobs
 from .provider import Provider
 from ..models import Instance
 
@@ -76,16 +76,16 @@ class EC2(Provider):
                                                      region_name=region)
         return self.__eks_client[region]
 
+    # pylint: disable=no-else-return
     def kubectl_client(self, region: str, cluster_name: str):
         region_cluster = f"{region}/{cluster_name}"
 
         if region_cluster not in self.__kubectl_client:
             kubeconfig = f"~/.kube/eks_config_{region}_{cluster_name}"
 
-            try:
-                self.cmd_exec(f"aws eks update-kubeconfig --region {region} --name {cluster_name} " +
-                              f"--kubeconfig {kubeconfig}")
-            except subprocess.CalledProcessError:
+            res = self.cmd_exec(f"aws eks update-kubeconfig --region {region} --name {cluster_name} " +
+                                f"--kubeconfig {kubeconfig}")
+            if res.returncode != 0:
                 self.log_err(f"Cannot get the kubeconfig for the cluster {cluster_name} on region {region}")
                 return None
             else:
@@ -93,6 +93,7 @@ class EC2(Provider):
                 self.__kubectl_client[region_cluster] = kubernetes.client.BatchV1Api()
 
         return self.__kubectl_client[region_cluster]
+    # pylint: enable=no-else-return
 
     def all_clusters(self) -> dict:
         clusters = {}
@@ -390,19 +391,7 @@ class EC2(Provider):
                 self.log_dbg("Found {} clusters in {}", len(response['clusters']), region)
                 for cluster_name in response['clusters']:
                     client = self.kubectl_client(region, cluster_name)
-                    if client is not None:
-                        now = datetime.now(timezone.utc)
-                        ret = client.list_job_for_all_namespaces(watch=False)
-                        for job in ret.items:
-                            age = (now - job.status.start_time).days
-                            if age >= 1:
-                                if not self.dry_run:
-                                    self.log_info(f"Deleting from {cluster_name} the job {job.metadata.name} " +
-                                                  f"with age {age}")
-                                    client.delete_namespaced_job(job.metadata.name, job.metadata.namespace)
-                                else:
-                                    self.log_info(f"Skip deleting from {cluster_name} the job {job.metadata.name} " +
-                                                  f"with age {age}")
+                    clean_jobs(self, client, cluster_name)
 
     def create_credentials_file(self, user_home_dir: str = "/root") -> None:
         aws_dir = f"{user_home_dir}/.aws"
@@ -417,5 +406,7 @@ class EC2(Provider):
                 file_handle.write(f"aws_access_key_id={self.__key}\n")
                 file_handle.write(f"aws_secret_access_key={self.__secret}\n")
 
-        if self.cmd_exec("aws sts get-caller-identity") != 0:
-            raise Exception("Invalid credentials, the credentials cannot be verified by 'aws sts get-caller-identity'")
+        res = self.cmd_exec("aws sts get-caller-identity")
+        if res.returncode != 0:
+            raise Exception("Invalid credentials, the credentials cannot be verified by"
+                            f"'aws sts get-caller-identity' with the error: {res.stderr}")
