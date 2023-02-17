@@ -19,6 +19,7 @@ RUNNING = False
 LAST_UPDATE = None
 
 
+@transaction.atomic
 def save_or_update_instance(csp_data: dict) -> None:
     provider = csp_data['provider']
     namespace = csp_data['namespace']
@@ -99,7 +100,6 @@ def gce_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
     }
 
 
-@transaction.atomic
 def _update_provider(provider: str, namespace: str, default_ttl: int) -> None:
     instance_cnt = Instance.objects.filter(provider=provider, vault_namespace=namespace).update(active=False)
     logger.debug("%d got active state false", instance_cnt)
