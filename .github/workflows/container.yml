@@ -1,19 +1,27 @@
 ---
 # See https://docs.github.com/en/actions/publishing-packages/publishing-docker-images#publishing-images-to-github-packages
 
-name: Create and publish container
+name: Container workflow
 
-'on':
+on:
   release:
     types: [published]
+  push:
+    branches: '**'
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  PCW_IMAGE_PREFIX: ${{ github.repository }}
 
 jobs:
-  github-image:
+  build:
+    if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        suffix: [main, k8s]
     permissions:
       contents: read
       packages: write
@@ -33,12 +41,69 @@ jobs:
         id: meta
         uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.PCW_IMAGE_PREFIX }}_${{ matrix.suffix }}
 
-      - name: Build and push Docker image
+      - name: Build Docker image (PCW)
+        if: ${{ matrix.suffix == 'main' }}
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         with:
           context: .
+          file: Dockerfile
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Build Docker image (K8S_GCE)
+        if: ${{ matrix.suffix == 'k8s' }}
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: .
+          file: Dockerfile_${{ matrix.suffix }}
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}  
+
+  build-and-push:
+    if: ${{ github.event_name == 'release' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        suffix: [main, k8s]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.PCW_IMAGE_PREFIX }}_${{ matrix.suffix }}
+
+      - name: Build and push Docker image (PCW)
+        if: ${{ matrix.suffix == 'main' }}
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: .
+          file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Build and push Docker image (K8S_GCE)
+        if: ${{ matrix.suffix == 'k8s' }}
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: .
+          file: Dockerfile_${{ matrix.suffix }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}  
