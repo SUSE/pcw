@@ -1,5 +1,6 @@
 import logging
 from ocw.lib.gke import GKE
+from ocw.lib.eks import EKS
 from ocw.enums import ProviderChoice
 from webui.PCWConfig import PCWConfig
 
@@ -12,6 +13,8 @@ def main():
         try:
             if ProviderChoice.GCE in providers:
                 GKE(namespace).cleanup_k8s_jobs()
+            if ProviderChoice.EC2 in providers:
+                EKS(namespace).cleanup_k8s_jobs()
         except Exception:
             logger.exception("[%s] Cleanup failed!", namespace)
 

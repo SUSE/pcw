@@ -1,4 +1,3 @@
-import os
 import traceback
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -6,10 +5,8 @@ from typing import Dict
 import boto3
 from botocore.exceptions import ClientError
 from dateutil.parser import parse
-import kubernetes
 from webui.PCWConfig import PCWConfig, ConfigFile
 from ocw.lib.emailnotify import send_mail
-from ocw.lib.k8s import clean_jobs
 from .provider import Provider
 from ..models import Instance
 
@@ -34,9 +31,7 @@ class EC2(Provider):
         if vault_namespace not in EC2.__instances:
             EC2.__instances[vault_namespace] = self = object.__new__(cls)
             self.__ec2_client = {}
-            self.__eks_client = {}
             self.__ec2_resource = {}
-            self.__kubectl_client = {}
             self.__secret = None
             self.__key = None
 
@@ -68,50 +63,6 @@ class EC2(Provider):
                                                      aws_secret_access_key=self.__secret,
                                                      region_name=region)
         return self.__ec2_client[region]
-
-    def eks_client(self, region: str) -> "boto3.session.Session.client":
-        if region not in self.__eks_client:
-            self.__eks_client[region] = boto3.client('eks', aws_access_key_id=self.__key,
-                                                     aws_secret_access_key=self.__secret,
-                                                     region_name=region)
-        return self.__eks_client[region]
-
-    # pylint: disable=no-else-return
-    def kubectl_client(self, region: str, cluster_name: str):
-        region_cluster = f"{region}/{cluster_name}"
-
-        if region_cluster not in self.__kubectl_client:
-            kubeconfig = f"~/.kube/eks_config_{region}_{cluster_name}"
-
-            res = self.cmd_exec(f"aws eks update-kubeconfig --region {region} --name {cluster_name} " +
-                                f"--kubeconfig {kubeconfig}")
-            if res.returncode != 0:
-                self.log_err(f"Cannot get the kubeconfig for the cluster {cluster_name} on region {region}")
-                return None
-            else:
-                kubernetes.config.load_kube_config(config_file=kubeconfig)
-                self.__kubectl_client[region_cluster] = kubernetes.client.BatchV1Api()
-
-        return self.__kubectl_client[region_cluster]
-    # pylint: enable=no-else-return
-
-    def all_clusters(self) -> dict:
-        clusters = {}
-        for region in self.cluster_regions:
-            self.log_dbg("Checking clusters in {}", region)
-            response = self.eks_client(region).list_clusters()
-            if 'clusters' in response and len(response['clusters']) > 0:
-                clusters[region] = []
-                self.log_dbg("Found {} clusters in {}", len(response['clusters']), region)
-                for cluster in response['clusters']:
-                    cluster_description = self.eks_client(region).describe_cluster(name=cluster)
-                    if 'cluster' not in cluster_description or 'tags' not in cluster_description['cluster']:
-                        self.log_err("Unexpected cluster description: {}", cluster_description)
-                    elif Instance.TAG_IGNORE not in cluster_description['cluster']['tags']:
-                        clusters[region].append(cluster)
-                if len(clusters[region]) == 0:
-                    del clusters[region]
-        return clusters
 
     @staticmethod
     def is_outdated(creation_time: datetime, valid_period_days: float) -> bool:
@@ -376,39 +327,3 @@ class EC2(Provider):
                     else:
                         self.log_info("Delete image '{}' (ami:{})".format(img['Name'], img['ImageId']))
                         self.ec2_client(region).deregister_image(ImageId=img['ImageId'], DryRun=False)
-
-    def cleanup_k8s_jobs(self) -> None:
-        self.log_dbg('Call cleanup_k8s_jobs')
-        try:
-            self.create_credentials_file()
-        except Exception as exception:
-            self.log_err(str(exception))
-            return
-
-        clusters = {}
-        for region in self.cluster_regions:
-            response = self.eks_client(region).list_clusters()
-            if 'clusters' in response and len(response['clusters']) > 0:
-                clusters[region] = []
-                self.log_dbg("Found {} clusters in {}", len(response['clusters']), region)
-                for cluster_name in response['clusters']:
-                    client = self.kubectl_client(region, cluster_name)
-                    clean_jobs(self, client, cluster_name)
-
-    def create_credentials_file(self, user_home_dir: str = "/root") -> None:
-        aws_dir = f"{user_home_dir}/.aws"
-        creds_file = f"{aws_dir}/credentials"
-
-        if not os.path.exists(creds_file):
-            if not os.path.exists(aws_dir):
-                os.mkdir(aws_dir)
-
-            with open(creds_file, "w", encoding="utf8") as file_handle:
-                file_handle.write("[default]\n")
-                file_handle.write(f"aws_access_key_id={self.__key}\n")
-                file_handle.write(f"aws_secret_access_key={self.__secret}\n")
-
-        res = self.cmd_exec("aws sts get-caller-identity")
-        if res.returncode != 0:
-            raise Exception("Invalid credentials, the credentials cannot be verified by"
-                            f"'aws sts get-caller-identity' with the error: {res.stderr}")
