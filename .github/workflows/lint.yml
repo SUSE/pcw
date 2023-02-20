@@ -4,10 +4,15 @@ on: [push, pull_request]
 
 jobs:
   pylint:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10"]
+        include:
+          - python-version: '3.10'
+            os: 'ubuntu-latest'
+          - python-version: '3.6.15'
+            os: 'ubuntu-20.04'
+    runs-on: ${{ matrix.os }}
+    name: pylint
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
@@ -15,13 +20,18 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: |
-          pip install -r requirements_test.txt
+        run: pip install -r requirements_test.txt
       - name: Analysing the code with pylint
-        run: |
-          pylint ./ocw/lib/*.py cleanup_k8s.py
+        run: pylint ./ocw/lib/*.py cleanup_k8s.py
   flake8-lint:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - python-version: '3.10'
+            os: 'ubuntu-latest'
+          - python-version: '3.6.15'
+            os: 'ubuntu-20.04'
+    runs-on: ${{ matrix.os }}
     name: flake8
     steps:
       - name: Check out source repository
@@ -29,7 +39,7 @@ jobs:
       - name: Set up Python environment
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python-version }}
       - name: flake8 Lint
         uses: py-actions/flake8@v2
         with:
