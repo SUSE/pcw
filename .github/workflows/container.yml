@@ -1,20 +1,27 @@
 ---
 # See https://docs.github.com/en/actions/publishing-packages/publishing-docker-images#publishing-images-to-github-packages
 
-name: Create and publish container
+name: Container workflow
 
-'on':
+on:
   release:
     types: [published]
+  push:
+    branches: '**'
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
 
 env:
   REGISTRY: ghcr.io
-  PCW_IMAGE_NAME: ${{ github.repository }}_main
-  K8S_GCE_IMAGE_NAME : ${{ github.repository }}_gce_clean
+  PCW_IMAGE_PREFIX: ${{ github.repository }}
 
 jobs:
-  github-image:
+  build:
+    if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        suffix: [main, k8s]
     permissions:
       contents: read
       packages: write
@@ -34,17 +41,33 @@ jobs:
         id: meta
         uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.PCW_IMAGE_PREFIX }}_${{ matrix.suffix }}
 
-      - name: Build and push Docker image (PCW)
+      - name: Build Docker image (PCW)
+        if: ${{ matrix.suffix == 'main' }}
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         with:
           context: .
-          push: true
+          file: Dockerfile
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-  github-image:
+      - name: Build Docker image (K8S_GCE)
+        if: ${{ matrix.suffix == 'k8s' }}
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: .
+          file: Dockerfile_${{ matrix.suffix }}
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}  
+
+  build-and-push:
+    if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        suffix: [main, k8s]
     permissions:
       contents: read
       packages: write
@@ -64,12 +87,23 @@ jobs:
         id: meta
         uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96
         with:
-          images: ${{ env.REGISTRY }}/${{ env.K8S_GCE_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.PCW_IMAGE_PREFIX }}_${{ matrix.suffix }}
 
-      - name: Build and push Docker image (K8S_GCE)
+      - name: Build and push Docker image (PCW)
+        if: ${{ matrix.suffix == 'main' }}
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         with:
-          context: Dockerfile_k8s
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Build and push Docker image (K8S_GCE)
+        if: ${{ matrix.suffix == 'k8s' }}
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: .
+          file: Dockerfile_${{ matrix.suffix }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}  
