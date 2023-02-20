@@ -1,4 +1,4 @@
-FROM registry.suse.com/bci/python:3.10
+FROM registry.suse.com/bci/python:3.6
 
 RUN zypper -n in gcc tar gzip kubernetes1.23-client aws-cli && rm -rf /var/cache
 
@@ -8,7 +8,7 @@ RUN curl -s https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cl
 
 # Install python dependences
 COPY requirements_k8s.txt /pcw/
-RUN  pip3.10 install --no-cache-dir -r /pcw/requirements_k8s.txt
+RUN  pip3.6 install --no-cache-dir -r /pcw/requirements_k8s.txt
 
 # Copy program files only
 COPY ocw  /pcw/ocw/
