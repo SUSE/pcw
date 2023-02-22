@@ -14,4 +14,7 @@ RUN zypper -n in python310-devel gcc libffi-devel aws-cli && pip install --no-ca
 
 WORKDIR /pcw
 
+RUN useradd --no-create-home --uid 1000 --user-group --shell /bin/false pcw && chown -R pcw:pcw /pcw
+USER pcw
+
 ENTRYPOINT ["sh", "-c"]
