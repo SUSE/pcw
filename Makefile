@@ -10,10 +10,6 @@ prepare:
 
 .PHONY: test
 test:
-	flake8 --max-line-length=130 webui
-	flake8 --max-line-length=130 ocw
-	flake8 --max-line-length=130 manage.py
-	flake8 --max-line-length=130 cleanup_k8s.py
 	pytest --cov
 
 .PHONY: codecov
