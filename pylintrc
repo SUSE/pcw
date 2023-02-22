@@ -12,7 +12,8 @@ disable=
  W0201, # Attribute %r defined outside __init__
  W0237, # arguments-renamed
  W0603, # Using the global statement
- W0703 # broad-except
+ W0703, # broad-except
+ W0719, # broad-exception-raised
 
 recursive = true
 fail-under=9.9
