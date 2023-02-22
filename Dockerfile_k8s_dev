@@ -13,3 +13,5 @@ RUN  pip3.10 install --no-cache-dir -r /pcw/requirements_test.txt
 ENV PATH ${PATH}:/opt/google-cloud-sdk/bin/
 
 WORKDIR /pcw
+
+ENTRYPOINT ["sh", "-c"]
