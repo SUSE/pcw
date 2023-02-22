@@ -10,8 +10,11 @@ COPY requirements.txt requirements_test.txt requirements_k8s.txt /tmp/
 # * Install system requirements
 # * Install pip requirements
 # * Empty system cache to conserve some space
-RUN zypper -n in python310-devel gcc libffi-devel aws-cli && pip3.10 install -r /tmp/requirements_test.txt && rm -rf /var/cache
+RUN zypper -n in python310-devel gcc libffi-devel aws-cli && pip install --no-cache-dir -r /tmp/requirements_test.txt && rm -rf /var/cache
 
 WORKDIR /pcw
+
+RUN useradd --no-create-home --uid 1000 --user-group --shell /bin/false pcw && chown -R pcw:pcw /pcw
+USER pcw
 
 ENTRYPOINT ["sh", "-c"]
