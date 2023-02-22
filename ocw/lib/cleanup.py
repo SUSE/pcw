@@ -6,6 +6,7 @@ from ocw.lib.EC2 import EC2
 from ocw.lib.gce import GCE
 from ocw.lib.emailnotify import send_mail, send_cluster_notification
 from ocw.apps import getScheduler
+from ocw.enums import ProviderChoice
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +16,13 @@ def cleanup_run():
         try:
             providers = PCWConfig.get_providers_for('cleanup', namespace)
             logger.info("[%s] Run cleanup for %s", namespace, ','.join(providers))
-            if 'azure' in providers:
+            if ProviderChoice.AZURE in providers:
                 Azure(namespace).cleanup_all()
 
-            if 'ec2' in providers:
+            if ProviderChoice.EC2 in providers:
                 EC2(namespace).cleanup_all()
 
-            if 'gce' in providers:
+            if ProviderChoice.GCE in providers:
                 GCE(namespace).cleanup_all()
 
         except Exception as ex:
@@ -48,7 +49,7 @@ def cleanup_k8s():
             providers = PCWConfig.get_providers_for('k8sclusters', namespace)
             logger.debug("[%s] Run k8s cleanup for %s", namespace, ','.join(providers))
 
-            if 'ec2' in providers:
+            if ProviderChoice.EC2 in providers:
                 EC2(namespace).cleanup_k8s_jobs()
 
         except Exception as exception:
