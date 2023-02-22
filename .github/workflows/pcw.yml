@@ -1,6 +1,6 @@
 ---
 
-name: public cloud watcher
+name: PCW
 on:
   - push
   - pull_request
