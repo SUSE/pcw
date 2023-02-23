@@ -7,7 +7,7 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.storage import StorageManagementClient
 from azure.storage.blob import BlobServiceClient
 from msrest.exceptions import AuthenticationError
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from .provider import Provider
 from ..models import Instance
 

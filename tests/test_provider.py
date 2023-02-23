@@ -2,7 +2,7 @@ from ocw.lib.provider import Provider
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from .generators import mock_get_feature_property
 import pytest
 

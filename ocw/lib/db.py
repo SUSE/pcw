@@ -7,7 +7,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 from ocw.apps import getScheduler
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from ..models import Instance, StateChoice, ProviderChoice, CspInfo
 from .emailnotify import send_mail, send_leftover_notification
 from .azure import Azure

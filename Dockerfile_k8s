@@ -11,7 +11,8 @@ COPY requirements_k8s.txt /pcw/
 RUN  pip3.10 install --no-cache-dir -r /pcw/requirements_k8s.txt
 
 # Copy program files only
-COPY ocw  /pcw/ocw/
+COPY ocw /pcw/ocw/
+COPY webui/PCWConfig.py /pcw/webui/PCWConfig.py
 COPY cleanup_k8s.py LICENSE README.md setup.cfg /pcw/
 
 ENV PATH ${PATH}:/opt/google-cloud-sdk/bin/

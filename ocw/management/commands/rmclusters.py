@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from ocw.lib.EC2 import EC2
 
 

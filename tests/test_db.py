@@ -1,5 +1,5 @@
 from ocw.lib.db import update_run, ec2_extract_data, gce_extract_data, azure_extract_data, delete_instance
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from faker import Faker
 from tests.generators import ec2_csp_instance_mock, gce_instance_mock, azure_instance_mock
 from ocw.models import ProviderChoice, StateChoice

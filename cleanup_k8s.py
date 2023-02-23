@@ -1,7 +1,7 @@
 import logging
 from ocw.lib.gke import GKE
 from ocw.enums import ProviderChoice
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 
 
 def main():

@@ -7,7 +7,7 @@ import boto3
 from botocore.exceptions import ClientError
 from dateutil.parser import parse
 import kubernetes
-from webui.settings import PCWConfig, ConfigFile
+from webui.PCWConfig import PCWConfig, ConfigFile
 from ocw.lib.emailnotify import send_mail
 from ocw.lib.k8s import clean_jobs
 from .provider import Provider
