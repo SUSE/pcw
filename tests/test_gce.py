@@ -1,5 +1,5 @@
 from ocw.lib.gce import GCE, Provider
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from tests.generators import max_age_hours, mock_get_feature_property
 from datetime import datetime, timezone, timedelta
 

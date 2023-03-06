@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 import json
 from .enums import ProviderChoice, StateChoice
 

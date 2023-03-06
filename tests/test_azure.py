@@ -1,5 +1,5 @@
 from ocw.lib.azure import Azure, Provider
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from datetime import datetime, timezone, timedelta
 from .generators import mock_get_feature_property
 from tests import generators

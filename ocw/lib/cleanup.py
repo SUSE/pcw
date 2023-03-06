@@ -1,6 +1,6 @@
 import logging
 import traceback
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from ocw.lib.azure import Azure
 from ocw.lib.EC2 import EC2
 from ocw.lib.gce import GCE

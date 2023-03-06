@@ -7,7 +7,7 @@ import json
 import subprocess
 import shlex
 from pathlib import Path
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 
 
 class Provider:

@@ -1,4 +1,4 @@
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from .conftest import set_pcw_ini
 import pytest
 
