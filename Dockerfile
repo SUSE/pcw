@@ -28,7 +28,7 @@ VOLUME /pcw/db
 
 EXPOSE 8000/tcp
 
-RUN useradd --no-create-home --uid 1777 --user-group --shell /bin/false pcw && chown -R pcw:pcw /pcw
+RUN useradd --home-dir=/pcw --uid 1777 --user-group --shell /bin/false pcw && chown -R pcw:pcw /pcw
 USER pcw
 
 # Once we are certain that this runs nicely, replace this with ENTRYPOINT.
