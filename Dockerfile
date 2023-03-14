@@ -10,7 +10,7 @@ COPY requirements.txt /pcw/
 # * Install system requirements
 # * Install pip requirements
 # * Empty system cache to conserve some space
-RUN zypper -n in python310-devel gcc libffi-devel aws-cli && pip install --no-cache-dir -r /pcw/requirements.txt && rm -rf /var/cache
+RUN zypper -n in gcc libffi-devel aws-cli && pip install --no-cache-dir -r /pcw/requirements.txt && rm -rf /var/cache
 
 # Copy program files only
 COPY ocw  /pcw/ocw/
@@ -27,9 +27,6 @@ RUN ["/pcw/container-startup", "check"]
 VOLUME /pcw/db
 
 EXPOSE 8000/tcp
-
-RUN useradd --home-dir=/pcw --uid 1777 --user-group --shell /bin/false pcw && chown -R pcw:pcw /pcw
-USER pcw
 
 # Once we are certain that this runs nicely, replace this with ENTRYPOINT.
 CMD ["/pcw/container-startup", "run"]
