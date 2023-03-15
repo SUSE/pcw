@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 from .generators import mock_get_feature_property
 from tests import generators
 from msrest.exceptions import AuthenticationError
+from azure.core.exceptions import ResourceNotFoundError
 from faker import Faker
 import time
 import pytest
@@ -293,3 +294,65 @@ def test_container_valid_for_cleanup():
     assert Azure.container_valid_for_cleanup(FakeBlobContainer({}, "bootdiagnostics-dsfsdfsdf")) is True
     assert Azure.container_valid_for_cleanup(FakeBlobContainer({"pcw_ignore": "1"}, "bootdiagnostics-asdxyz")) is False
     assert Azure.container_valid_for_cleanup(FakeBlobContainer({"pcw_ignore": "1"}, "sle-images")) is False
+
+
+def test_get_vm_types_in_resource_group(azure_patch, monkeypatch):
+    azure = Azure('fake')
+
+    vms_list = list()
+
+    class MockedHWProfile:
+
+        def __init__(self, vmtype):
+            self.vm_size = vmtype
+
+    class MockVM:
+
+        def __init__(self, vmtype):
+            self.hardware_profile = MockedHWProfile(vmtype)
+
+    def mocked_list(name):
+        if name == 'fire!!!':
+            raise ResourceNotFoundError
+        else:
+            return vms_list
+
+    def mock_compute_mgmt_client(self):
+        def compute_mgmt_client():
+            pass
+
+        compute_mgmt_client.virtual_machines = lambda: None
+        compute_mgmt_client.virtual_machines.list = mocked_list
+        return compute_mgmt_client
+
+    monkeypatch.setattr(Azure, 'compute_mgmt_client', mock_compute_mgmt_client)
+
+    # when there is no VMs we returning 'N/A'
+    ret = azure.get_vm_types_in_resource_group('fake')
+    assert ret == 'N/A'
+
+    vms_list.append(MockVM('fake'))
+
+    # when single VM is in the list we returning name of type of this VM
+    ret = azure.get_vm_types_in_resource_group('fake')
+    assert ret == 'fake'
+
+    vms_list.append(MockVM('fake'))
+
+    # now there are two VMs with same type but we returning same string
+    # because we don't want to duplicate same type again
+    ret = azure.get_vm_types_in_resource_group('fake')
+    assert ret == 'fake'
+
+    vms_list.append(MockVM('anotherfake'))
+
+    # now we have two VMs with same type and 3d with different one
+    ret = azure.get_vm_types_in_resource_group('fake')
+    assert 'anotherfake' in ret
+    assert 'fake' in ret
+
+    vms_list.append(MockVM('fake'))
+
+    # when one of VMs throw azure.core.exceptions.ResourceNotFoundError we returning None
+    ret = azure.get_vm_types_in_resource_group('fire!!!')
+    assert ret is None

@@ -19,7 +19,4 @@ ENV PATH ${PATH}:/opt/google-cloud-sdk/bin/
 
 WORKDIR /pcw
 
-RUN useradd --home-dir=/pcw --uid 1777 --user-group --shell /bin/false pcw && chown -R pcw:pcw /pcw
-USER pcw
-
 CMD ["python3", "cleanup_k8s.py"]
