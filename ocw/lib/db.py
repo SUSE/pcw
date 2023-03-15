@@ -186,7 +186,7 @@ def auto_delete_instances() -> None:
         obj = Instance.objects
         obj = obj.filter(state=StateChoice.ACTIVE, vault_namespace=namespace, ttl__gt=timedelta(0),
                          age__gte=F('ttl')).exclude(ignore=True)
-        logger.debug("Found %d instances for deletion", namespace)
+        logger.debug("Found %d instances for deletion", len(obj))
         email_text = set()
         for i in obj:
             logger.debug("[%s] TTL expire for instance %s:%s %s", i.vault_namespace,
