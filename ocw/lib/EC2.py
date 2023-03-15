@@ -181,6 +181,7 @@ class EC2(Provider):
             if self.dry_run:
                 self.log_info("Instance termination {} skipped due to dry run mode", instance_id)
             else:
+                self.log_info("Deleting {}", instance_id)
                 self.ec2_resource(region).instances.filter(InstanceIds=[instance_id]).terminate()
         except ClientError as ex:
             if ex.response['Error']['Code'] == 'InvalidInstanceID.NotFound':
@@ -188,10 +189,10 @@ class EC2(Provider):
             else:
                 raise ex
 
-    def wait_for_empty_nodegroup_list(self, region: str, cluster_name: str, timeout_minutes: int = 20) -> bool:
+    def wait_for_empty_nodegroup_list(self, region: str, cluster_name: str, timeout_minutes: int = 20):
         if self.dry_run:
             self.log_info("Skip waiting due to dry-run mode")
-            return True
+            return None
         self.log_dbg("Waiting empty nodegroup list in {}", cluster_name)
         end = datetime.now(timezone.utc) + timedelta(minutes=timeout_minutes)
         resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster_name)
@@ -201,6 +202,7 @@ class EC2(Provider):
             resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster_name)
             if len(resp_nodegroup['nodegroups']) > 0:
                 self.log_dbg("Still waiting for {} nodegroups to disappear", len(resp_nodegroup['nodegroups']))
+        return None
 
     def delete_all_clusters(self) -> None:
         self.log_info("Deleting all clusters!")

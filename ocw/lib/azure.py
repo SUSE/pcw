@@ -6,6 +6,7 @@ from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.storage import StorageManagementClient
 from azure.storage.blob import BlobServiceClient
+from azure.core.exceptions import ResourceNotFoundError
 from msrest.exceptions import AuthenticationError
 from webui.PCWConfig import PCWConfig
 from .provider import Provider
@@ -84,15 +85,17 @@ class Azure(Provider):
 
     def get_vm_types_in_resource_group(self, resource_group: str) -> str:
         self.log_dbg("Listing VMs for {}", resource_group)
-        vms = self.compute_mgmt_client().virtual_machines.list(resource_group)
-        type_str = "N/A"
-        for azure_vm in vms:
-            if type_str == "N/A":
-                type_str = azure_vm.hardware_profile.vm_size
-            else:
-                type_str = "{},{}".format(type_str, azure_vm.hardware_profile.vm_size)
-                self.log_warn('{} resource group has more than one VM', resource_group)
-        return type_str
+        type_set = set()
+        try:
+            vms = self.compute_mgmt_client().virtual_machines.list(resource_group)
+            for azure_vm in vms:
+                type_set.add(azure_vm.hardware_profile.vm_size)
+        except ResourceNotFoundError:
+            self.log_dbg("{} already deleted", resource_group)
+            return None
+        if len(type_set) > 0:
+            return ', '.join(type_set)
+        return "N/A"
 
     def list_resource_groups(self) -> list:
         return list(self.resource_mgmt_client().resource_groups.list())

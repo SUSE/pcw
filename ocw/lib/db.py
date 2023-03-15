@@ -46,7 +46,14 @@ def save_or_update_instance(csp_data: dict) -> None:
             region=csp_data['region']
         )
         CspInfo(tags=json.dumps(csp_data['tags']), type=csp_data['type'], instance=local_instance)
-    local_instance.set_alive()
+    # Azure has exceptional case when it is querying entity second time
+    # because it is only way to get VM type(s) which is running inside resource group
+    # it might happen that in such case we discovering that resource group already deleted
+    # which means that set_alive() must be skipped
+    if provider == ProviderChoice.AZURE and local_instance.cspinfo.type is None:
+        logger.debug("[%s] Azure group %s already deleted", namespace, local_instance.instance_id)
+    else:
+        local_instance.set_alive()
     local_instance.save()
     local_instance.cspinfo.save()
 
@@ -159,7 +166,6 @@ def update_run() -> None:
 
 
 def delete_instance(instance: type[Instance]) -> None:
-    logger.info("[%s] Delete instance %s:%s", instance.vault_namespace, instance.provider, instance.instance_id)
     if instance.provider == ProviderChoice.AZURE:
         Azure(instance.vault_namespace).delete_resource(instance.instance_id)
     elif instance.provider == ProviderChoice.EC2:
@@ -176,9 +182,11 @@ def delete_instance(instance: type[Instance]) -> None:
 
 def auto_delete_instances() -> None:
     for namespace in PCWConfig.get_namespaces_for('default'):
+        logger.debug("Running auto_delete_instances for %s", namespace)
         obj = Instance.objects
         obj = obj.filter(state=StateChoice.ACTIVE, vault_namespace=namespace, ttl__gt=timedelta(0),
                          age__gte=F('ttl')).exclude(ignore=True)
+        logger.debug("Found %d instances for deletion", namespace)
         email_text = set()
         for i in obj:
             logger.debug("[%s] TTL expire for instance %s:%s %s", i.vault_namespace,
