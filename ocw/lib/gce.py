@@ -99,6 +99,7 @@ class GCE(Provider):
 
         for region in self.list_regions():
             for zone in self.list_zones(region):
+                self.log_dbg("Searching for disks in {}", zone)
                 request = self.compute_client().disks().list(project=self.project, zone=zone)
                 while request is not None:
                     response = request.execute()
@@ -109,26 +110,26 @@ class GCE(Provider):
                             if self.dry_run:
                                 self.log_info("Deletion of disk {} created on {} skipped due to dry run mode",
                                               disk["name"], disk["creationTimestamp"])
-                        else:
-                            self.log_info("Delete disk '{}'", disk["name"])
-                            request = (
-                                self.compute_client()
-                                .disks()
-                                .delete(project=self.project, zone=zone, image=disk["name"])
-                            )
-                            response = request.execute()
-                            if "error" in response:
-                                for err in response["error"]["errors"]:
-                                    self.log_err(err["message"])
-                            if "warnings" in response:
-                                for warn in response["warnings"]:
-                                    self.log_warn(warn["message"])
+                            else:
+                                self.log_info("Delete disk '{}'", disk["name"])
+                                request = (
+                                    self.compute_client()
+                                    .disks()
+                                    .delete(project=self.project, zone=zone, image=disk["name"])
+                                )
+                                response = request.execute()
+                                if "error" in response:
+                                    for err in response["error"]["errors"]:
+                                        self.log_err(err["message"])
+                                if "warnings" in response:
+                                    for warn in response["warnings"]:
+                                        self.log_warn(warn["message"])
 
                     request = (
-                            self.compute_client()
-                            .disks()
-                            .list_next(previous_request=request, previous_response=response)
-                        )
+                        self.compute_client()
+                        .disks()
+                        .list_next(previous_request=request, previous_response=response)
+                    )
 
         request = self.compute_client().images().list(project=self.project)
 
