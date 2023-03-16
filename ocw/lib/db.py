@@ -54,8 +54,8 @@ def save_or_update_instance(csp_data: dict) -> None:
         logger.debug("[%s] Azure group %s already deleted", namespace, local_instance.instance_id)
     else:
         local_instance.set_alive()
-    local_instance.save()
-    local_instance.cspinfo.save()
+        local_instance.save()
+        local_instance.cspinfo.save()
 
 
 def ec2_extract_data(csp_instance, namespace: str, region: str, default_ttl: int) -> dict:
