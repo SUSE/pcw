@@ -12,8 +12,48 @@ class FakeRequest:
         return self.response
 
 
-class FakeMockImages:
+class FakeMockRegions:
+    def __init__(self, responses):
+        self.responses = responses
 
+    def list(self, *args, **kwargs):
+        return self.responses.pop(0)
+
+    def list_next(self, *args, **kwargs):
+        return self.responses.pop(0)
+
+    def get(self, project, region):
+        def something():
+            pass
+        something.execute = lambda : self.responses
+        return something
+
+
+def test_list_regions(monkeypatch):
+    def mocked_compute_client():
+        pass
+    fmr = FakeMockRegions([FakeRequest({'items': [{'name': 'Wonderland'}]}), None])
+    mocked_compute_client.regions = lambda *args, **kwargs: fmr
+    monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)
+    monkeypatch.setattr(GCE, 'get_data', lambda *args, **kwargs: {"project_id": "project"})
+    monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
+    gce = GCE('fake')
+    assert gce.list_regions() == ['Wonderland']
+
+
+def test_list_zones(monkeypatch):
+    def mocked_compute_client():
+        pass
+    fmr = FakeMockRegions({'zones': ['somethingthatIdonotknow/RabbitHole']})
+    mocked_compute_client.regions = lambda *args, **kwargs: fmr
+    monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)
+    monkeypatch.setattr(GCE, 'get_data', lambda *args, **kwargs: {"project_id": "project"})
+    monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
+    gce = GCE('fake')
+    assert gce.list_zones('Oxfordshire') == ['RabbitHole']
+
+
+class FakeMockImages:
     def __init__(self, responses):
         self.deleted = list()
         self.responses = responses
