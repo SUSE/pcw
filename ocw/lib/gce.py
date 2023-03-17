@@ -115,7 +115,7 @@ class GCE(Provider):
                                 request = (
                                     self.compute_client()
                                     .disks()
-                                    .delete(project=self.project, zone=zone, image=disk["name"])
+                                    .delete(project=self.project, zone=zone, disk=disk["name"])
                                 )
                                 response = request.execute()
                                 if "error" in response:
