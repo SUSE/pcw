@@ -187,7 +187,7 @@ class EC2(Provider):
             self.cleanup_snapshots(valid_period_days)
             self.cleanup_volumes(valid_period_days)
         if PCWConfig.getBoolean('cleanup/vpc_cleanup', self._namespace):
-            self.cleanup_uploader_vpcs()
+            self.cleanup_vpcs()
 
     def delete_vpc(self, region: str, vpc, vpc_id: str) -> None:
         try:
@@ -286,15 +286,13 @@ class EC2(Provider):
                 vpc.detach_internet_gateway(InternetGatewayId=gate.id)
                 gate.delete()
 
-    def cleanup_uploader_vpcs(self) -> None:
-        self.log_dbg('Call cleanup_uploader_vpcs')
+    def cleanup_vpcs(self) -> None:
+        self.log_dbg('Call cleanup_vpcs')
         for region in self.all_regions:
-            response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']},
-                                                                      {'Name': 'tag:Name', 'Values': ['uploader-*']}])
+            response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
             self.log_dbg("Found {} VPC\'s in {}", len(response['Vpcs']), region)
             for response_vpc in response['Vpcs']:
-                self.log_dbg('{} in {} looks like uploader leftover. (OwnerId={}).', response_vpc['VpcId'], region,
-                             response_vpc['OwnerId'])
+                self.log_dbg('Found {} in {}. (OwnerId={}).', response_vpc['VpcId'], region, response_vpc['OwnerId'])
                 if PCWConfig.getBoolean('cleanup/vpc-notify-only', self._namespace):
                     send_mail('VPC {} should be deleted, skipping due vpc-notify-only=True'.format(
                         response_vpc['VpcId']), '')
