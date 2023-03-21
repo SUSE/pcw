@@ -189,9 +189,20 @@ class EC2(Provider):
         if PCWConfig.getBoolean('cleanup/vpc_cleanup', self._namespace):
             self.cleanup_vpcs()
 
+    def delete_elastic_ips(self, region):
+        self.log_info('Deleting elastic IPs in {}'.format(region))
+        response = self.ec2_client(region).describe_addresses()
+        for addr in response['Addresses']:
+            if 'AssociationId' in addr:
+                self.log_info('Disassosiate IP with AssociationId:{}'.format(addr['AssociationId']))
+                self.ec2_client(region).disassociate_address(AssociationId=addr['AssociationId'])
+            self.log_info('Release IP with AllocationId:{}'.format(addr['AllocationId']))
+            self.ec2_client(region).release_address(AllocationId=addr['AllocationId'])
+
     def delete_vpc(self, region: str, vpc, vpc_id: str) -> None:
         try:
             self.log_info('{} has no associated instances. Initializing cleanup of it', vpc)
+            self.delete_elastic_ips(region)
             self.delete_internet_gw(vpc)
             self.delete_routing_tables(vpc)
             self.delete_vpc_endpoints(region, vpc_id)
@@ -204,9 +215,9 @@ class EC2(Provider):
             else:
                 # finally, delete the vpc
                 self.ec2_resource(region).meta.client.delete_vpc(VpcId=vpc_id)
+            return None
         except Exception as ex:
-            self.log_err("{} on VPC deletion. {}", type(ex).__name__, traceback.format_exc())
-            send_mail('{} on VPC deletion in [{}]'.format(type(ex).__name__, self._namespace), traceback.format_exc())
+            return f"[{vpc_id}]{type(ex).__name__} on VPC deletion. {traceback.format_exc()}"
 
     def delete_vpc_subnets(self, vpc) -> None:
         self.log_dbg('Call delete_vpc_subnets')
@@ -288,14 +299,16 @@ class EC2(Provider):
 
     def cleanup_vpcs(self) -> None:
         self.log_dbg('Call cleanup_vpcs')
+        vpc_errors = list()
+        vpc_notify = list()
+        vpc_locked = list()
         for region in self.all_regions:
             response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
             self.log_dbg("Found {} VPC\'s in {}", len(response['Vpcs']), region)
             for response_vpc in response['Vpcs']:
                 self.log_dbg('Found {} in {}. (OwnerId={}).', response_vpc['VpcId'], region, response_vpc['OwnerId'])
                 if PCWConfig.getBoolean('cleanup/vpc-notify-only', self._namespace):
-                    send_mail('VPC {} should be deleted, skipping due vpc-notify-only=True'.format(
-                        response_vpc['VpcId']), '')
+                    vpc_notify.append(response_vpc["VpcId"])
                 else:
                     resource_vpc = self.ec2_resource(region).Vpc(response_vpc['VpcId'])
                     can_be_deleted = True
@@ -306,12 +319,18 @@ class EC2(Provider):
                             can_be_deleted = False
                             break
                     if can_be_deleted:
-                        self.delete_vpc(region, resource_vpc, response_vpc['VpcId'])
+                        del_responce = self.delete_vpc(region, resource_vpc, response_vpc['VpcId'])
+                        if del_responce is not None:
+                            vpc_errors.append(del_responce)
                     elif not self.dry_run:
-                        body = 'Uploader leftover {} (OwnerId={}) in {} is locked'.format(response_vpc['VpcId'],
-                                                                                          response_vpc['OwnerId'],
-                                                                                          region)
-                        send_mail('VPC deletion locked by running VMs', body)
+                        vpc_locked.append(f'{response_vpc["VpcId"]} (OwnerId={response_vpc["OwnerId"]})\
+                                          in {region} is locked')
+        if len(vpc_errors) > 0:
+            send_mail(f'Errors on VPC deletion in [{self._namespace}]', '\n'.join(vpc_errors))
+        if len(vpc_notify) > 0:
+            send_mail(f'{len(vpc_notify)} VPC\'s should be deleted, skipping due vpc-notify-only=True', ','.join(vpc_notify))
+        if len(vpc_locked) > 0:
+            send_mail('VPC deletion locked by running VMs', '\n'.join(vpc_locked))
 
     def cleanup_images(self, valid_period_days: float) -> None:
         self.log_dbg('Call cleanup_images')
