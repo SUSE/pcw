@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone, timedelta
 from ocw.lib.gce import GCE, Provider
 from webui.PCWConfig import PCWConfig
@@ -25,7 +26,7 @@ class FakeMockRegions:
     def get(self, project, region):
         def something():
             pass
-        something.execute = lambda : self.responses
+        something.execute = lambda: self.responses
         return something
 
 
@@ -132,3 +133,21 @@ def test_cleanup_all(monkeypatch):
     gce.cleanup_all()
     assert fmi.deleted_images == ['delete1', 'delete2']
     assert fmd.deleted_disks == ['delete_disk1', 'delete_disk2']
+
+
+def test_get_error_reason():
+
+    class MockHttpError:
+
+        def __init__(self, content) -> None:
+            if content is not None:
+                self.content = json.dumps(content)
+            else:
+                self.content = ""
+
+    assert GCE.get_error_reason(MockHttpError(content=None)) == "unknown"
+    assert GCE.get_error_reason(MockHttpError({})) == "unknown"
+    assert GCE.get_error_reason(MockHttpError({'error': {}})) == "unknown"
+    assert GCE.get_error_reason(MockHttpError({'error': {'errors': []}})) == "unknown"
+    assert GCE.get_error_reason(MockHttpError({'error': {'errors': [{}]}})) == "unknown"
+    assert GCE.get_error_reason(MockHttpError({'error': {'errors': [{'reason': 'aaa'}]}})) == "aaa"

@@ -101,12 +101,8 @@ class GCE(Provider):
         reason = "unknown"
         try:
             error_content = json.loads(error.content)
-            if 'error' in error_content:
-                if 'errors' in error_content['error']:
-                    if len(error_content['error']['errors']) > 0:
-                        if 'reason' in error_content['error']['errors'][0]:
-                            return error_content['error']['errors'][0]['reason']
-        except ValueError:
+            return error_content['error']['errors'][0]['reason']
+        except (KeyError, ValueError, IndexError):
             pass
         return reason
 
@@ -126,7 +122,7 @@ class GCE(Provider):
                         if self.is_outdated(parse(disk["creationTimestamp"]).astimezone(timezone.utc)):
                             if self.dry_run:
                                 self.log_info("Deletion of disk {} created on {} skipped due to dry run mode",
-                                                disk["name"], disk["creationTimestamp"])
+                                              disk["name"], disk["creationTimestamp"])
                             else:
                                 request = (
                                     self.compute_client()
