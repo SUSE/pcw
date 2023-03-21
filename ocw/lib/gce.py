@@ -1,6 +1,8 @@
+import json
 from datetime import timezone
 from dateutil.parser import parse
 import googleapiclient.discovery
+from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
 from .provider import Provider
 
@@ -94,9 +96,57 @@ class GCE(Provider):
     def url_to_name(url):
         return url[url.rindex("/")+1:]
 
+    @staticmethod
+    def get_error_reason(error: "googleapiclient.errors.HttpError") -> str:
+        reason = "unknown"
+        try:
+            error_content = json.loads(error.content)
+            return error_content['error']['errors'][0]['reason']
+        except (KeyError, ValueError, IndexError):
+            pass
+        return reason
+
     def cleanup_all(self):
-        request = self.compute_client().images().list(project=self.project)
         self.log_dbg("Call cleanup_all")
+
+        self.log_dbg("Disks cleanup")
+        for region in self.list_regions():
+            for zone in self.list_zones(region):
+                self.log_dbg("Searching for disks in {}", zone)
+                request = self.compute_client().disks().list(project=self.project, zone=zone)
+                while request is not None:
+                    response = request.execute()
+                    if "items" not in response:
+                        break
+                    for disk in response["items"]:
+                        if self.is_outdated(parse(disk["creationTimestamp"]).astimezone(timezone.utc)):
+                            if self.dry_run:
+                                self.log_info("Deletion of disk {} created on {} skipped due to dry run mode",
+                                              disk["name"], disk["creationTimestamp"])
+                            else:
+                                request = (
+                                    self.compute_client()
+                                    .disks()
+                                    .delete(project=self.project, zone=zone, disk=disk["name"])
+                                )
+                                try:
+                                    response = request.execute()
+                                    self.log_info("Disk '{}' deleted", disk["name"])
+                                except HttpError as err:
+                                    if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
+                                        self.log_dbg("Disk {} can not be deleted because in use", disk["name"])
+                                    else:
+                                        raise err
+
+                            request = (
+                                self.compute_client()
+                                .disks()
+                                .list_next(previous_request=request, previous_response=response)
+                            )
+
+        self.log_dbg("Images cleanup")
+        request = self.compute_client().images().list(project=self.project)
+
         while request is not None:
             response = request.execute()
             if "items" not in response:
@@ -106,19 +156,19 @@ class GCE(Provider):
                     if self.dry_run:
                         self.log_info("Deletion of image {} skipped due to dry run mode", image["name"])
                     else:
-                        self.log_info("Delete image '{}'", image["name"])
                         request = (
                             self.compute_client()
                             .images()
                             .delete(project=self.project, image=image["name"])
                         )
-                        response = request.execute()
-                        if "error" in response:
-                            for err in response["error"]["errors"]:
-                                self.log_err(err["message"])
-                        if "warnings" in response:
-                            for warn in response["warnings"]:
-                                self.log_warn(warn["message"])
+                        try:
+                            response = request.execute()
+                            self.log_info("Delete image '{}'", image["name"])
+                        except HttpError as err:
+                            if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
+                                self.log_dbg("Image {} can not be deleted because in use", image["name"])
+                            else:
+                                raise err
 
             request = (
                 self.compute_client()
