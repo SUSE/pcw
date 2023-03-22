@@ -47,15 +47,8 @@ class InstanceMock:
 
 @pytest.fixture
 def update_run_patch(monkeypatch):
-
-    class Mock_Scheduler:
-
-        def get_job(self, val1):
-            return True
-
     monkeypatch.setattr(PCWConfig, 'get_namespaces_for', lambda namespace: ['namespace1'])
     monkeypatch.setattr(PCWConfig, 'get_providers_for', lambda namespace, region: ['provider1'])
-    monkeypatch.setattr('ocw.apps.getScheduler', lambda namespace: Mock_Scheduler())
 
 
 @pytest.fixture

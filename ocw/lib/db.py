@@ -1,12 +1,11 @@
 import json
 import traceback
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 import dateutil.parser as dateparser
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
-from ocw.apps import getScheduler
 from webui.PCWConfig import PCWConfig
 from ..models import Instance, StateChoice, ProviderChoice, CspInfo
 from .emailnotify import send_mail, send_leftover_notification
@@ -140,9 +139,6 @@ def update_run() -> None:
     Instance.state is used to reflect the "local" state, e.g. if someone triggered a delete, the
     state will moved to DELETING. If the instance is gone from CSP, the state will set to DELETED.
     '''
-    global RUNNING, LAST_UPDATE
-    RUNNING = True
-    error_occured = False
     for namespace in PCWConfig.get_namespaces_for('default'):
         default_ttl = PCWConfig.get_feature_property('updaterun', 'default_ttl', namespace)
         for provider in PCWConfig.get_providers_for('default', namespace):
@@ -151,18 +147,11 @@ def update_run() -> None:
                 _update_provider(provider, namespace, default_ttl)
             except Exception:
                 logger.exception("[%s] Update failed for %s", namespace, provider)
-                error_occured = True
                 send_mail('Error on update {} in namespace {}'.format(provider, namespace),
                           traceback.format_exc())
 
     auto_delete_instances()
     send_leftover_notification()
-    RUNNING = False
-    if not error_occured:
-        LAST_UPDATE = datetime.now(timezone.utc)
-
-    if not getScheduler().get_job('update_db'):
-        init_cron()
 
 
 def delete_instance(instance: type[Instance]) -> None:
@@ -200,23 +189,3 @@ def auto_delete_instances() -> None:
         if len(email_text) > 0:
             send_mail('[{}] Error on auto deleting instance(s)'.format(namespace),
                       "\n{}\n".format('#'*79).join(email_text))
-
-
-def is_updating():
-    global RUNNING
-    return RUNNING
-
-
-def last_update():
-    global LAST_UPDATE
-    return LAST_UPDATE if LAST_UPDATE is not None else ''
-
-
-def start_update():
-    global RUNNING
-    if not RUNNING:
-        getScheduler().get_job('update_db').reschedule(trigger='date', run_date=datetime.now(timezone.utc))
-
-
-def init_cron():
-    getScheduler().add_job(update_run, trigger='interval', minutes=45, id='update_db')

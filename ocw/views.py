@@ -54,11 +54,6 @@ def instance_json(request):
     return HttpResponse(data, content_type="application/json")
 
 
-def update(request):
-    db.start_update()
-    return redirect('instances')
-
-
 def update_status(request):
     if 'application/json' in request.META.get('HTTP_ACCEPT'):
         return JsonResponse({
