@@ -58,6 +58,9 @@ case "$CMD" in
 	"updaterun")
 		python3 manage.py updaterun
 		;;
+	"cleanup")
+		python3 manage.py cleanup
+		;;
 	"rmclusters")
 		python3 manage.py rmclusters
 		;;

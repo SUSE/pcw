@@ -6,7 +6,6 @@ from ocw.lib.EC2 import EC2
 from ocw.lib.gce import GCE
 from ocw.lib.eks import EKS
 from ocw.lib.emailnotify import send_mail, send_cluster_notification
-from ocw.apps import getScheduler
 from ocw.enums import ProviderChoice
 
 logger = logging.getLogger(__name__)
@@ -42,8 +41,3 @@ def list_clusters():
         except Exception as ex:
             logger.exception("[%s] List clusters failed!", namespace)
             send_mail('{} on List clusters in [{}]'.format(type(ex).__name__, namespace), traceback.format_exc())
-
-
-def init_cron():
-    getScheduler().add_job(cleanup_run, trigger='interval', minutes=60, id='cleanup_all', misfire_grace_time=1800)
-    getScheduler().add_job(list_clusters, trigger='interval', hours=18, id='list_clusters', misfire_grace_time=10000)
