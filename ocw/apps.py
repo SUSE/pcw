@@ -37,9 +37,7 @@ class OcwConfig(AppConfig):
 
         try:
             import ocw.lib.db
-            import ocw.lib.cleanup
 
             ocw.lib.db.init_cron()
-            ocw.lib.cleanup.init_cron()
         except Exception:
             logger.exception("Failure on initialize cronjobs")
