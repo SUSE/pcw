@@ -131,25 +131,6 @@ class MockedEC2Client():
         return MockedEC2Client.response
 
 
-class MockedEKSClient():
-    clusters_list = {}
-
-    def list_clusters(self):
-        return self.clusters_list
-
-    def describe_cluster(self, name=None):
-        if name == 'empty':
-            return {}
-        elif name == 'hascluster':
-            return {'cluster': {}}
-        elif name == 'hastags':
-            return {'cluster': {'tags': {}}}
-        elif name == 'ignored':
-            return {'cluster': {'tags': {'pcw_ignore': '1'}}}
-        else:
-            return None
-
-
 class MockedSMTP:
     mimetext = ''
 
