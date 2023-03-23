@@ -80,6 +80,24 @@ class EKS(Provider):
 
         return self.__kubectl_client[region_cluster]
 
+    def all_clusters(self) -> dict:
+        clusters = {}
+        for region in self.list_regions():
+            self.log_dbg("Checking clusters in {}", region)
+            response = self.eks_client(region).list_clusters()
+            if 'clusters' in response and len(response['clusters']) > 0:
+                clusters[region] = []
+                self.log_dbg("Found {} clusters in {}", len(response['clusters']), region)
+                for cluster in response['clusters']:
+                    cluster_description = self.eks_client(region).describe_cluster(name=cluster)
+                    if 'cluster' not in cluster_description or 'tags' not in cluster_description['cluster']:
+                        self.log_err("Unexpected cluster description: {}", cluster_description)
+                    elif TAG_IGNORE not in cluster_description['cluster']['tags']:
+                        clusters[region].append(cluster)
+                if len(clusters[region]) == 0:
+                    del clusters[region]
+        return clusters
+
     def cleanup_k8s_jobs(self):
         for region in self.list_regions():
             self.log_dbg(f"Region {region}")

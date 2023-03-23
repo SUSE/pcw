@@ -8,12 +8,46 @@ from webui.PCWConfig import PCWConfig
 from tests.generators import mock_get_feature_property
 
 
+def test_list_clusters(eks_patch, monkeypatch):
+    mocked_eks = MockedEKSClient()
+    monkeypatch.setattr(EKS, 'eks_client', lambda self, region: mocked_eks)
+    all_clusters = eks_patch.all_clusters()
+    assert all_clusters == {}
+
+    mocked_eks.clusters_list = {'clusters': ['empty']}
+    all_clusters = eks_patch.all_clusters()
+    assert all_clusters == {}
+
+    mocked_eks.clusters_list = {'clusters': ['hascluster']}
+    all_clusters = eks_patch.all_clusters()
+    assert all_clusters == {}
+
+    mocked_eks.clusters_list = {'clusters': ['hastags']}
+    all_clusters = eks_patch.all_clusters()
+    assert all_clusters == {'region1': ['hastags']}
+
+    mocked_eks.clusters_list = {'clusters': ['hastags', 'ignored']}
+    all_clusters = eks_patch.all_clusters()
+    assert all_clusters == {'region1': ['hastags']}
+
+
 class MockedEKSClient():
     def __init__(self):
         self.clusters_list = []
 
     def list_clusters(self):
         return self.clusters_list
+
+    def describe_cluster(self, name=None):
+        if name == 'empty':
+            return {}
+        elif name == 'hascluster':
+            return {'cluster': {}}
+        elif name == 'hastags':
+            return {'cluster': {'tags': {}}}
+        elif name == 'ignored':
+            return {'cluster': {'tags': {'pcw_ignore': '1'}}}
+        return None
 
 
 class MockedKubernetesConfig():
