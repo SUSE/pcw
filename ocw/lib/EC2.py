@@ -183,6 +183,7 @@ class EC2(Provider):
         valid_period_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-age-days', self._namespace)
 
         if valid_period_days > 0:
+            self.log_info("Do cleanup of images, snapshots and volumes")
             self.cleanup_images(valid_period_days)
             self.cleanup_snapshots(valid_period_days)
             self.cleanup_volumes(valid_period_days)
@@ -298,10 +299,10 @@ class EC2(Provider):
                 gate.delete()
 
     def cleanup_vpcs(self) -> None:
-        self.log_dbg('Call cleanup_vpcs')
-        vpc_errors = list()
-        vpc_notify = list()
-        vpc_locked = list()
+        self.log_dbg('Do cleanup of VPCs')
+        vpc_errors = []
+        vpc_notify = []
+        vpc_locked = []
         for region in self.all_regions:
             response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
             self.log_dbg("Found {} VPC\'s in {}", len(response['Vpcs']), region)

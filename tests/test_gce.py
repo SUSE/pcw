@@ -85,15 +85,13 @@ def test_cleanup_all(monkeypatch):
             'items': [
                 {'name': 'keep', 'creationTimestamp': now_age},
                 {'name': 'delete1', 'creationTimestamp': older_than_max_age}
-            ]
-        }),
+            ], 'id': "id"}),
         FakeRequest(),    # on images().delete()
         FakeRequest({   # on images().list_next()
             'items': [
                 {'name': 'keep', 'creationTimestamp': now_age},
                 {'name': 'delete2', 'creationTimestamp': older_than_max_age}
-            ]
-        }),
+            ], 'id': "id"}),
         FakeRequest({'error': {'errors': [{'message': 'err message'}]},
                     'warnings': [{'message': 'warning message'}]}),
         None   # on images().list_next()
@@ -104,15 +102,13 @@ def test_cleanup_all(monkeypatch):
             'items': [
                 {'name': 'keep', 'creationTimestamp': now_age},
                 {'name': 'delete_disk1', 'creationTimestamp': older_than_max_age}
-            ]
-        }),
+            ], 'id': "id"}),
         FakeRequest(),    # on disks().delete()
         FakeRequest({   # on disks().list_next()
             'items': [
                 {'name': 'keep', 'creationTimestamp': now_age},
                 {'name': 'delete_disk2', 'creationTimestamp': older_than_max_age}
-            ]
-        }),
+            ], 'id': "id"}),
         FakeRequest({'error': {'errors': [{'message': 'err message'}]},
                     'warnings': [{'message': 'warning message'}]}),
         None   # on disks().list_next()

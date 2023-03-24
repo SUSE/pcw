@@ -120,7 +120,7 @@ class Azure(Provider):
             resource_group, filter=filters, expand="changedTime"))
 
     def cleanup_all(self) -> None:
-        self.log_dbg("Call cleanup_all")
+        self.log_info("Call cleanup_all")
         self.cleanup_images_from_rg()
         self.cleanup_disks_from_rg()
         self.cleanup_blob_containers()
