@@ -7,3 +7,5 @@ flake8
 pytest-cov
 codecov
 pylint
+docker
+selenium
