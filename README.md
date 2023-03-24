@@ -139,3 +139,32 @@ To simplify problem investigation pcw has two [django commands](https://docs.dja
 
 those allows triggering core functionality without web UI. It is highly recommended to use `dry_run = True` in `pcw.ini` in
 such cases.
+
+## Testing
+
+```
+virtualenv ~/.pcw
+source ~/.pcw/bin/activate
+pip install -r requirements_test.txt
+make test
+```
+
+The tests contain a Selenium test for the webUI that uses Docker. You can either add yourself to the `docker` group (not recommended for security reasons) or use this approach to temporarily run a Bash session with the `docker` group added to your groups list:
+
+Set a password for the `docker` group:
+
+`sudo gpasswd docker`
+
+Copy this script to a personal directory in your `$PATH` with executable permissions:
+
+```
+#!/bin/bash
+
+if id -Gn | grep -q '\bdocker\b' ; then
+	exit 0
+fi
+
+exec /usr/bin/sg docker newgrp $(id -gn)
+```
+
+Then simply run `sudocker.sh` and then `exit` when you're done.
