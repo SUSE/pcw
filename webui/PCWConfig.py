@@ -88,6 +88,19 @@ class PCWConfig():
                                     ConfigFile().getList('{}/providers'.format(feature), ['EC2', 'AZURE', 'GCE']))
 
     @staticmethod
+    def get_k8s_clusters_for_provider(namespace: str, provider: str) -> list:
+        result = []
+        clusters = ConfigFile().get(f"k8sclusters.namespace.{namespace}/{provider}-clusters")
+        for cluster in clusters.split(','):
+            cluster = cluster.strip()
+            if not re.match(r'^[\w-]+:[\w-]+$', cluster):
+                raise ValueError(f"Invalid cluster pair '{cluster}' in config file. "
+                                 "Must be like 'resource_group:cluster_name'")
+            resource_group, cluster_name = cluster.split(':')
+            result.append({'resource_group': resource_group, 'cluster_name': cluster_name})
+        return result
+
+    @staticmethod
     def has(setting: str) -> bool:
         try:
             ConfigFile().get(setting)

@@ -140,3 +140,58 @@ def test_getBoolean_namespace_but_not_defined(pcw_file):
     providers = azure
     """)
     assert PCWConfig.getBoolean('feature/bool_property', 'random_namespace')
+
+
+def test_get_k8s_clusters_for_provider(pcw_file):
+    set_pcw_ini(pcw_file, """
+    [k8sclusters]
+    namespaces=random_namespace
+
+    [k8sclusters.namespace.random_namespace]
+    azure-clusters = resource_group:cluster_name
+    """)
+    clusters = PCWConfig.get_k8s_clusters_for_provider('random_namespace', 'azure')
+    assert len(clusters) == 1
+    assert clusters[0]['resource_group'] == 'resource_group'
+    assert clusters[0]['cluster_name'] == 'cluster_name'
+
+
+def test_get_k8s_clusters_for_provider_not_section_defined(pcw_file):
+    set_pcw_ini(pcw_file, "")
+    with pytest.raises(LookupError):
+        PCWConfig.get_k8s_clusters_for_provider('random_namespace', 'azure')
+
+
+def test_get_k8s_clusters_for_provider_no_azure_clusters_defined(pcw_file):
+    set_pcw_ini(pcw_file, """
+    [k8sclusters]
+    namespaces=random_namespace
+
+    [k8sclusters.namespace.random_namespace]
+    """)
+    with pytest.raises(LookupError):
+        PCWConfig.get_k8s_clusters_for_provider('random_namespace', 'azure')
+
+
+def test_get_k8s_clusters_for_provider_azure_clusters_empty(pcw_file):
+    set_pcw_ini(pcw_file, """
+    [k8sclusters]
+    namespaces=random_namespace
+
+    [k8sclusters.namespace.random_namespace]
+    azure-clusters =
+    """)
+    with pytest.raises(ValueError):
+        PCWConfig.get_k8s_clusters_for_provider('random_namespace', 'azure')
+
+
+def test_get_k8s_clusters_for_provider_azure_clusters_invalid(pcw_file):
+    set_pcw_ini(pcw_file, """
+    [k8sclusters]
+    namespaces=random_namespace
+
+    [k8sclusters.namespace.random_namespace]
+    azure-clusters = not_valid_format
+    """)
+    with pytest.raises(ValueError):
+        PCWConfig.get_k8s_clusters_for_provider('random_namespace', 'azure')
