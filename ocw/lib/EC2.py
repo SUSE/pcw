@@ -22,10 +22,6 @@ class EC2(Provider):
             self.all_regions = ConfigFile().getList('default/ec2_regions')
         else:
             self.all_regions = self.get_all_regions()
-        if PCWConfig.has('clusters/ec2_regions'):
-            self.cluster_regions = ConfigFile().getList('clusters/ec2_regions')
-        else:
-            self.cluster_regions = self.get_all_regions()
 
     def __new__(cls, vault_namespace: str):
         if vault_namespace not in EC2.__instances:
@@ -139,45 +135,6 @@ class EC2(Provider):
                 self.log_warn("Failed to delete instance with id {}. It does not exists on EC2", instance_id)
             else:
                 raise ex
-
-    def wait_for_empty_nodegroup_list(self, region: str, cluster_name: str, timeout_minutes: int = 20):
-        if self.dry_run:
-            self.log_info("Skip waiting due to dry-run mode")
-            return None
-        self.log_dbg("Waiting empty nodegroup list in {}", cluster_name)
-        end = datetime.now(timezone.utc) + timedelta(minutes=timeout_minutes)
-        resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster_name)
-
-        while datetime.now(timezone.utc) < end and len(resp_nodegroup['nodegroups']) > 0:
-            time.sleep(20)
-            resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster_name)
-            if len(resp_nodegroup['nodegroups']) > 0:
-                self.log_dbg("Still waiting for {} nodegroups to disappear", len(resp_nodegroup['nodegroups']))
-        return None
-
-    def delete_all_clusters(self) -> None:
-        self.log_info("Deleting all clusters!")
-        for region in self.cluster_regions:
-            response = self.eks_client(region).list_clusters()
-            if len(response['clusters']):
-                self.log_dbg("Found {} cluster(s) in {}", len(response['clusters']), region)
-                for cluster in response['clusters']:
-                    resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster)
-                    if len(resp_nodegroup['nodegroups']):
-                        self.log_dbg("Found {} nodegroups for {}", len(resp_nodegroup['nodegroups']), cluster)
-                        for nodegroup in resp_nodegroup['nodegroups']:
-                            if self.dry_run:
-                                self.log_info("Skipping {} nodegroup deletion due to dry-run mode", nodegroup)
-                            else:
-                                self.log_info("Deleting {}", nodegroup)
-                                self.eks_client(region).delete_nodegroup(
-                                    clusterName=cluster, nodegroupName=nodegroup)
-                        self.wait_for_empty_nodegroup_list(region, cluster)
-                    if self.dry_run:
-                        self.log_info("Skipping {} cluster deletion due to dry-run mode", cluster)
-                    else:
-                        self.log_info("Finally deleting {} cluster", cluster)
-                        self.eks_client(region).delete_cluster(name=cluster)
 
     def cleanup_all(self) -> None:
         valid_period_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-age-days', self._namespace)

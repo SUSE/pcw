@@ -1,7 +1,7 @@
 import os
+from datetime import datetime, timezone, timedelta
 import pytest
 import kubernetes
-from datetime import datetime, timezone, timedelta
 from ocw.lib.provider import Provider
 from ocw.lib.eks import EKS
 from webui.PCWConfig import PCWConfig
@@ -94,18 +94,24 @@ class MockedKubernetesJob():
 
 
 class MockedSubprocessReturn():
-    def __init__(self, returncode=0, stderr=""):
+    def __init__(self, returncode=0, stdout="", stderr=""):
         self.returncode = returncode
         self.stderr = stderr
+        self.stdout = stdout
 
 
 @pytest.fixture
 def eks_patch(monkeypatch):
+    def mocked_cmd_exec(self, cmd):
+        if "describe-regions" in cmd:
+            return MockedSubprocessReturn(stdout="[\"region1\"]")
+        return MockedSubprocessReturn(0)
+
+
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     monkeypatch.setattr(Provider, 'read_auth_json',
                         lambda *args, **kwargs: {'access_key': 'key', 'secret_key': 'secret'})
-    monkeypatch.setattr(EKS, 'list_regions', lambda self: ['region1'])
-    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: MockedSubprocessReturn(0))
+    monkeypatch.setattr(Provider, 'cmd_exec', mocked_cmd_exec)
     monkeypatch.setattr(EKS, 'aws_dir', lambda self: '/tmp')
 
     # monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
@@ -139,7 +145,7 @@ def test_create_credentials_file(eks_patch, monkeypatch):
     assert os.path.exists("/tmp/credentials")
 
     # Invalid credentials, 'aws sts get-caller-identity' fails
-    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: MockedSubprocessReturn(1, "test"))
+    monkeypatch.setattr(Provider, 'cmd_exec', lambda *args, **kwargs: MockedSubprocessReturn(returncode=1, stderr="test"))
     error = "Invalid credentials, the credentials cannot be verified by'aws sts get-caller-identity' with the error: test"
     with pytest.raises(RuntimeError, match=error):
         eks_patch.create_credentials_file()
