@@ -32,7 +32,8 @@ class EKS(Provider):
             if PCWConfig.has('clusters/ec2_regions'):
                 EKS.__cluster_regions = ConfigFile().getList('clusters/ec2_regions')
             else:
-                regions_query = self.cmd_exec(f"aws ec2 describe-regions --query 'Regions[].RegionName' --output json --region {EKS.default_region}")
+                regions_query = self.cmd_exec(f"aws ec2 describe-regions --query 'Regions[].RegionName'\
+                                               --output json --region {EKS.default_region}")
                 EKS.__cluster_regions = json.loads(regions_query.stdout)
 
     def aws_dir(self):

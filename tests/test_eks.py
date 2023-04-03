@@ -107,16 +107,11 @@ def eks_patch(monkeypatch):
             return MockedSubprocessReturn(stdout="[\"region1\"]")
         return MockedSubprocessReturn(0)
 
-
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     monkeypatch.setattr(Provider, 'read_auth_json',
                         lambda *args, **kwargs: {'access_key': 'key', 'secret_key': 'secret'})
     monkeypatch.setattr(Provider, 'cmd_exec', mocked_cmd_exec)
     monkeypatch.setattr(EKS, 'aws_dir', lambda self: '/tmp')
-
-    # monkeypatch.setattr(EC2, 'check_credentials', lambda *args, **kwargs: True)
-    # monkeypatch.setattr(EKS, 'create_credentials_file', lambda *args, **kwargs: '{}')
-
     return EKS('fake')
 
 
