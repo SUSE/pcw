@@ -93,6 +93,39 @@ class MockedEC2Client():
     snapshotid_i_have_ami = 'you_can_not_delete_me'
     delete_snapshot_raise_error = False
     delete_vpc_endpoints_called = False
+    disassociate_route_table_called = False
+    delete_route_called = False
+    routing_tables = {'RouteTables': [
+            {
+                'Associations': [
+                    {'Main': True},
+                    {'RouteTableAssociationId': '1',
+                     'Main': False}
+                ],
+                'Routes': [
+                    {'GatewayId': 'local'},
+                    {'GatewayId': 'not_local',
+                     'RouteTableId': '1',
+                     'DestinationCidrBlock': 'CIDR'
+                     }
+                ],
+                'RouteTableId': '1'
+            },
+            {
+                'Associations': [
+                    {'RouteTableAssociationId': '2',
+                     'Main': False}
+                ],
+                'Routes': [
+                    {'GatewayId': 'local'},
+                    {'GatewayId': 'not_local',
+                     'RouteTableId': '2',
+                     'DestinationCidrBlock': 'CIDR'
+                     }
+                ],
+                'RouteTableId': '2'
+            }
+        ]}
 
     ec2_snapshots = {snapshotid_to_delete: 'snapshot', snapshotid_i_have_ami: 'snapshot'}
 
@@ -129,6 +162,17 @@ class MockedEC2Client():
 
     def describe_vpc_peering_connections(self, Filters):
         return MockedEC2Client.response
+
+    def disassociate_route_table(self, AssociationId):
+        if AssociationId == '2':
+            MockedEC2Client.disassociate_route_table_called = True
+
+    def describe_route_tables(self, Filters):
+        return MockedEC2Client.routing_tables
+
+    def delete_route(self, RouteTableId, DestinationCidrBlock):
+        if RouteTableId == '2':
+            MockedEC2Client.delete_route_called = True
 
 
 class MockedSMTP:
@@ -295,13 +339,11 @@ def test_cleanup_uploader_vpc_no_mail_sent_due_dry_run(ec2_patch_for_vpc):
 
 
 def test_delete_vpc_deleting_everything(ec2_patch, monkeypatch):
-    def mocked_delete_elastic_ips(arg1, arg2):
-        delete_vpc_calls_stack.append('delete_elastic_ips')
 
     def mocked_delete_internet_gw(arg1, arg2):
         delete_vpc_calls_stack.append('delete_internet_gw')
 
-    def mocked_delete_routing_tables(arg1, arg2):
+    def mocked_delete_routing_tables(arg1, arg2, arg3):
         delete_vpc_calls_stack.append('delete_routing_tables')
 
     def mocked_delete_vpc_endpoints(arg1, arg2, arg3):
@@ -322,7 +364,6 @@ def test_delete_vpc_deleting_everything(ec2_patch, monkeypatch):
         # emulated that there is no linked running instance to VPC which we trying to delete
 
     MockedInstances.is_empty = True
-    monkeypatch.setattr(EC2, 'delete_elastic_ips', mocked_delete_elastic_ips)
     monkeypatch.setattr(EC2, 'delete_internet_gw', mocked_delete_internet_gw)
     monkeypatch.setattr(EC2, 'delete_routing_tables', mocked_delete_routing_tables)
     monkeypatch.setattr(EC2, 'delete_vpc_endpoints', mocked_delete_vpc_endpoints)
@@ -332,17 +373,16 @@ def test_delete_vpc_deleting_everything(ec2_patch, monkeypatch):
     monkeypatch.setattr(EC2, 'delete_vpc_subnets', mocked_delete_vpc_subnets)
     ec2_patch.delete_vpc('region', MockedVpc('vpcId'), 'vpcId')
 
-    assert delete_vpc_calls_stack == ['delete_elastic_ips', 'delete_internet_gw', 'delete_routing_tables',
-                                      'delete_vpc_endpoints', 'delete_security_groups',
-                                      'delete_vpc_peering_connections', 'delete_network_acls',
-                                      'delete_vpc_subnets', 'boto3_delete_vpc']
+    assert delete_vpc_calls_stack == ['delete_routing_tables', 'delete_security_groups', 'delete_network_acls',
+                                      'delete_vpc_subnets', 'delete_internet_gw', 'delete_vpc_endpoints',
+                                      'delete_vpc_peering_connections', 'boto3_delete_vpc']
 
 
 def test_delete_vpc_return_exception_str(ec2_patch_for_vpc, monkeypatch):
-    def mocked_dont_call_it(arg1, arg2):
+    def mocked_dont_call_it(arg1, arg2, arg3):
         raise Exception
 
-    monkeypatch.setattr(EC2, 'delete_elastic_ips', mocked_dont_call_it)
+    monkeypatch.setattr(EC2, 'delete_routing_tables', mocked_dont_call_it)
     ret = ec2_patch_for_vpc.delete_vpc('region', MockedVpc('vpcId'), 'vpcId')
     assert '[vpcId]Exception on VPC deletion. Traceback (most recent call last)' in ret
 
@@ -367,8 +407,9 @@ def test_delete_internet_gw(ec2_patch):
 
 
 def test_delete_routing_tables(ec2_patch):
-    ec2_patch.delete_routing_tables(MockedVpc('vpcId'))
-    assert MockedCollectionItem.delete_called == 2
+    ec2_patch.delete_routing_tables(MockedVpc('vpcId'), 'vpcId')
+    assert MockedEC2Client.disassociate_route_table_called
+    assert MockedEC2Client.delete_route_called
 
 
 def test_delete_vpc_endpoints(ec2_patch):
@@ -379,7 +420,7 @@ def test_delete_vpc_endpoints(ec2_patch):
 
 def test_delete_security_groups(ec2_patch):
     ec2_patch.delete_security_groups(MockedVpc('vpcId'))
-    assert MockedCollectionItem.delete_called == 3
+    assert MockedCollectionItem.delete_called == 2
 
 
 def test_delete_vpc_peering_connections(ec2_patch):
@@ -390,12 +431,12 @@ def test_delete_vpc_peering_connections(ec2_patch):
 
 def test_delete_network_acls(ec2_patch):
     ec2_patch.delete_network_acls(MockedVpc('vpcId'))
-    assert MockedCollectionItem.delete_called == 4
+    assert MockedCollectionItem.delete_called == 3
 
 
 def test_delete_vpc_subnets(ec2_patch):
     ec2_patch.delete_vpc_subnets(MockedVpc('vpcId'))
-    assert MockedCollectionItem.delete_called == 5
+    assert MockedCollectionItem.delete_called == 4
     assert MockedInterface.delete_called
 
 

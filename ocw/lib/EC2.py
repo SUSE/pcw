@@ -1,6 +1,6 @@
 import traceback
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from typing import Dict
 import boto3
 from botocore.exceptions import ClientError
@@ -22,10 +22,6 @@ class EC2(Provider):
             self.all_regions = ConfigFile().getList('default/ec2_regions')
         else:
             self.all_regions = self.get_all_regions()
-        if PCWConfig.has('clusters/ec2_regions'):
-            self.cluster_regions = ConfigFile().getList('clusters/ec2_regions')
-        else:
-            self.cluster_regions = self.get_all_regions()
 
     def __new__(cls, vault_namespace: str):
         if vault_namespace not in EC2.__instances:
@@ -140,45 +136,6 @@ class EC2(Provider):
             else:
                 raise ex
 
-    def wait_for_empty_nodegroup_list(self, region: str, cluster_name: str, timeout_minutes: int = 20):
-        if self.dry_run:
-            self.log_info("Skip waiting due to dry-run mode")
-            return None
-        self.log_dbg("Waiting empty nodegroup list in {}", cluster_name)
-        end = datetime.now(timezone.utc) + timedelta(minutes=timeout_minutes)
-        resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster_name)
-
-        while datetime.now(timezone.utc) < end and len(resp_nodegroup['nodegroups']) > 0:
-            time.sleep(20)
-            resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster_name)
-            if len(resp_nodegroup['nodegroups']) > 0:
-                self.log_dbg("Still waiting for {} nodegroups to disappear", len(resp_nodegroup['nodegroups']))
-        return None
-
-    def delete_all_clusters(self) -> None:
-        self.log_info("Deleting all clusters!")
-        for region in self.cluster_regions:
-            response = self.eks_client(region).list_clusters()
-            if len(response['clusters']):
-                self.log_dbg("Found {} cluster(s) in {}", len(response['clusters']), region)
-                for cluster in response['clusters']:
-                    resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster)
-                    if len(resp_nodegroup['nodegroups']):
-                        self.log_dbg("Found {} nodegroups for {}", len(resp_nodegroup['nodegroups']), cluster)
-                        for nodegroup in resp_nodegroup['nodegroups']:
-                            if self.dry_run:
-                                self.log_info("Skipping {} nodegroup deletion due to dry-run mode", nodegroup)
-                            else:
-                                self.log_info("Deleting {}", nodegroup)
-                                self.eks_client(region).delete_nodegroup(
-                                    clusterName=cluster, nodegroupName=nodegroup)
-                        self.wait_for_empty_nodegroup_list(region, cluster)
-                    if self.dry_run:
-                        self.log_info("Skipping {} cluster deletion due to dry-run mode", cluster)
-                    else:
-                        self.log_info("Finally deleting {} cluster", cluster)
-                        self.eks_client(region).delete_cluster(name=cluster)
-
     def cleanup_all(self) -> None:
         valid_period_days = PCWConfig.get_feature_property('cleanup', 'ec2-max-age-days', self._namespace)
 
@@ -190,27 +147,16 @@ class EC2(Provider):
         if PCWConfig.getBoolean('cleanup/vpc_cleanup', self._namespace):
             self.cleanup_vpcs()
 
-    def delete_elastic_ips(self, region):
-        self.log_info('Deleting elastic IPs in {}'.format(region))
-        response = self.ec2_client(region).describe_addresses()
-        for addr in response['Addresses']:
-            if 'AssociationId' in addr:
-                self.log_info('Disassosiate IP with AssociationId:{}'.format(addr['AssociationId']))
-                self.ec2_client(region).disassociate_address(AssociationId=addr['AssociationId'])
-            self.log_info('Release IP with AllocationId:{}'.format(addr['AllocationId']))
-            self.ec2_client(region).release_address(AllocationId=addr['AllocationId'])
-
-    def delete_vpc(self, region: str, vpc, vpc_id: str) -> None:
+    def delete_vpc(self, region: str, vpc, vpc_id: str):
         try:
             self.log_info('{} has no associated instances. Initializing cleanup of it', vpc)
-            self.delete_elastic_ips(region)
-            self.delete_internet_gw(vpc)
-            self.delete_routing_tables(vpc)
-            self.delete_vpc_endpoints(region, vpc_id)
+            self.delete_routing_tables(region, vpc_id)
             self.delete_security_groups(vpc)
-            self.delete_vpc_peering_connections(region, vpc_id)
             self.delete_network_acls(vpc)
             self.delete_vpc_subnets(vpc)
+            self.delete_internet_gw(vpc)
+            self.delete_vpc_endpoints(region, vpc_id)
+            self.delete_vpc_peering_connections(region, vpc_id)
             if self.dry_run:
                 self.log_info('Deletion of VPC skipped due to dry_run mode')
             else:
@@ -277,16 +223,35 @@ class EC2(Provider):
                 self.log_info('Deleting {}', end_point)
                 self.ec2_client(region).delete_vpc_endpoints(VpcEndpointIds=[end_point['VpcEndpointId']])
 
-    def delete_routing_tables(self, vpc) -> None:
+    def delete_routing_tables(self, region: str, vpc_id: str) -> None:
         self.log_dbg('Call delete_routing_tables')
-        for rtable in vpc.route_tables.all():
-            # we can not delete main RouteTable's , not main one don't have associations_attributes
-            if len(rtable.associations_attribute) == 0:
+        vpc_filter = [{"Name": "vpc-id", "Values": [vpc_id]}]
+        route_tables = self.ec2_client(region).describe_route_tables(Filters=vpc_filter)['RouteTables']
+        self.log_dbg('Got {} routing tables', len(route_tables))
+        for route_table in route_tables:
+            for association in route_table['Associations']:
+                if not association['Main']:
+                    if self.dry_run:
+                        self.log_info('{} disassociation with routing table won\'t happen due to dry_run mode',
+                                      association['RouteTableAssociationId'])
+                    else:
+                        self.log_info('{} disassociation with routing table will happen',
+                                      association['RouteTableAssociationId'])
+                        self.ec2_client(region).disassociate_route_table(AssociationId=association['RouteTableAssociationId'])
+            for route in route_table['Routes']:
+                if route['GatewayId'] != 'local':
+                    if self.dry_run:
+                        self.log_info('{} route will not be deleted due to dry_run mode', route_table)
+                    else:
+                        self.log_info('{} route will be deleted', route_table)
+                        self.ec2_client(region).delete_route(RouteTableId=route_table['RouteTableId'],
+                                                             DestinationCidrBlock=route['DestinationCidrBlock'])
+            if route_table['Associations'] == []:
                 if self.dry_run:
-                    self.log_info('{} will be not deleted due to dry_run mode', rtable)
+                    self.log_info('{} routing table will not be deleted due to dry_run mode', route_table['RouteTableId'])
                 else:
-                    self.log_info('Deleting {}', rtable)
-                    rtable.delete()
+                    self.log_info('{} routing table will be deleted due to dry_run mode', route_table['RouteTableId'])
+                    self.ec2_client(region).delete_route_table(RouteTableId=route_table['RouteTableId'])
 
     def delete_internet_gw(self, vpc) -> None:
         self.log_dbg('Call delete_internet_gw')
@@ -307,25 +272,32 @@ class EC2(Provider):
             response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
             self.log_dbg("Found {} VPC\'s in {}", len(response['Vpcs']), region)
             for response_vpc in response['Vpcs']:
-                self.log_dbg('Found {} in {}. (OwnerId={}).', response_vpc['VpcId'], region, response_vpc['OwnerId'])
+                vpc_id = response_vpc['VpcId']
+                if self.volume_protected(response_vpc):
+                    self.log_dbg('{} has protection tag pcw_ignore obey the order!', vpc_id)
+                    continue
+                self.log_dbg('Found {} in {}. (OwnerId={}).', vpc_id, region, response_vpc['OwnerId'])
                 if PCWConfig.getBoolean('cleanup/vpc-notify-only', self._namespace):
-                    vpc_notify.append(response_vpc["VpcId"])
+                    vpc_notify.append(vpc_id)
                 else:
-                    resource_vpc = self.ec2_resource(region).Vpc(response_vpc['VpcId'])
-                    can_be_deleted = True
-                    for subnet in resource_vpc.subnets.all():
-                        if len(list(subnet.instances.all())) > 0:
-                            self.log_info('{} has associated instance(s) so can not be deleted',
-                                          response_vpc['VpcId'])
-                            can_be_deleted = False
-                            break
-                    if can_be_deleted:
-                        del_responce = self.delete_vpc(region, resource_vpc, response_vpc['VpcId'])
+                    resource_vpc = self.ec2_resource(region).Vpc(vpc_id)
+                    if self.vpc_can_be_deleted(resource_vpc, vpc_id):
+                        del_responce = self.delete_vpc(region, resource_vpc, vpc_id)
                         if del_responce is not None:
+                            self.log_err(del_responce)
                             vpc_errors.append(del_responce)
                     elif not self.dry_run:
-                        vpc_locked.append(f'{response_vpc["VpcId"]} (OwnerId={response_vpc["OwnerId"]})\
-                                          in {region} is locked')
+                        vpc_locked.append(f'{vpc_id} (OwnerId={response_vpc["OwnerId"]}) in {region} is locked')
+        self.report_cleanup_results(vpc_errors, vpc_notify, vpc_locked)
+
+    def vpc_can_be_deleted(self, resource_vpc, vpc_id) -> bool:
+        for subnet in resource_vpc.subnets.all():
+            if len(list(subnet.instances.all())) > 0:
+                self.log_info('{} has associated instance(s) so can not be deleted', vpc_id)
+                return False
+        return True
+
+    def report_cleanup_results(self, vpc_errors: list, vpc_notify: list, vpc_locked: list) -> None:
         if len(vpc_errors) > 0:
             send_mail(f'Errors on VPC deletion in [{self._namespace}]', '\n'.join(vpc_errors))
         if len(vpc_notify) > 0:
