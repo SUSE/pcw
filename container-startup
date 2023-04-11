@@ -14,8 +14,8 @@ usage() {
 	echo "   run                     Standart publiccloud-watcher run procedure"
 	echo "   migrate                 Run database migration"
 	echo "   createuser USER PASS    Create user"
-	echo "	 updaterun 							 Do a regular instance scan and persist results to local DB"
-	echo "	 rmclusters							 Scan whole AWS account and delete ANY EKS clusters"
+	echo "	 updaterun               Do a regular instance scan and persist results to local DB"
+	echo "	 rmclusters              Scan whole AWS account and delete ANY EKS clusters"
 	echo ""
 	echo "All other commands will be passed as arguments to 'manage.py'"
 }
