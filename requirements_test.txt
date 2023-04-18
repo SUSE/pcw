@@ -5,7 +5,6 @@ pytest-django
 faker
 flake8
 pytest-cov
-codecov
 pylint
 docker
 selenium
