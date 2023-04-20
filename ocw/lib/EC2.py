@@ -239,7 +239,7 @@ class EC2(Provider):
                                       association['RouteTableAssociationId'])
                         self.ec2_client(region).disassociate_route_table(AssociationId=association['RouteTableAssociationId'])
             for route in route_table['Routes']:
-                if route['GatewayId'] != 'local':
+                if 'GatewayId' in route and route['GatewayId'] != 'local':
                     if self.dry_run:
                         self.log_info('{} route will not be deleted due to dry_run mode', route_table)
                     else:
