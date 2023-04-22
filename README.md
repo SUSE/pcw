@@ -3,6 +3,10 @@
 
 # OpenQA Public cloud Helper
 
+![PCW project logo](https://repository-images.githubusercontent.com/140823511/394bbeff-cd84-42f2-8a36-b4cd3923e4be)
+> **Jose Lausuch**: Where you thinking about PCW while laying on the beach? :stuck_out_tongue:
+> **Anton Smorodskyi**: YES, constantly! :partygeeko: I see it in every palm on the beach !
+
 PublicCloud-Watcher (PCW) is a web app which monitors, displays and deletes resources on various Cloud Service Providers (CSPs).
 PCW has two main flows :
 
