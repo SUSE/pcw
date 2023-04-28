@@ -164,7 +164,13 @@ class EC2(Provider):
                 self.ec2_resource(region).meta.client.delete_vpc(VpcId=vpc_id)
             return None
         except Exception as ex:
-            return f"[{vpc_id}]{type(ex).__name__} on VPC deletion. {traceback.format_exc()}"
+            trace_txt = traceback.format_exc()
+            error_type = type(ex).__name__
+            del_responce = f"[{vpc_id}] {error_type} on VPC deletion. {trace_txt}"
+            self.log_err(del_responce)
+            if error_type == "ClientError" and "(DependencyViolation)" in trace_txt:
+                return None
+            return del_responce
 
     def delete_vpc_subnets(self, vpc) -> None:
         self.log_dbg('Call delete_vpc_subnets')
@@ -284,7 +290,6 @@ class EC2(Provider):
                     if self.vpc_can_be_deleted(resource_vpc, vpc_id):
                         del_responce = self.delete_vpc(region, resource_vpc, vpc_id)
                         if del_responce is not None:
-                            self.log_err(del_responce)
                             vpc_errors.append(del_responce)
                     elif not self.dry_run:
                         vpc_locked.append(f'{vpc_id} (OwnerId={response_vpc["OwnerId"]}) in {region} is locked')
