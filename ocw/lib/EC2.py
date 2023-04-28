@@ -161,6 +161,7 @@ class EC2(Provider):
                 self.log_info('Deletion of VPC skipped due to dry_run mode')
             else:
                 # finally, delete the vpc
+                self.log_info('Delete VPC={}', vpc_id)
                 self.ec2_resource(region).meta.client.delete_vpc(VpcId=vpc_id)
             return None
         except Exception as ex:
@@ -234,23 +235,27 @@ class EC2(Provider):
                     if self.dry_run:
                         self.log_info('{} disassociation with routing table won\'t happen due to dry_run mode',
                                       association['RouteTableAssociationId'])
+                        self.log_dbg(association)
                     else:
                         self.log_info('{} disassociation with routing table will happen',
                                       association['RouteTableAssociationId'])
+                        self.log_dbg(association)
                         self.ec2_client(region).disassociate_route_table(AssociationId=association['RouteTableAssociationId'])
             for route in route_table['Routes']:
                 if 'GatewayId' in route and route['GatewayId'] != 'local':
                     if self.dry_run:
-                        self.log_info('{} route will not be deleted due to dry_run mode', route_table)
+                        self.log_info('{} route will not be deleted due to dry_run mode', route_table['RouteTableId'])
+                        self.log_dbg(route)
                     else:
-                        self.log_info('{} route will be deleted', route_table)
+                        self.log_info('Delete route {}', route_table['RouteTableId'])
+                        self.log_dbg(route)
                         self.ec2_client(region).delete_route(RouteTableId=route_table['RouteTableId'],
                                                              DestinationCidrBlock=route['DestinationCidrBlock'])
             if route_table['Associations'] == []:
                 if self.dry_run:
                     self.log_info('{} routing table will not be deleted due to dry_run mode', route_table['RouteTableId'])
                 else:
-                    self.log_info('{} routing table will be deleted due to dry_run mode', route_table['RouteTableId'])
+                    self.log_info('Delete routing table {}', route_table['RouteTableId'])
                     self.ec2_client(region).delete_route_table(RouteTableId=route_table['RouteTableId'])
 
     def delete_internet_gw(self, vpc) -> None:
