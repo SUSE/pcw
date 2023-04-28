@@ -164,13 +164,7 @@ class EC2(Provider):
                 self.ec2_resource(region).meta.client.delete_vpc(VpcId=vpc_id)
             return None
         except Exception as ex:
-            trace_txt = traceback.format_exc()
-            error_type = type(ex).__name__
-            del_responce = f"[{vpc_id}] {error_type} on VPC deletion. {trace_txt}"
-            self.log_err(del_responce)
-            if error_type == "ClientError" and "(DependencyViolation)" in trace_txt:
-                return None
-            return del_responce
+            return f"[{vpc_id}] {type(ex).__name__} on VPC deletion. {traceback.format_exc()}"
 
     def delete_vpc_subnets(self, vpc) -> None:
         self.log_dbg('Call delete_vpc_subnets')
@@ -274,6 +268,7 @@ class EC2(Provider):
         vpc_errors = []
         vpc_notify = []
         vpc_locked = []
+        vpc_known_exception = "botocore.exceptions.ClientError: An error occurred (DependencyViolation)"
         for region in self.all_regions:
             response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
             self.log_dbg("Found {} VPC\'s in {}", len(response['Vpcs']), region)
@@ -290,7 +285,11 @@ class EC2(Provider):
                     if self.vpc_can_be_deleted(resource_vpc, vpc_id):
                         del_responce = self.delete_vpc(region, resource_vpc, vpc_id)
                         if del_responce is not None:
-                            vpc_errors.append(del_responce)
+                            self.log_err(del_responce)
+                            # Our cleanup is not perfect yet so often at this stage we have VPC's
+                            # which has dependencies still and we don't want to have emails about this known problem
+                            if vpc_known_exception not in del_responce:
+                                vpc_errors.append(del_responce)
                     elif not self.dry_run:
                         vpc_locked.append(f'{vpc_id} (OwnerId={response_vpc["OwnerId"]}) in {region} is locked')
         self.report_cleanup_results(vpc_errors, vpc_notify, vpc_locked)
