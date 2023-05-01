@@ -10,7 +10,7 @@ requests==2.28.1
 django~=4.0.10
 django-tables2==2.4.1
 django-filter==22.1
-django-bootstrap4==22.1
+django-bootstrap4==23.1
 texttable
 oauth2client
 google-api-python-client==2.55.0
