@@ -161,10 +161,11 @@ class EC2(Provider):
                 self.log_info('Deletion of VPC skipped due to dry_run mode')
             else:
                 # finally, delete the vpc
+                self.log_info('Delete VPC={}', vpc_id)
                 self.ec2_resource(region).meta.client.delete_vpc(VpcId=vpc_id)
             return None
         except Exception as ex:
-            return f"[{vpc_id}]{type(ex).__name__} on VPC deletion. {traceback.format_exc()}"
+            return f"[{vpc_id}] {type(ex).__name__} on VPC deletion. {traceback.format_exc()}"
 
     def delete_vpc_subnets(self, vpc) -> None:
         self.log_dbg('Call delete_vpc_subnets')
@@ -234,23 +235,27 @@ class EC2(Provider):
                     if self.dry_run:
                         self.log_info('{} disassociation with routing table won\'t happen due to dry_run mode',
                                       association['RouteTableAssociationId'])
+                        self.log_dbg(association)
                     else:
                         self.log_info('{} disassociation with routing table will happen',
                                       association['RouteTableAssociationId'])
+                        self.log_dbg(association)
                         self.ec2_client(region).disassociate_route_table(AssociationId=association['RouteTableAssociationId'])
             for route in route_table['Routes']:
                 if 'GatewayId' in route and route['GatewayId'] != 'local':
                     if self.dry_run:
-                        self.log_info('{} route will not be deleted due to dry_run mode', route_table)
+                        self.log_info('{} route will not be deleted due to dry_run mode', route_table['RouteTableId'])
+                        self.log_dbg(route)
                     else:
-                        self.log_info('{} route will be deleted', route_table)
+                        self.log_info('Delete route {}', route_table['RouteTableId'])
+                        self.log_dbg(route)
                         self.ec2_client(region).delete_route(RouteTableId=route_table['RouteTableId'],
                                                              DestinationCidrBlock=route['DestinationCidrBlock'])
             if route_table['Associations'] == []:
                 if self.dry_run:
                     self.log_info('{} routing table will not be deleted due to dry_run mode', route_table['RouteTableId'])
                 else:
-                    self.log_info('{} routing table will be deleted due to dry_run mode', route_table['RouteTableId'])
+                    self.log_info('Delete routing table {}', route_table['RouteTableId'])
                     self.ec2_client(region).delete_route_table(RouteTableId=route_table['RouteTableId'])
 
     def delete_internet_gw(self, vpc) -> None:
@@ -268,6 +273,7 @@ class EC2(Provider):
         vpc_errors = []
         vpc_notify = []
         vpc_locked = []
+        vpc_known_exception = "botocore.exceptions.ClientError: An error occurred (DependencyViolation)"
         for region in self.all_regions:
             response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
             self.log_dbg("Found {} VPC\'s in {}", len(response['Vpcs']), region)
@@ -285,7 +291,10 @@ class EC2(Provider):
                         del_responce = self.delete_vpc(region, resource_vpc, vpc_id)
                         if del_responce is not None:
                             self.log_err(del_responce)
-                            vpc_errors.append(del_responce)
+                            # Our cleanup is not perfect yet so often at this stage we have VPC's
+                            # which has dependencies still and we don't want to have emails about this known problem
+                            if vpc_known_exception not in del_responce:
+                                vpc_errors.append(del_responce)
                     elif not self.dry_run:
                         vpc_locked.append(f'{vpc_id} (OwnerId={response_vpc["OwnerId"]}) in {region} is locked')
         self.report_cleanup_results(vpc_errors, vpc_notify, vpc_locked)

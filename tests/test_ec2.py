@@ -384,7 +384,7 @@ def test_delete_vpc_return_exception_str(ec2_patch_for_vpc, monkeypatch):
 
     monkeypatch.setattr(EC2, 'delete_routing_tables', mocked_dont_call_it)
     ret = ec2_patch_for_vpc.delete_vpc('region', MockedVpc('vpcId'), 'vpcId')
-    assert '[vpcId]Exception on VPC deletion. Traceback (most recent call last)' in ret
+    assert '[vpcId] Exception on VPC deletion. Traceback (most recent call last)' in ret
 
 
 def test_delete_vpc_no_delete_due_notify_only_config(ec2_patch_for_vpc, monkeypatch):
