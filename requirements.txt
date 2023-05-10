@@ -15,6 +15,7 @@ texttable
 oauth2client
 google-api-python-client==2.55.0
 google-cloud-storage==2.4.0
+openstacksdk~=1.2.0
 python-dateutil
 apscheduler
 kubernetes

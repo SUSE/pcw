@@ -57,6 +57,7 @@ class PCWConfig():
             'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload', 'return_type': str},
             'cleanup/azure-storage-account-name': {'default': 'openqa', 'return_type': str},
             'cleanup/ec2-max-age-days': {'default': -1, 'return_type': int},
+            'cleanup/openstack-max-age-days': {'default': 3, 'return_type': int},
             'updaterun/default_ttl': {'default': 44400, 'return_type': int},
             'notify/to': {'default': None, 'return_type': str},
             'notify/age-hours': {'default': 12, 'return_type': int},
@@ -85,7 +86,7 @@ class PCWConfig():
     @staticmethod
     def get_providers_for(feature: str, namespace: str):
         return ConfigFile().getList('{}.namespace.{}/providers'.format(feature, namespace),
-                                    ConfigFile().getList('{}/providers'.format(feature), ['EC2', 'AZURE', 'GCE']))
+                                    ConfigFile().getList('{}/providers'.format(feature), ['EC2', 'AZURE', 'GCE', 'OSTACK']))
 
     @staticmethod
     def get_k8s_clusters_for_provider(namespace: str, provider: str) -> list:

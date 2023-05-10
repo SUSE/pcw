@@ -4,6 +4,7 @@ from webui.PCWConfig import PCWConfig
 from ocw.lib.azure import Azure
 from ocw.lib.EC2 import EC2
 from ocw.lib.gce import GCE
+from ocw.lib.openstack import Openstack
 from ocw.lib.eks import EKS
 from ocw.lib.emailnotify import send_mail, send_cluster_notification
 from ocw.enums import ProviderChoice
@@ -24,6 +25,9 @@ def cleanup_run():
 
             if ProviderChoice.GCE in providers:
                 GCE(namespace).cleanup_all()
+
+            if ProviderChoice.OSTACK in providers:
+                Openstack(namespace).cleanup_all()
 
         except Exception as ex:
             logger.exception("[%s] Cleanup failed!", namespace)
