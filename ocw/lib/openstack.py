@@ -34,10 +34,10 @@ class Openstack(Provider):
             )
         return self.__client
 
-    def _is_outdated(self, timestamp: str) -> bool:
+    def is_outdated(self, timestamp: str, param: str) -> bool:
         now = datetime.now(timezone.utc)
-        max_days = PCWConfig.get_feature_property('cleanup', 'openstack-max-age-days', self._namespace)
-        return (now - parse(timestamp)).days > max_days
+        max_days = PCWConfig.get_feature_property('cleanup', param, self._namespace)
+        return (now - parse(timestamp).astimezone(timezone.utc)).days > max_days
 
     def cleanup_all(self) -> None:
         self._cleanup_instances()
@@ -53,22 +53,21 @@ class Openstack(Provider):
             return
         self.log_dbg("Found {} servers", len(servers))
         for server in servers:
-            if not self.is_outdated(parse(server.created_at).astimezone(timezone.utc)):
-                continue
-            if self.dry_run:
-                self.log_info("Instance termination {} skipped due to dry run mode", server.name)
-            else:
-                self.log_info("Deleting instance {}", server.name)
-                try:
-                    if not self.client().delete_server(
-                            server.name,
-                            wait=False,
-                            timeout=180,
-                            delete_ips=True,  # Delete floating IP address
-                            delete_ip_retry=1):
-                        self.log_err("Failed to delete instance {}", server.name)
-                except OpenStackCloudException as exc:
-                    self.log_warn("Got exception while deleting instance {}: {}", server.name, exc)
+            if self.is_outdated(server.created_at, "openstack-vm-max-age-days"):
+                if self.dry_run:
+                    self.log_info("Instance termination {} skipped due to dry run mode", server.name)
+                else:
+                    self.log_info("Deleting instance {}", server.name)
+                    try:
+                        if not self.client().delete_server(
+                                server.name,
+                                wait=False,
+                                timeout=180,
+                                delete_ips=True,  # Delete floating IP address
+                                delete_ip_retry=1):
+                            self.log_err("Failed to delete instance {}", server.name)
+                    except OpenStackCloudException as exc:
+                        self.log_warn("Got exception while deleting instance {}: {}", server.name, exc)
 
     def _cleanup_images(self) -> None:
         try:
@@ -78,7 +77,7 @@ class Openstack(Provider):
             return
         self.log_dbg("Found {} images", len(images))
         for image in images:
-            if self._is_outdated(image.created_at):
+            if self.is_outdated(image.created_at, "openstack-image-max-age-days"):
                 if self.dry_run:
                     self.log_info("Image deletion {} skipped due to dry run mode", image.name)
                 else:
@@ -102,7 +101,7 @@ class Openstack(Provider):
         for keypair in keypairs:
             if keypair.created_at is None:
                 keypair.created_at = self.client().compute.get_keypair(keypair.name).created_at
-            if self._is_outdated(keypair.created_at):
+            if self.is_outdated(keypair.created_at, "openstack-key-max-days"):
                 if self.dry_run:
                     self.log_info("Keypair deletion {} skipped due to dry run mode", keypair.name)
                 else:
