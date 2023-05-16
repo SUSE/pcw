@@ -141,10 +141,11 @@ class EKS(Provider):
                         self.eks_client(region).delete_cluster(name=cluster)
 
     def cleanup_k8s_jobs(self):
+        self.log_info("Cleanup k8s jobs in EKS clusters")
         for region in self.__cluster_regions:
             self.log_dbg(f"Region {region}")
             clusters = self.eks_client(region).list_clusters()['clusters']
             for cluster_name in clusters:
-                self.log_dbg(f"Clean up of cluster {cluster_name} in region {region}")
+                self.log_info(f"Cleanup k8s jobs in EKS cluster {cluster_name} in region {region}")
                 client = self.kubectl_client(region, cluster_name)
                 clean_jobs(self, client, cluster_name)
