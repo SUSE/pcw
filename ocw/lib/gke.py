@@ -57,10 +57,11 @@ class GKE(GCE):
         return []
 
     def cleanup_k8s_jobs(self):
+        self.log_info("Cleanup k8s jobs in GKE clusters")
         for region in self.list_regions():
             for zone in self.list_zones(region):
                 for cluster in self.get_clusters(zone):
                     cluster_name = cluster["name"]
-                    self.log_dbg(f"Clean up of cluster {cluster_name} in zone {zone}")
+                    self.log_info(f"Cleanup k8s jobs in GKE cluster {cluster_name} in zone {zone}")
                     client = self.kubectl_client(zone, cluster)
                     clean_jobs(self, client, cluster_name)

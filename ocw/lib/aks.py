@@ -65,6 +65,8 @@ class AKS(Provider):
 
     def cleanup_k8s_jobs(self):
         clusters = PCWConfig.get_k8s_clusters_for_provider(self._namespace, "azure")
+        self.log_info(f"Cleanup k8s jobs in AKS clusters. {len(clusters)}  will be queried ")
         for cluster in clusters:
+            self.log_info(f"Cleanup k8s jobs in AKS cluster {cluster['cluster_name']}")
             client = self.kubectl_client(cluster["resource_group"], cluster["cluster_name"])
             clean_jobs(self, client, cluster["cluster_name"])
