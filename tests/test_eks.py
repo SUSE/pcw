@@ -59,7 +59,7 @@ def eks_patch(monkeypatch):
 
     monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
     monkeypatch.setattr(Provider, 'read_auth_json',
-                        lambda *args, **kwargs: {'access_key': 'key', 'secret_key': 'secret'})
+                        lambda *args, **kwargs: {'access_key_id': 'key', 'secret_access_key': 'secret'})
     monkeypatch.setattr(Provider, 'cmd_exec', mocked_cmd_exec)
     monkeypatch.setattr(EKS, 'aws_dir', lambda self: '/tmp')
     return EKS('fake')

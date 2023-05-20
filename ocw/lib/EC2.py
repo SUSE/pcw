@@ -35,8 +35,8 @@ class EC2(Provider):
 
     def check_credentials(self) -> None:
 
-        self.__secret = self.get_data('secret_key')
-        self.__key = self.get_data('access_key')
+        self.__secret = self.get_data('secret_access_key')
+        self.__key = self.get_data('access_key_id')
 
         for i in range(1, 5):
             try:
