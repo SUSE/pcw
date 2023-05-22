@@ -15,6 +15,8 @@ usage() {
 	echo "   migrate                 Run database migration"
 	echo "   createuser USER PASS    Create user"
 	echo "	 updaterun               Do a regular instance scan and persist results to local DB"
+	echo "	 cleanup                 Cleanup old resources from providers"
+	echo "   dbbackup                Backup database"
 	echo "	 rmclusters              Scan whole AWS account and delete ANY EKS clusters"
 	echo ""
 	echo "All other commands will be passed as arguments to 'manage.py'"
@@ -60,6 +62,9 @@ case "$CMD" in
 		;;
 	"cleanup")
 		python3 manage.py cleanup
+		;;
+	"dbbackup")
+		python3 manage.py dbbackup
 		;;
 	"rmclusters")
 		python3 manage.py rmclusters
