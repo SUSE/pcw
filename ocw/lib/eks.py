@@ -50,8 +50,8 @@ class EKS(Provider):
 
             with open(creds_file, "w", encoding="utf8") as file_handle:
                 file_handle.write("[default]\n")
-                file_handle.write(f"aws_access_key_id={self.auth_json['access_key']}\n")
-                file_handle.write(f"aws_secret_access_key={self.auth_json['secret_key']}\n")
+                file_handle.write(f"aws_access_key_id={self.auth_json['access_key_id']}\n")
+                file_handle.write(f"aws_secret_access_key={self.auth_json['secret_access_key']}\n")
 
         res = self.cmd_exec("aws sts get-caller-identity")
         if res.returncode != 0:
@@ -61,8 +61,8 @@ class EKS(Provider):
     def eks_client(self, region: str) -> "boto3.session.Session.client":
         if region not in self.__eks_client:
             self.__eks_client[region] = boto3.client('eks',
-                                                     aws_access_key_id=self.auth_json['access_key'],
-                                                     aws_secret_access_key=self.auth_json['secret_key'],
+                                                     aws_access_key_id=self.auth_json['access_key_id'],
+                                                     aws_secret_access_key=self.auth_json['secret_access_key'],
                                                      region_name=region)
         return self.__eks_client[region]
 
