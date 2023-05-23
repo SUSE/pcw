@@ -3,5 +3,6 @@
 .cache
 __pycache__
 /db
+/db.backups
 # Also ignore templates
 /templates

@@ -16,4 +16,5 @@ htmlcov/*
 
 # Configuration and program data
 /db
+/db.backups
 pcw.ini
