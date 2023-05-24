@@ -52,7 +52,7 @@ Configuration of PCW happens via a global config file in `/etc/pcw.ini`. See [te
     cp templates/pwc.ini /etc/pcw.ini
 
 To be able to connect to CSP PCW needs Service Principal details. Depending on namespaces defined in `pcw.ini`  PCW will expect some JSON files to be created
-under `/var/pcw/[namespace name]/[azure/EC2/gce].json`. See [templates/var/example_namespace/](templates/var/example_namespace/) for examples.
+under `/var/pcw/[namespace name]/[Azure/EC2/GCE/Openstack].json`. See [templates/var/example_namespace/](templates/var/example_namespace/) for examples.
 
 PCW supports email notifications about left-over instances. See the `notify` section therein and their corresponding comments.
 
