@@ -40,9 +40,11 @@ The fastest way to run PCW is via the provided containers, as described in the [
 
 See the [requirements.txt](requirements.txt). It's recommended to setup `pcw` in a virtual environment to avoid package collisions:
 
-    virtualenv venv
-    . venv/bin/activate
-    pip install -r requirements.txt
+```bash
+virtualenv venv
+. venv/bin/activate
+pip install -r requirements.txt
+```
 
 ## Configure and run
 
@@ -65,7 +67,7 @@ pip install -r requirements.txt
 ## Configuration steps, only required once to setup the database and user
 # Setup database
 python manage.py migrate
-# Setup superuser
+# Setup superuser (OPTIONAL)
 python manage.py createsuperuser --email admin@example.com --username admin
 python manage.py collectstatic
 
@@ -80,8 +82,10 @@ By default, PCW runs on http://127.0.0.1:8000/
 
 To build a docker/podman container with the default `suse/qac/pcw` tag, run
 
-    make docker-container
-    make podman-container
+```bash
+make docker-container
+make podman-container
+```
 
 This repository contains the skeleton `Dockerfile` for building a PCW docker/podman container.
 
@@ -89,7 +93,9 @@ This repository contains the skeleton `Dockerfile` for building a PCW docker/pod
 
 You can use the already build containers within [this repository](https://github.com/orgs/SUSE/packages?repo_name=pcw):
 
-    podman pull ghcr.io/suse/pcw:latest
+```bash
+podman pull ghcr.io/suse/pcw:latest
+```
 
 The PCW container supports two volumes to be mounted:
 
@@ -98,20 +104,26 @@ The PCW container supports two volumes to be mounted:
 
 To create a container using e.g. the data directory `/srv/pcw` for both volumes and expose port 8000, run the following:
 
-    podman create --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -v <local creds storage>:/var/pcw -p 8000:8000/tcp ghcr.io/suse/pcw:latest
-    podman start pcw
+```bash
+podman create --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -v <local creds storage>:/var/pcw -p 8000:8000/tcp ghcr.io/suse/pcw:latest
+podman start pcw
+```
 
 For usage in docker simply replace `podman` by `docker` in the above command.
 
 The `pcw` container runs by default the `/pcw/container-startup` startup helper script. You can interact with it by running
 
-    podman exec pcw /pcw/container-startup help
+```bash
+podman exec pcw /pcw/container-startup help
 
-    podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v <local creds storage>:/var/pcw -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
+podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v <local creds storage>:/var/pcw -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
+```
 
-To create the admin superuser within the created container named `pcw`, run
+To create an user within the created container named `pcw`, run
 
-    podman run -ti --rm -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -v <local creds storage>:/var/pcw -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup createsuperuser --email admin@example.com --username admin
+```bash
+podman exec pcw /pcw/container-startup createuser admin USE_A_STRONG_PASSWORD
+```
 
 ## Devel version of container
 
@@ -119,8 +131,10 @@ There is [devel version](Dockerfile_dev) of container file. Main difference is t
 
 Expected use would be :
 
-    make podman-container-devel
-    podman run  -v <local path to ini file>:/etc/pcw.ini -v <local creds storage>:/var/pcw -v <path to this folder>:/pcw  -t pcw-devel "python3 manage.py <any command available>"
+```bash
+make podman-container-devel
+podman run  -v <local path to ini file>:/etc/pcw.ini -v <local creds storage>:/var/pcw -v <path to this folder>:/pcw  -t pcw-devel "python3 manage.py <any command available>"
+```
 
 
 ## Codecov
@@ -128,8 +142,10 @@ Expected use would be :
 Running codecov locally require installation of `pytest pytest-cov codecov`.
 Then you can run it with
 
-    BROWSER=$(xdg-settings get default-web-browser)
-    pytest -v --cov=./ --cov-report=html && $BROWSER htmlcov/index.html
+```bash
+BROWSER=$(xdg-settings get default-web-browser)
+pytest -v --cov=./ --cov-report=html && $BROWSER htmlcov/index.html
+```
 
 and explore the results in your browser
 
@@ -146,7 +162,7 @@ such cases.
 
 ## Testing
 
-```
+```bash
 virtualenv ~/.pcw
 source ~/.pcw/bin/activate
 pip install -r requirements_test.txt
@@ -161,7 +177,7 @@ Set a password for the `docker` group:
 
 Copy this script to a personal directory in your `$PATH` with executable permissions:
 
-```
+```bash
 #!/bin/bash
 
 if id -Gn | grep -q '\bdocker\b' ; then
