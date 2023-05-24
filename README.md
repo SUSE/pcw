@@ -1,4 +1,3 @@
-[![Build Status](https://travis-ci.com/SUSE/pcw.svg?branch=master)](https://travis-ci.com/SUSE/pcw)
 [![codecov](https://codecov.io/gh/SUSE/pcw/branch/master/graph/badge.svg)](https://codecov.io/gh/SUSE/pcw)
 
 # OpenQA Public cloud Helper
@@ -33,6 +32,8 @@ PCW has two main flows :
         c. Volumes in all regions defined
         d. VPC's ( deletion of VPC means deletion of all assigned to VPC entities first ( security groups , networks etc. ))
     - For GCE deleting only images (check details in [ocw/lib/gce.py](ocw/lib/gce.py))
+    - For Openstack deleting instances, images & keypairs (check details in [ocw/lib/openstack.py](ocw/lib/openstack.py)
+
 
 The fastest way to run PCW is via the provided containers, as described in the [Running a container](#running-a-container) section.
 

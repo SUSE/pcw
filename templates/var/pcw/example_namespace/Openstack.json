@@ -1,0 +1,10 @@
+{
+"auth_url": "AUTH_URL",
+"username": "USERNAME",
+"password": "PASSWORD",
+"region_name": "CustomRegion",
+"project_name": "PROJECT_NAME",
+"user_domain_name": "Default",
+"project_domain_id": "[0-9a-f]+"
+}
+
