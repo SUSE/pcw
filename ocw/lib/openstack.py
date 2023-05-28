@@ -32,7 +32,9 @@ class Openstack(Provider):
                 password=self.get_data('password'),
                 region_name=self.get_data('region_name'),
                 user_domain_name=self.get_data('user_domain_name'),
-                project_domain_name=self.get_data('project_domain_id'),
+                project_id=self.get_data('project_id'),
+                load_envvars=False,  # Avoid reading OS_* environment variables
+                load_yaml_config=False,  # Avoid reading clouds.yaml
             )
         return self.__client
 
