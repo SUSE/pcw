@@ -4,6 +4,7 @@ from dateutil.parser import parse
 import openstack
 from openstack.exceptions import OpenStackCloudException
 from webui.PCWConfig import PCWConfig
+from webui.settings import DEBUG
 from .provider import Provider
 
 
@@ -23,6 +24,7 @@ class Openstack(Provider):
     def client(self) -> None:
         if self.__client is None:
             self.__client = openstack.connect(
+                debug=DEBUG,
                 insecure=True,  # Trust the certificate
                 auth_url=self.get_data('auth_url'),
                 project_name=self.get_data('project_name'),
