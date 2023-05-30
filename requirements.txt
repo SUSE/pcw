@@ -19,4 +19,3 @@ openstacksdk~=1.2.0
 python-dateutil
 apscheduler
 kubernetes
-django-dbbackup
