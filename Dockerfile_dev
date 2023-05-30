@@ -10,7 +10,7 @@ COPY requirements.txt requirements_test.txt requirements_k8s.txt /tmp/
 # * Install system requirements
 # * Install pip requirements
 # * Empty system cache to conserve some space
-RUN zypper -n in gcc libffi-devel && pip install --no-cache-dir -r /tmp/requirements_test.txt && rm -rf /var/cache
+RUN zypper -n in gcc libffi-devel && pip install --no-cache-dir -r /tmp/requirements_test.txt && zypper clean && rm -rf /var/cache
 
 WORKDIR /pcw
 

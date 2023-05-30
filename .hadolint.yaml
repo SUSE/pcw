@@ -1,0 +1,7 @@
+failure-threshold: warning
+format: tty
+
+# Ignored rules:
+# DL3037 - Specify package version because we don't want to do that
+# DL4006 - Use SHELL option `-o pipefail` because that's non OCI container option
+ignored: [DL3037, DL4006]

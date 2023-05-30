@@ -31,3 +31,8 @@ podman-container-k8s:
 	podman build -f Dockerfile_k8s -t pcw-k8s-cleaner
 podman-container-k8s-devel:
 	podman build -f Dockerfile_k8s_dev -t pcw-k8s-cleaner-devel
+
+# Container linting
+.PHONY: container-lint
+container-lint: Dockerfile*
+	hadolint Dockerfile*
