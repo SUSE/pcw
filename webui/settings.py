@@ -49,7 +49,6 @@ INSTALLED_APPS = [
     'django_tables2',
     'django_filters',
     'bootstrap4',
-    'dbbackup',
 ]
 
 MIDDLEWARE = [
@@ -95,9 +94,6 @@ DATABASES = {
         }
     }
 }
-
-DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
-DBBACKUP_STORAGE_OPTIONS = {'location': os.path.join(BASE_DIR, 'db.backups')}
 
 
 # Password validation
