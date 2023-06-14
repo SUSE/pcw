@@ -73,7 +73,9 @@ class FakeMockImages:
             self.deleted_disks.append(kwargs['disk'])
         else:
             raise ValueError("Unexpected delete request")
-        return self.responses.pop(0)
+        if len(self.responses) > 0:
+            return self.responses.pop(0)
+        return FakeRequest(None)
 
 
 def test_cleanup_all(monkeypatch):
