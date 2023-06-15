@@ -124,10 +124,12 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
-
 USE_I18N = True
 
+# NOTE:
+# If you change these values you would have to change every instance of
+# `datetime.now(tz=timezone.utc)` accordingly
+TIME_ZONE = 'UTC'
 USE_TZ = True
 
 

@@ -1,6 +1,5 @@
 from django.db import models
-from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from webui.PCWConfig import PCWConfig
 import json
 from .enums import ProviderChoice, StateChoice
@@ -50,7 +49,7 @@ class Instance(models.Model):
         return all_time_pattern.format(self.age_formated(), first_fmt, last_fmt, self.ttl_formated())
 
     def set_alive(self):
-        self.last_seen = timezone.now()
+        self.last_seen = datetime.now(tz=timezone.utc)
         self.active = True
         self.age = self.last_seen - self.first_seen
         if self.state != StateChoice.DELETING:

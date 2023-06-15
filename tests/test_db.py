@@ -8,8 +8,7 @@ from ocw.lib.azure import Azure
 from ocw.lib.EC2 import EC2
 import pytest
 import dateutil.parser as dateparser
-from django.utils import timezone
-from datetime import datetime
+from datetime import datetime, timezone
 
 fake = Faker()
 
