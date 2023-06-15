@@ -118,6 +118,7 @@ def test_cleanup_all(monkeypatch):
 
     def mocked_compute_client():
         pass
+    mocked_compute_client.instances = lambda *args, **kwargs: []
     mocked_compute_client.images = lambda *args, **kwargs: fmi
     mocked_compute_client.disks = lambda *args, **kwargs: fmd
     monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)

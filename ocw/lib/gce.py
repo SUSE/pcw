@@ -91,15 +91,9 @@ class GCE(Provider):
         return [GCE.url_to_name(z) for z in region["zones"]]
 
     def delete_instance(self, instance_id, zone) -> None:
-        if self.dry_run:
-            self.log_info(
-                "Deletion of instance {} skipped due to dry run mode", instance_id
-            )
-        else:
-            self.log_info("Delete instance {}".format(instance_id))
-            self.compute_client().instances().delete(
-                project=self.project, zone=zone, instance=instance_id
-            ).execute()
+        self._delete_resource(
+            self.compute_client().instances, instance_id, project=self.project, zone=zone, instance=instance_id
+        )
 
     @staticmethod
     def url_to_name(url) -> str:
