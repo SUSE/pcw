@@ -1,6 +1,6 @@
 FROM registry.suse.com/bci/python:3.10
 
-RUN zypper -n in gcc tar gzip kubernetes1.23-client aws-cli azure-cli && zypper clean && rm -rf /var/cache
+RUN zypper -n in gcc tar gzip kubernetes1.24-client aws-cli azure-cli && zypper clean && rm -rf /var/cache
 
 # Google cli installation
 RUN curl -s https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-415.0.0-linux-x86_64.tar.gz | tar -zxf - -C /opt \
