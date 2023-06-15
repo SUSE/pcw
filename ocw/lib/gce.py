@@ -111,7 +111,10 @@ class GCE(Provider):
 
     def cleanup_all(self) -> None:
         self.log_info("Call cleanup_all")
+        self.cleanup_disks()
+        self.cleanup_images()
 
+    def cleanup_disks(self) -> None:
         self.log_dbg("Disks cleanup")
         for region in self.list_regions():
             for zone in self.list_zones(region):
@@ -124,6 +127,7 @@ class GCE(Provider):
                             self.compute_client().disks, disk["name"], project=self.project, zone=zone, disk=disk["name"]
                         )
 
+    def cleanup_images(self) -> None:
         self.log_dbg("Images cleanup")
         images = self._paginated(self.compute_client().images, project=self.project)
         self.log_dbg(f"{len(images)} images found")
