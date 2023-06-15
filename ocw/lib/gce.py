@@ -126,44 +126,15 @@ class GCE(Provider):
                 self.log_dbg(f"{len(disks)} disks found")
                 for disk in disks:
                     if self.is_outdated(parse(disk["creationTimestamp"]).astimezone(timezone.utc)):
-                        if self.dry_run:
-                            self.log_info("Deletion of disk {} created on {} skipped due to dry run mode",
-                                          disk["name"], disk["creationTimestamp"])
-                        else:
-                            delete_request = (
-                                self.compute_client()
-                                .disks()
-                                .delete(project=self.project, zone=zone, disk=disk["name"])
-                            )
-                            try:
-                                delete_response = delete_request.execute()
-                                self.log_dbg("Deletion response: {}", delete_response)
-                                self.log_info("Disk '{}' deleted", disk["name"])
-                            except HttpError as err:
-                                if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
-                                    self.log_dbg("Disk {} can not be deleted because in use", disk["name"])
-                                else:
-                                    raise err
+                        self._delete_resource(
+                            self.compute_client().disks, disk["name"], project=self.project, zone=zone, disk=disk["name"]
+                        )
 
         self.log_dbg("Images cleanup")
         images = self._paginated(self.compute_client().images, project=self.project)
         self.log_dbg(f"{len(images)} images found")
         for image in images:
             if self.is_outdated(parse(image["creationTimestamp"]).astimezone(timezone.utc)):
-                if self.dry_run:
-                    self.log_info("Deletion of image {} skipped due to dry run mode", image["name"])
-                else:
-                    delete_request = (
-                        self.compute_client()
-                        .images()
-                        .delete(project=self.project, image=image["name"])
-                    )
-                    try:
-                        delete_response = delete_request.execute()
-                        self.log_dbg("Deletion response: {}", delete_response)
-                        self.log_info("Delete image '{}'", image["name"])
-                    except HttpError as err:
-                        if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
-                            self.log_dbg("Image {} can not be deleted because in use", image["name"])
-                        else:
-                            raise err
+                self._delete_resource(
+                    self.compute_client().images, image["name"], project=self.project, image=image["name"]
+                )
