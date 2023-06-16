@@ -3,5 +3,5 @@ kubernetes
 google-api-python-client==2.55.0
 azure-mgmt-containerservice==22.0.0
 azure-mgmt-resource==21.1.0
-azure-identity==1.10.0
+azure-identity==1.13.0
 boto3
