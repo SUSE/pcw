@@ -1,4 +1,5 @@
 import json
+from os.path import basename
 from datetime import timezone
 from dateutil.parser import parse
 import googleapiclient.discovery
@@ -21,6 +22,39 @@ class GCE(Provider):
         self.private_key_data = self.get_data()
         self.project = self.private_key_data["project_id"]
 
+    def _paginated(self, api_call, **kwargs) -> list:
+        results = []
+        request = api_call().list(**kwargs)
+        while request is not None:
+            response = request.execute()
+            if "items" in response:
+                results.extend(response["items"])
+            else:
+                self.log_dbg(f"response has no items. id={response.get('id')}")
+            request = api_call().list_next(previous_request=request, previous_response=response)
+        return results
+
+    def _delete_resource(self, api_call, resource_name, *args, **kwargs) -> None:
+        resource_type = {
+            self.compute_client().instances: "instance",
+            self.compute_client().images: "image",
+            self.compute_client().disks: "disk",
+        }.get(api_call, "resource")
+        if self.dry_run:
+            self.log_info(f"Deletion of {resource_type} {resource_name} skipped due to dry run mode")
+            return
+        request = api_call().delete(**kwargs)
+        try:
+            self.log_info(f"Delete {resource_type.title()} '{resource_name}'")
+            response = request.execute()
+            self.log_dbg(f"Deletion response: {response}")
+            self.log_info(f"{resource_type.title()} '{resource_name}' deleted")
+        except HttpError as err:
+            if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
+                self.log_dbg(f"{resource_type.title()} '{resource_name}' can not be deleted because in use")
+            else:
+                raise err
+
     def compute_client(self):
         if self.__compute_client is None:
             credentials = service_account.Credentials.from_service_account_info(self.private_key_data)
@@ -29,72 +63,38 @@ class GCE(Provider):
             )
         return self.__compute_client
 
-    def list_instances(self, zone):
+    def list_instances(self, zone) -> list:
         """ List all instances by zone."""
-        self.log_dbg("Call list_instances for {}", zone)
-        result = []
-        request = (
-            self.compute_client().instances().list(project=self.project, zone=zone)
-        )
-        while request is not None:
-            response = request.execute()
-            if "items" in response:
-                result += response["items"]
-            request = (
-                self.compute_client()
-                .instances()
-                .list_next(previous_request=request, previous_response=response)
-            )
-        return result
+        self.log_dbg(f"Call list_instances for {zone}")
+        return self._paginated(self.compute_client().instances, project=self.project, zone=zone)
 
-    def list_all_instances(self):
+    def list_all_instances(self) -> list:
         result = []
         self.log_dbg("Call list_all_instances")
         for region in self.list_regions():
             for zone in self.list_zones(region):
-                result += self.list_instances(zone=zone)
+                result.extend(self.list_instances(zone=zone))
         return result
 
-    def list_regions(self):
+    def list_regions(self) -> list:
         """Walk through all regions->zones and collect all instances to return them as list.
         @see https://cloud.google.com/compute/docs/reference/rest/v1/instances/list#examples"""
-        result = []
-        request = self.compute_client().regions().list(project=self.project)
-        while request is not None:
-            response = request.execute()
+        regions = self._paginated(self.compute_client().regions, project=self.project)
+        return [region["name"] for region in regions]
 
-            for region in response["items"]:
-                result.append(region["name"])
-            request = (
-                self.compute_client()
-                .regions()
-                .list_next(previous_request=request, previous_response=response)
-            )
-        return result
-
-    def list_zones(self, region):
+    def list_zones(self, region) -> list:
         region = (
             self.compute_client()
             .regions()
             .get(project=self.project, region=region)
             .execute()
         )
-        return [GCE.url_to_name(z) for z in region["zones"]]
+        return [basename(z) for z in region["zones"]]
 
-    def delete_instance(self, instance_id, zone):
-        if self.dry_run:
-            self.log_info(
-                "Deletion of instance {} skipped due to dry run mode", instance_id
-            )
-        else:
-            self.log_info("Delete instance {}".format(instance_id))
-            self.compute_client().instances().delete(
-                project=self.project, zone=zone, instance=instance_id
-            ).execute()
-
-    @staticmethod
-    def url_to_name(url):
-        return url[url.rindex("/")+1:]
+    def delete_instance(self, instance_id, zone) -> None:
+        self._delete_resource(
+            self.compute_client().instances, instance_id, project=self.project, zone=zone, instance=instance_id
+        )
 
     @staticmethod
     def get_error_reason(error: "googleapiclient.errors.HttpError") -> str:
@@ -106,77 +106,30 @@ class GCE(Provider):
             pass
         return reason
 
-    def cleanup_all(self):
+    def cleanup_all(self) -> None:
         self.log_info("Call cleanup_all")
+        self.cleanup_disks()
+        self.cleanup_images()
 
+    def cleanup_disks(self) -> None:
         self.log_dbg("Disks cleanup")
         for region in self.list_regions():
             for zone in self.list_zones(region):
-                self.log_dbg("Searching for disks in {}", zone)
-                request = self.compute_client().disks().list(project=self.project, zone=zone)
-                while request is not None:
-                    response = request.execute()
-                    if "items" not in response:
-                        self.log_dbg("response has no items. id={}", response["id"])
-                        break
-                    self.log_dbg("response has {} items. id={}", len(response["items"]), response["id"])
-                    for disk in response["items"]:
-                        if self.is_outdated(parse(disk["creationTimestamp"]).astimezone(timezone.utc)):
-                            if self.dry_run:
-                                self.log_info("Deletion of disk {} created on {} skipped due to dry run mode",
-                                              disk["name"], disk["creationTimestamp"])
-                            else:
-                                delete_request = (
-                                    self.compute_client()
-                                    .disks()
-                                    .delete(project=self.project, zone=zone, disk=disk["name"])
-                                )
-                                try:
-                                    delete_response = delete_request.execute()
-                                    self.log_dbg("Deletion response: {}", delete_response)
-                                    self.log_info("Disk '{}' deleted", disk["name"])
-                                except HttpError as err:
-                                    if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
-                                        self.log_dbg("Disk {} can not be deleted because in use", disk["name"])
-                                    else:
-                                        raise err
-                    request = (
-                        self.compute_client()
-                        .disks()
-                        .list_next(previous_request=request, previous_response=response)
-                    )
-
-        self.log_dbg("Images cleanup")
-        request = self.compute_client().images().list(project=self.project)
-
-        while request is not None:
-            response = request.execute()
-            if "items" not in response:
-                self.log_dbg("response has no items. id={}", response["id"])
-                break
-            self.log_dbg("response has {} items. id={}", len(response["items"]), response["id"])
-            for image in response["items"]:
-                if self.is_outdated(parse(image["creationTimestamp"]).astimezone(timezone.utc)):
-                    if self.dry_run:
-                        self.log_info("Deletion of image {} skipped due to dry run mode", image["name"])
-                    else:
-                        delete_request = (
-                            self.compute_client()
-                            .images()
-                            .delete(project=self.project, image=image["name"])
+                self.log_dbg(f"Searching for disks in {zone}")
+                disks = self._paginated(self.compute_client().disks, project=self.project, zone=zone)
+                self.log_dbg(f"{len(disks)} disks found")
+                for disk in disks:
+                    if self.is_outdated(parse(disk["creationTimestamp"]).astimezone(timezone.utc)):
+                        self._delete_resource(
+                            self.compute_client().disks, disk["name"], project=self.project, zone=zone, disk=disk["name"]
                         )
-                        try:
-                            delete_response = delete_request.execute()
-                            self.log_dbg("Deletion response: {}", delete_response)
-                            self.log_info("Delete image '{}'", image["name"])
-                        except HttpError as err:
-                            if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
-                                self.log_dbg("Image {} can not be deleted because in use", image["name"])
-                            else:
-                                raise err
 
-            request = (
-                self.compute_client()
-                .images()
-                .list_next(previous_request=request, previous_response=response)
-            )
+    def cleanup_images(self) -> None:
+        self.log_dbg("Images cleanup")
+        images = self._paginated(self.compute_client().images, project=self.project)
+        self.log_dbg(f"{len(images)} images found")
+        for image in images:
+            if self.is_outdated(parse(image["creationTimestamp"]).astimezone(timezone.utc)):
+                self._delete_resource(
+                    self.compute_client().images, image["name"], project=self.project, image=image["name"]
+                )

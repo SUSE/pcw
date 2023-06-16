@@ -73,7 +73,9 @@ class FakeMockImages:
             self.deleted_disks.append(kwargs['disk'])
         else:
             raise ValueError("Unexpected delete request")
-        return self.responses.pop(0)
+        if len(self.responses) > 0:
+            return self.responses.pop(0)
+        return FakeRequest(None)
 
 
 def test_cleanup_all(monkeypatch):
@@ -116,6 +118,7 @@ def test_cleanup_all(monkeypatch):
 
     def mocked_compute_client():
         pass
+    mocked_compute_client.instances = lambda *args, **kwargs: []
     mocked_compute_client.images = lambda *args, **kwargs: fmi
     mocked_compute_client.disks = lambda *args, **kwargs: fmd
     monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)

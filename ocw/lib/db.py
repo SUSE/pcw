@@ -1,11 +1,11 @@
 import json
 import traceback
 import logging
-from datetime import datetime, timedelta
+from os.path import basename
+from datetime import datetime, timedelta, timezone
 import dateutil.parser as dateparser
 from django.db import transaction
 from django.db.models import F
-from django.utils import timezone
 from ocw.apps import getScheduler
 from webui.PCWConfig import PCWConfig
 from ..models import Instance, StateChoice, ProviderChoice, CspInfo
@@ -74,10 +74,10 @@ def ec2_extract_data(csp_instance, namespace: str, region: str, default_ttl: int
 def azure_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
     if csp_instance.tags:
         tags = csp_instance.tags
-        first_seen = dateparser.parse(tags.get('openqa_created_date', str(timezone.now())))
+        first_seen = dateparser.parse(tags.get('openqa_created_date', str(datetime.now(tz=timezone.utc))))
     else:
         tags = {}
-        first_seen = dateparser.parse(str(timezone.now()))
+        first_seen = dateparser.parse(str(datetime.now(tz=timezone.utc)))
     return {
         'tags': tags,
         'id': csp_instance.name,
@@ -100,9 +100,9 @@ def gce_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
         'id': csp_instance['id'],
         'first_seen': first_seen,
         'namespace': namespace,
-        'region': GCE.url_to_name(csp_instance['zone']),
+        'region': basename(csp_instance['zone']),
         'provider': ProviderChoice.GCE,
-        'type': GCE.url_to_name(csp_instance['machineType']),
+        'type': basename(csp_instance['machineType']),
         'default_ttl': default_ttl
     }
 
