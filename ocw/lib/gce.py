@@ -1,4 +1,5 @@
 import json
+from os.path import basename
 from datetime import timezone
 from dateutil.parser import parse
 import googleapiclient.discovery
@@ -88,16 +89,12 @@ class GCE(Provider):
             .get(project=self.project, region=region)
             .execute()
         )
-        return [GCE.url_to_name(z) for z in region["zones"]]
+        return [basename(z) for z in region["zones"]]
 
     def delete_instance(self, instance_id, zone) -> None:
         self._delete_resource(
             self.compute_client().instances, instance_id, project=self.project, zone=zone, instance=instance_id
         )
-
-    @staticmethod
-    def url_to_name(url) -> str:
-        return url[url.rindex("/")+1:]
 
     @staticmethod
     def get_error_reason(error: "googleapiclient.errors.HttpError") -> str:

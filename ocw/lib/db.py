@@ -1,6 +1,7 @@
 import json
 import traceback
 import logging
+from os.path import basename
 from datetime import datetime, timedelta, timezone
 import dateutil.parser as dateparser
 from django.db import transaction
@@ -99,9 +100,9 @@ def gce_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
         'id': csp_instance['id'],
         'first_seen': first_seen,
         'namespace': namespace,
-        'region': GCE.url_to_name(csp_instance['zone']),
+        'region': basename(csp_instance['zone']),
         'provider': ProviderChoice.GCE,
-        'type': GCE.url_to_name(csp_instance['machineType']),
+        'type': basename(csp_instance['machineType']),
         'default_ttl': default_ttl
     }
 

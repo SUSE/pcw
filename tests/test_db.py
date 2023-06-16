@@ -1,3 +1,4 @@
+from os.path import basename
 from ocw.lib.db import update_run, ec2_extract_data, gce_extract_data, azure_extract_data, delete_instance
 from webui.PCWConfig import PCWConfig
 from faker import Faker
@@ -105,9 +106,9 @@ def test_gce_extract_data(extract_data):
     assert rez['id'] == csp_instance['id']
     assert rez['first_seen'] == csp_instance['creationTimestamp']
     assert rez['namespace'] == extract_data['namespace']
-    assert rez['region'] == GCE.url_to_name(csp_instance['zone'])
+    assert rez['region'] == basename(csp_instance['zone'])
     assert rez['provider'] == ProviderChoice.GCE
-    assert rez['type'] == GCE.url_to_name(csp_instance['machineType'])
+    assert rez['type'] == basename(csp_instance['machineType'])
     assert rez['default_ttl'] == extract_data['default_ttl']
 
 
