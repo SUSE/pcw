@@ -30,7 +30,7 @@ class MockResource:
         return self.responses.pop(0)
 
     def delete(self, *args, **kwargs):
-        for resource in ('image', 'disk', 'instance'):
+        for resource in ('image', 'disk', 'instance', 'firewall', 'route', 'network', 'subnetwork'):
             if resource in kwargs:
                 self.deleted_resources.append(kwargs[resource])
                 if len(self.responses) > 0:
@@ -46,9 +46,13 @@ class MockResource:
 
 
 class MockClient:
-    def instances(self): pass
     def disks(self): pass
+    def firewalls(self): pass
     def images(self): pass
+    def instances(self): pass
+    def networks(self): pass
+    def routes(self): pass
+    def subnetworks(self): pass
 
 
 @fixture
@@ -102,14 +106,14 @@ def _test_cleanup(gce, resource_type, cleanup_call):
         resources = MockResource([
             MockRequest({   # on images().list()
                 'items': [
-                    {'name': 'keep', 'creationTimestamp': now_age},
-                    {'name': 'delete1', 'creationTimestamp': older_than_max_age}
+                    {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
+                    {'name': 'delete1', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
                 ], 'id': "id"}),
             MockRequest(),  # on images().delete()
             MockRequest({   # on images().list_next()
                 'items': [
-                    {'name': 'keep', 'creationTimestamp': now_age},
-                    {'name': 'delete2', 'creationTimestamp': older_than_max_age}
+                    {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
+                    {'name': 'delete2', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
                 ], 'id': "id"}),
             MockRequest({'error': {'errors': [{'message': 'err message'}]},
                         'warnings': [{'message': 'warning message'}]}),
@@ -138,12 +142,36 @@ def test_cleanup_images(gce):
     _test_cleanup(gce, "images", gce.cleanup_images)
 
 
+def test_cleanup_firewalls(gce):
+    _test_cleanup(gce, "firewalls", gce.cleanup_firewalls)
+
+
+def test_cleanup_routes(gce):
+    _test_cleanup(gce, "routes", gce.cleanup_routes)
+
+
+def test_cleanup_subnetworks(gce):
+    _test_cleanup(gce, "subnetworks", gce.cleanup_subnetworks)
+
+
+def test_cleanup_networks(gce):
+    _test_cleanup(gce, "networks", gce.cleanup_networks)
+
+
 def test_cleanup_all(gce):
     gce.cleanup_disks = MagicMock()
     gce.cleanup_images = MagicMock()
+    gce.cleanup_firewalls = MagicMock()
+    gce.cleanup_routes = MagicMock()
+    gce.cleanup_subnetworks = MagicMock()
+    gce.cleanup_networks = MagicMock()
     gce.cleanup_all()
     gce.cleanup_disks.assert_called_once()
     gce.cleanup_images.assert_called_once()
+    gce.cleanup_firewalls.assert_called_once()
+    gce.cleanup_routes.assert_called_once()
+    gce.cleanup_networks.assert_called_once()
+    gce.cleanup_subnetworks.assert_called_once()
 
 
 def test_get_error_reason():

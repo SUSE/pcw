@@ -10,6 +10,7 @@ from .provider import Provider
 
 class GCE(Provider):
     __instances = {}
+    __skip_networks = frozenset({"default"})
 
     def __new__(cls, vault_namespace):
         if vault_namespace not in GCE.__instances:
@@ -36,9 +37,13 @@ class GCE(Provider):
 
     def _delete_resource(self, api_call, resource_name, *args, **kwargs) -> None:
         resource_type = {
-            self.compute_client().instances: "instance",
-            self.compute_client().images: "image",
             self.compute_client().disks: "disk",
+            self.compute_client().firewalls: "firewall",
+            self.compute_client().images: "image",
+            self.compute_client().instances: "instance",
+            self.compute_client().networks: "network",
+            self.compute_client().routes: "route",
+            self.compute_client().subnetworks: "subnetwork",
         }.get(api_call, "resource")
         if self.dry_run:
             self.log_info(f"Deletion of {resource_type} {resource_name} skipped due to dry run mode")
@@ -110,6 +115,10 @@ class GCE(Provider):
         self.log_info("Call cleanup_all")
         self.cleanup_disks()
         self.cleanup_images()
+        self.cleanup_firewalls()
+        self.cleanup_routes()
+        self.cleanup_subnetworks()
+        self.cleanup_networks()
 
     def cleanup_disks(self) -> None:
         self.log_dbg("Disks cleanup")
@@ -132,4 +141,58 @@ class GCE(Provider):
             if self.is_outdated(parse(image["creationTimestamp"]).astimezone(timezone.utc)):
                 self._delete_resource(
                     self.compute_client().images, image["name"], project=self.project, image=image["name"]
+                )
+
+    def cleanup_firewalls(self) -> None:
+        self.log_dbg("Firewalls cleanup")
+        firewalls = [
+            firewall for firewall in self._paginated(self.compute_client().firewalls, project=self.project)
+            if basename(firewall["network"]) not in self.__skip_networks
+        ]
+        self.log_dbg(f"{len(firewalls)} firewalls found")
+        for firewall in firewalls:
+            if self.is_outdated(parse(firewall["creationTimestamp"]).astimezone(timezone.utc)):
+                self._delete_resource(
+                    self.compute_client().firewalls, firewall["name"], project=self.project, firewall=firewall["name"]
+                )
+
+    def cleanup_routes(self) -> None:
+        self.log_dbg("Routes cleanup")
+        routes = [
+            route for route in self._paginated(self.compute_client().routes, project=self.project)
+            if basename(route["network"]) not in self.__skip_networks
+        ]
+        self.log_dbg(f"{len(routes)} routes found")
+        for route in routes:
+            if self.is_outdated(parse(route["creationTimestamp"]).astimezone(timezone.utc)):
+                self._delete_resource(
+                    self.compute_client().routes, route["name"], project=self.project, route=route["name"]
+                )
+
+    def cleanup_subnetworks(self) -> None:
+        self.log_dbg("Subnetworks cleanup")
+        for region in self.list_regions():
+            subnetworks = [
+                subnet for subnet in self._paginated(self.compute_client().subnetworks, project=self.project, region=region)
+                if basename(subnet["network"]) not in self.__skip_networks
+            ]
+            self.log_dbg(f"{len(subnetworks)} subnetworks found in region {region}")
+            for subnetwork in subnetworks:
+                if self.is_outdated(parse(subnetwork["creationTimestamp"]).astimezone(timezone.utc)):
+                    self._delete_resource(
+                        self.compute_client().subnetworks, subnetwork["name"],
+                        project=self.project, region=region, subnetwork=subnetwork["name"]
+                    )
+
+    def cleanup_networks(self) -> None:
+        self.log_dbg("Networks cleanup")
+        networks = [
+            network for network in self._paginated(self.compute_client().networks, project=self.project)
+            if network["name"] not in self.__skip_networks
+        ]
+        self.log_dbg(f"{len(networks)} networks found")
+        for network in networks:
+            if self.is_outdated(parse(network["creationTimestamp"]).astimezone(timezone.utc)):
+                self._delete_resource(
+                    self.compute_client().networks, network["name"], project=self.project, network=network["name"]
                 )
