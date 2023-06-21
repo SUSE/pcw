@@ -57,6 +57,8 @@ class GCE(Provider):
         except HttpError as err:
             if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
                 self.log_dbg(f"{resource_type.title()} '{resource_name}' can not be deleted because in use")
+            elif GCE.get_error_reason(err) == 'badRequest':
+                self.log_err(f"{resource_type.title()} '{resource_name}' can not be deleted because of unknown reason")
             else:
                 raise err
 
