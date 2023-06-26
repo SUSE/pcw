@@ -31,9 +31,14 @@ def test_list_clusters(eks_patch, monkeypatch):
     assert all_clusters == {'region1': ['hastags']}
 
 
-class MockedEKSClient():
+class MockedEKSClient:
     def __init__(self):
         self.clusters_list = []
+        self.deleted_clusters = []
+        self.nodegrups = []
+        self.deleted_nodegroups = []
+        self.services = []
+        self.deleted_services = []
 
     def list_clusters(self):
         return self.clusters_list
@@ -48,6 +53,21 @@ class MockedEKSClient():
         elif name == 'ignored':
             return {'cluster': {'tags': {'pcw_ignore': '1'}}}
         return None
+
+    def delete_cluster(self, *args, **kwargs):
+        self.deleted_clusters.append(kwargs['name'])
+
+    def delete_nodegroup(self, *args, **kwargs):
+        self.deleted_nodegroups.append(kwargs['nodegroupName'])
+
+    def delete_service(self, *args, **kwargs):
+        self.deleted_services.append(kwargs['service'])
+
+    def list_nodegroups(self, *args, **kwargs):
+        return self.nodegroups
+
+    def list_services(self, *args, **kwargs):
+        return self.services
 
 
 @pytest.fixture
@@ -94,6 +114,30 @@ def test_create_credentials_file(eks_patch, monkeypatch):
     error = "Invalid credentials, the credentials cannot be verified by'aws sts get-caller-identity' with the error: test"
     with pytest.raises(RuntimeError, match=error):
         eks_patch.create_credentials_file()
+
+
+def test_delete_all_clusters(eks_patch, monkeypatch):
+    mocked_eks = MockedEKSClient()
+    mocked_eks.clusters_list = {'clusters': ['cluster1']}
+    mocked_eks.nodegroups = {'nodegroups': ['nodegroup1']}
+    mocked_eks.services = {'services': ['service1']}
+    monkeypatch.setattr(EKS, 'eks_client', lambda self, region: mocked_eks)
+    monkeypatch.setattr(EKS, 'wait_for_empty_nodegroup_list', lambda self, *args, **kwargs: None)
+
+    eks_patch.delete_all_clusters()
+    assert mocked_eks.deleted_clusters == ['cluster1']
+    assert mocked_eks.deleted_nodegroups == ['nodegroup1']
+    assert mocked_eks.deleted_services == ['service1']
+
+    # test dry_run
+    eks_patch.dry_run = True
+    mocked_eks.deleted_clusters = []
+    mocked_eks.deleted_nodegroups = []
+    mocked_eks.deleted_services = []
+    eks_patch.delete_all_clusters()
+    assert mocked_eks.deleted_clusters == []
+    assert mocked_eks.deleted_nodegroups == []
+    assert mocked_eks.deleted_services == []
 
 
 def test_cleanup_k8s_jobs(eks_patch, monkeypatch):
