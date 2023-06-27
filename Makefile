@@ -2,11 +2,15 @@
 CONT_TAG=suse/qac/pcw
 
 .PHONY: all
-all: prepare test
+all: prepare test pylint
 
 .PHONY: prepare
 prepare:
 	pip install -r requirements_test.txt
+
+.PHONY: pylint
+pylint:
+	pylint ocw/lib/*.py cleanup_k8s.py
 
 .PHONY: test
 test:
