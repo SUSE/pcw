@@ -116,6 +116,29 @@ class EKS(Provider):
                 self.log_dbg(f"Still waiting for {len(resp_nodegroup['nodegroups'])} nodegroups to disappear")
         return None
 
+    def delete_nodegroups(self, region: str, cluster: str) -> None:
+        resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster)
+        if 'nodegroups' in resp_nodegroup:
+            self.log_dbg(f"Found {len(resp_nodegroup['nodegroups'])} nodegroups for {cluster}")
+        for nodegroup in resp_nodegroup['nodegroups']:
+            if self.dry_run:
+                self.log_info(f"Skipping {nodegroup} nodegroup deletion due to dry-run mode")
+            else:
+                self.log_info(f"Deleting {nodegroup}")
+                self.eks_client(region).delete_nodegroup(
+                    clusterName=cluster, nodegroupName=nodegroup)
+        if 'nodegroups' in resp_nodegroup:
+            self.wait_for_empty_nodegroup_list(region, cluster)
+
+    def delete_services(self, region: str, cluster: str) -> None:
+        services = self.eks_client(region).list_services(clusterName=cluster)['services']
+        for service in services:
+            if self.dry_run:
+                self.log_info(f"Skipping {service} cluster service deletion due to dry-run mode", service)
+            else:
+                self.log_info(f"Deleting {service}", service)
+                self.eks_client(region).delete_service(clusterName=cluster, service=service)
+
     def delete_all_clusters(self) -> None:
         self.log_info("Deleting all clusters!")
         for region in self.__cluster_regions:
@@ -123,26 +146,8 @@ class EKS(Provider):
             if len(response['clusters']):
                 self.log_dbg(f"Found {len(response['clusters'])} cluster(s) in {region}")
             for cluster in response['clusters']:
-                resp_nodegroup = self.eks_client(region).list_nodegroups(clusterName=cluster)
-                if 'nodegroups' in resp_nodegroup:
-                    self.log_dbg(f"Found {len(resp_nodegroup['nodegroups'])} nodegroups for {cluster}")
-                for nodegroup in resp_nodegroup['nodegroups']:
-                    if self.dry_run:
-                        self.log_info(f"Skipping {nodegroup} nodegroup deletion due to dry-run mode")
-                    else:
-                        self.log_info(f"Deleting {nodegroup}")
-                        self.eks_client(region).delete_nodegroup(
-                            clusterName=cluster, nodegroupName=nodegroup)
-                if 'nodegroups' in resp_nodegroup:
-                    self.wait_for_empty_nodegroup_list(region, cluster)
-                # Delete the services associated with the cluster
-                services = self.eks_client(region).list_services(clusterName=cluster)['services']
-                for service in services:
-                    if self.dry_run:
-                        self.log_info(f"Skipping {service} cluster service deletion due to dry-run mode", service)
-                    else:
-                        self.log_info(f"Deleting {service}", service)
-                        self.eks_client(region).delete_service(clusterName=cluster, service=service)
+                self.delete_nodegroups(region, cluster)
+                self.delete_services(region, cluster)
                 if self.dry_run:
                     self.log_info(f"Skipping {cluster} cluster deletion due to dry-run mode")
                 else:

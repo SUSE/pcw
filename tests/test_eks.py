@@ -8,7 +8,7 @@ from tests.generators import mock_get_feature_property
 from tests.kubernetes import MockedSubprocessReturn, MockedKubernetesClient, MockedKubernetesConfig, MockedKubernetesJob
 
 
-def test_list_clusters(eks_patch, monkeypatch):
+def test_all_clusters(eks_patch, monkeypatch):
     mocked_eks = MockedEKSClient()
     monkeypatch.setattr(EKS, 'eks_client', lambda self, region: mocked_eks)
     all_clusters = eks_patch.all_clusters()
@@ -114,6 +114,37 @@ def test_create_credentials_file(eks_patch, monkeypatch):
     error = "Invalid credentials, the credentials cannot be verified by'aws sts get-caller-identity' with the error: test"
     with pytest.raises(RuntimeError, match=error):
         eks_patch.create_credentials_file()
+
+
+def test_delete_nodegroups(eks_patch, monkeypatch):
+    mocked_eks = MockedEKSClient()
+    mocked_eks.nodegroups = {'nodegroups': ['nodegroup1']}
+    monkeypatch.setattr(EKS, 'eks_client', lambda self, region: mocked_eks)
+    monkeypatch.setattr(EKS, 'wait_for_empty_nodegroup_list', lambda self, *args, **kwargs: None)
+
+    eks_patch.delete_nodegroups('myregion', 'mycluster')
+    assert mocked_eks.deleted_nodegroups == ['nodegroup1']
+
+    # test dry_run
+    eks_patch.dry_run = True
+    mocked_eks.deleted_nodegroups = []
+    eks_patch.delete_nodegroups('myregion', 'mycluster')
+    assert mocked_eks.deleted_nodegroups == []
+
+
+def test_delete_services(eks_patch, monkeypatch):
+    mocked_eks = MockedEKSClient()
+    mocked_eks.services = {'services': ['service1']}
+    monkeypatch.setattr(EKS, 'eks_client', lambda self, region: mocked_eks)
+
+    eks_patch.delete_services('myregion', 'mycluster')
+    assert mocked_eks.deleted_services == ['service1']
+
+    # test dry_run
+    eks_patch.dry_run = True
+    mocked_eks.deleted_services = []
+    eks_patch.delete_services('myregion', 'mycluster')
+    assert mocked_eks.deleted_services == []
 
 
 def test_delete_all_clusters(eks_patch, monkeypatch):
