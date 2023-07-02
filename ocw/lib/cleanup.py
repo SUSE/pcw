@@ -31,7 +31,7 @@ def cleanup_run():
 
         except Exception as ex:
             logger.exception("[%s] Cleanup failed!", namespace)
-            send_mail('{} on Cleanup in [{}]'.format(type(ex).__name__, namespace), traceback.format_exc())
+            send_mail(f'{type(ex).__name__} on Cleanup in [{namespace}]', traceback.format_exc())
 
 
 def list_clusters():
@@ -44,4 +44,4 @@ def list_clusters():
                 send_cluster_notification(namespace, clusters)
         except Exception as ex:
             logger.exception("[%s] List clusters failed!", namespace)
-            send_mail('{} on List clusters in [{}]'.format(type(ex).__name__, namespace), traceback.format_exc())
+            send_mail(f'{type(ex).__name__} on List clusters in [{namespace}]', traceback.format_exc())

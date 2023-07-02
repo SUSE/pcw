@@ -4,7 +4,6 @@ disable=
  C0115, # missing-class-docstring 
  C0116, # missing-function-docstring
  C0206, # Consider iterating with .items()
- C0209, # Formatting a regular string which could be a f-string
  C0415, # Import outside toplevel
  E1101, # no-member
  R0904, # Too many public methods

@@ -33,7 +33,7 @@ class ProviderChoice(ChoiceEnum):
         elif provider.upper() == ProviderChoice.OSTACK:
             return ProviderChoice.OSTACK
         else:
-            raise ValueError("{} is not convertable to ProviderChoice".format(provider))
+            raise ValueError(f"{provider} is not convertable to ProviderChoice")
 
 
 class StateChoice(ChoiceEnum):
