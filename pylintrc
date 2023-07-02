@@ -8,7 +8,6 @@ disable=
  E1101, # no-member
  R0904, # Too many public methods
  R1702, # Too many nested blocks
- W0201, # Attribute %r defined outside __init__
  W0237, # arguments-renamed
  W0603, # Using the global statement
  W0703, # broad-except

@@ -68,9 +68,9 @@ class Azure(Provider):
 
     def resource_mgmt_client(self):
         if self.__resource_mgmt_client is None:
-            self.__resoure_mgmt_client = ResourceManagementClient(
+            self.__resource_mgmt_client = ResourceManagementClient(
                 self.sp_credentials(), self.subscription())
-        return self.__resoure_mgmt_client
+        return self.__resource_mgmt_client
 
     def get_storage_key(self, storage_account: str) -> str:
         storage_client = StorageManagementClient(self.sp_credentials(), self.subscription())
