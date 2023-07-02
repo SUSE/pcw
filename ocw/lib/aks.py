@@ -1,8 +1,5 @@
 import os
 import kubernetes
-from azure.identity import ClientSecretCredential
-from azure.mgmt.containerservice import ContainerServiceClient
-from azure.mgmt.resource import ResourceManagementClient
 from ocw.lib.provider import Provider
 from ocw.lib.k8s import clean_jobs
 from webui.PCWConfig import PCWConfig
@@ -15,32 +12,11 @@ class AKS(Provider):
     def __new__(cls, vault_namespace):
         if vault_namespace not in AKS.__instances:
             AKS.__instances[vault_namespace] = self = object.__new__(cls)
-            self.__container_mgmt_client = None
-            self.__resource_mgmt_client = None
-            self.__sp_credentials = None
             self.__kubectl_client = {}
         return AKS.__instances[vault_namespace]
 
     def subscription(self) -> str:
         return self.get_data('subscription_id')
-
-    def sp_credentials(self):
-        if self.__sp_credentials is None:
-            self.__sp_credentials = ClientSecretCredential(client_id=self.get_data(
-                'client_id'), client_secret=self.get_data('client_secret'), tenant_id=self.get_data('tenant_id'))
-        return self.__sp_credentials
-
-    def container_mgmt_client(self):
-        if self.__container_mgmt_client is None:
-            self.__container_mgmt_client = ContainerServiceClient(
-                self.sp_credentials(), self.subscription())
-        return self.__container_mgmt_client
-
-    def resource_mgmt_client(self):
-        if self.__resource_mgmt_client is None:
-            self.__resoure_mgmt_client = ResourceManagementClient(
-                self.sp_credentials(), self.subscription())
-        return self.__resoure_mgmt_client
 
     def kubectl_client(self, resource_group: str, cluster_name: str):
         if cluster_name not in self.__kubectl_client:
