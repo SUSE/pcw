@@ -2,7 +2,7 @@ import logging
 import traceback
 from webui.PCWConfig import PCWConfig
 from ocw.lib.azure import Azure
-from ocw.lib.EC2 import EC2
+from ocw.lib.ec2 import EC2
 from ocw.lib.gce import GCE
 from ocw.lib.openstack import Openstack
 from ocw.lib.eks import EKS
@@ -31,7 +31,7 @@ def cleanup_run():
 
         except Exception as ex:
             logger.exception("[%s] Cleanup failed!", namespace)
-            send_mail('{} on Cleanup in [{}]'.format(type(ex).__name__, namespace), traceback.format_exc())
+            send_mail(f'{type(ex).__name__} on Cleanup in [{namespace}]', traceback.format_exc())
 
 
 def list_clusters():
@@ -44,4 +44,4 @@ def list_clusters():
                 send_cluster_notification(namespace, clusters)
         except Exception as ex:
             logger.exception("[%s] List clusters failed!", namespace)
-            send_mail('{} on List clusters in [{}]'.format(type(ex).__name__, namespace), traceback.format_exc())
+            send_mail(f'{type(ex).__name__} on List clusters in [{namespace}]', traceback.format_exc())

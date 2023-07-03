@@ -10,10 +10,10 @@ def format_seconds(seconds):
     hours, remainder = divmod(remainder, 60*60)
     minutes, seconds = divmod(remainder, 60)
     if days > 0:
-        return '{:.0f}d{:.0f}h{:.0f}m'.format(days, hours, minutes)
+        return f'{days:.0f}d{hours:.0f}h{minutes:.0f}m'
     if hours > 0:
-        return '{:.0f}h{:.0f}m'.format(hours, minutes)
-    return '{:.0f}m'.format(minutes)
+        return f'{hours:.0f}h{minutes:.0f}m'
+    return f'{minutes:.0f}m'
 
 
 class Instance(models.Model):
@@ -74,8 +74,7 @@ class CspInfo(models.Model):
 
     def get_openqa_job_link(self):
         if self.get_tag('openqa_created_by') == 'openqa-suse-de' and self.get_tag('openqa_var_JOB_ID') is not None:
-            url = '{}/t{}'.format(PCWConfig.get_feature_property('webui', 'openqa_url'),
-                                  self.get_tag('openqa_var_JOB_ID'))
+            url = f"{PCWConfig.get_feature_property('webui', 'openqa_url')}/t{self.get_tag('openqa_var_JOB_ID')}"
             title = self.get_tag('openqa_var_NAME', '')
             return {'url': url, 'title': title}
         return None

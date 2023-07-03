@@ -2,7 +2,7 @@
 CONT_TAG=suse/qac/pcw
 
 .PHONY: all
-all: prepare test pylint
+all: prepare flake8 test pylint
 
 .PHONY: prepare
 prepare:
@@ -12,12 +12,16 @@ prepare:
 pylint:
 	pylint ocw/lib/*.py cleanup_k8s.py
 
+LINE_MAX=140
+.PHONY: flake8
+flake8:
+	flake8 --max-line-length=$(LINE_MAX) webui
+	flake8 --max-line-length=$(LINE_MAX) ocw
+	flake8 --max-line-length=$(LINE_MAX) manage.py
+	flake8 --max-line-length=$(LINE_MAX) cleanup_k8s.py
+
 .PHONY: test
 test:
-	flake8 --max-line-length=130 webui
-	flake8 --max-line-length=130 ocw
-	flake8 --max-line-length=130 manage.py
-	flake8 --max-line-length=130 cleanup_k8s.py
 	pytest --cov
 
 .PHONY: codecov

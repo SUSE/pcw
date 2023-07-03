@@ -11,7 +11,7 @@ from webui.PCWConfig import PCWConfig
 from ..models import Instance, StateChoice, ProviderChoice, CspInfo
 from .emailnotify import send_mail, send_leftover_notification
 from .azure import Azure
-from .EC2 import EC2
+from .ec2 import EC2
 from .gce import GCE
 
 logger = logging.getLogger(__name__)
@@ -152,7 +152,7 @@ def update_run() -> None:
             except Exception:
                 logger.exception("[%s] Update failed for %s", namespace, provider)
                 error_occured = True
-                send_mail('Error on update {} in namespace {}'.format(provider, namespace),
+                send_mail(f'Error on update {provider} in namespace {namespace}',
                           traceback.format_exc())
 
     auto_delete_instances()
@@ -174,7 +174,7 @@ def delete_instance(instance: type[Instance]) -> None:
         GCE(instance.vault_namespace).delete_instance(instance.instance_id, instance.region)
     else:
         raise NotImplementedError(
-            "Provider({}).delete() isn't implemented".format(instance.provider))
+            f"Provider({instance.provider}).delete() isn't implemented")
 
     instance.state = StateChoice.DELETING
     instance.save()
@@ -193,13 +193,12 @@ def auto_delete_instances() -> None:
             try:
                 delete_instance(i)
             except Exception:
-                msg = "[{}] Deleting instance ({}:{}) failed".format(i.vault_namespace, i.provider, i.instance_id)
+                msg = f"[{i.vault_namespace}] Deleting instance ({i.provider}:{i.instance_id}) failed"
                 logger.exception(msg)
-                email_text.add("{}\n\n{}".format(msg, traceback.format_exc()))
+                email_text.add(f"{msg}\n\n{traceback.format_exc()}")
 
         if len(email_text) > 0:
-            send_mail('[{}] Error on auto deleting instance(s)'.format(namespace),
-                      "\n{}\n".format('#'*79).join(email_text))
+            send_mail(f'[{namespace}] Error on auto deleting instance(s)', f"\n{'#'*79}\n".join(email_text))
 
 
 def is_updating():

@@ -185,15 +185,15 @@ def build_absolute_uri(path=''):
     '''
     base_url = ConfigFile().get('default/base-url', "publiccloud.qa.suse.de")
 
-    if not re.match('^http', base_url):
-        base_url = 'https://{}'.format(base_url)
+    if not base_url.startswith("http"):
+        base_url = f'https://{base_url}'
 
     base_url = re.sub('/+$', '', base_url)
 
     if len(path) == 0:
         return base_url
 
-    if not re.match('^/', path):
-        path = '/{}'.format(path)
+    if not path.startswith("/"):
+        path = f'/{path}'
 
     return base_url + path

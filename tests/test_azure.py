@@ -136,11 +136,19 @@ def test_cleanup_blob_containers_all_new_no_pcw_ignore(azure_patch, container_cl
 
 
 def test_cleanup_blob_containers_one_old_no_pcw_ignore(azure_patch, container_client_one_old, bs_client_no_pcw_ignore):
+    azure_patch.dry_run = True
+    azure_patch.cleanup_blob_containers()
+    assert container_client_one_old.deleted_blobs == []
+    azure_patch.dry_run = False
     azure_patch.cleanup_blob_containers()
     assert container_client_one_old.deleted_blobs == ["to_be_deleted", "to_be_deleted"]
 
 
 def test_cleanup_blob_containers_one_old_one_pcw_ignore(azure_patch, container_client_one_old, bs_client_one_pcw_ignore):
+    azure_patch.dry_run = True
+    azure_patch.cleanup_blob_containers()
+    assert container_client_one_old.deleted_blobs == []
+    azure_patch.dry_run = False
     azure_patch.cleanup_blob_containers()
     assert container_client_one_old.deleted_blobs == ["to_be_deleted"]
 
@@ -162,8 +170,12 @@ def test_cleanup_images_from_rg_one_old(azure_patch, monkeypatch, mock_compute_m
     monkeypatch.setattr(Azure, 'list_by_resource_group', lambda *args, **kwargs: [FakeItem(old_times, "to_delete"),
                                                                                   FakeItem()
                                                                                   ])
+    azure_patch.dry_run = True
     azure_patch.cleanup_images_from_rg()
+    assert len(deleted_images) == 0
 
+    azure_patch.dry_run = False
+    azure_patch.cleanup_images_from_rg()
     assert len(deleted_images) == 1
     assert deleted_images[0] == "to_delete"
 
@@ -211,8 +223,12 @@ def test_cleanup_disks_from_rg_one_old_no_managed_by(azure_patch, monkeypatch):
     monkeypatch.setattr(Azure, 'list_by_resource_group', lambda *args, **kwargs: [FakeItem(old_times, "to_delete"),
                                                                                   FakeItem()
                                                                                   ])
+    azure_patch.dry_run = True
     azure_patch.cleanup_disks_from_rg()
+    assert len(deleted_images) == 0
 
+    azure_patch.dry_run = False
+    azure_patch.cleanup_disks_from_rg()
     assert len(deleted_images) == 1
     assert deleted_images[0] == "to_delete"
 
