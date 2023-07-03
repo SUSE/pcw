@@ -11,6 +11,7 @@ from .models import StateChoice
 
 
 class NoHeaderLinkColumn(tables.LinkColumn):
+    @property
     def header(self):
         return ""
 
@@ -20,6 +21,7 @@ class OpenQALinkColumn(tables.Column):
         kwargs['accessor'] = 'pk'
         super().__init__(*args, **kwargs)
 
+    @property
     def header(self):
         return ""
 
@@ -32,6 +34,7 @@ class OpenQALinkColumn(tables.Column):
 
 
 class MailColumn(tables.BooleanColumn):
+    @property
     def header(self):
         return ""
 
