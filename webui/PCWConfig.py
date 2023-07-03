@@ -44,7 +44,9 @@ class ConfigFile:
                 return default
         return config_pointer
 
-    def getList(self, config_path: str, default: list = []) -> list:
+    def getList(self, config_path: str, default: list = None) -> list:
+        if default is None:
+            default = []
         return [i.strip() for i in self.get(config_path, ','.join(default)).split(',')]
 
 
@@ -83,7 +85,7 @@ class PCWConfig():
     def get_namespaces_for(feature: str) -> list:
         if PCWConfig.has(feature):
             return ConfigFile().getList(f'{feature}/namespaces', ConfigFile().getList('default/namespaces'))
-        return list()
+        return []
 
     @staticmethod
     def get_providers_for(feature: str, namespace: str):
@@ -114,7 +116,7 @@ class PCWConfig():
     @staticmethod
     def getBoolean(config_path: str, namespace: str = None, default=False) -> bool:
         if namespace:
-            (feature, property) = config_path.split('/')
+            feature, property = config_path.split('/')
             setting = f'{feature}.namespace.{namespace}/{property}'
             if PCWConfig.has(setting):
                 value = ConfigFile().get(setting)

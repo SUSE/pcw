@@ -7,7 +7,9 @@ class MockedKubernetesConfig():
 
 
 class MockedKubernetesClient():
-    def __init__(self, jobs=[]):
+    def __init__(self, jobs=None):
+        if jobs is None:
+            jobs = []
         self.jobs = jobs
         self.deleted_jobs = []
 

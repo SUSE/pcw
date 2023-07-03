@@ -1,5 +1,7 @@
 # Default container tag
 CONT_TAG=suse/qac/pcw
+LINE_MAX=140
+FILES=ocw/lib/*.py ocw/management/commands/*.py ocw/*.py *.py
 
 .PHONY: all
 all: prepare flake8 test pylint
@@ -10,15 +12,12 @@ prepare:
 
 .PHONY: pylint
 pylint:
-	pylint ocw/lib/*.py cleanup_k8s.py
+	pylint $(FILES)
 
-LINE_MAX=140
 .PHONY: flake8
 flake8:
-	flake8 --max-line-length=$(LINE_MAX) webui
-	flake8 --max-line-length=$(LINE_MAX) ocw
+	flake8 --max-line-length=$(LINE_MAX) $(FILES)
 	flake8 --max-line-length=$(LINE_MAX) manage.py
-	flake8 --max-line-length=$(LINE_MAX) cleanup_k8s.py
 
 .PHONY: test
 test:

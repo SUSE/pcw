@@ -8,7 +8,9 @@ from tests.generators import max_age_hours, mock_get_feature_property
 
 
 class MockRequest:
-    def __init__(self, response={}):
+    def __init__(self, response=None):
+        if response is None:
+            response = {}
         self.response = response
 
     def execute(self):

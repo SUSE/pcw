@@ -72,7 +72,9 @@ class FakeDisk:
 
 class FakeBlobContainer:
 
-    def __init__(self, metadata=[], name=None):
+    def __init__(self, metadata=None, name=None):
+        if metadata is None:
+            metadata = []
         if name is None:
             self.name = "sle-images"
         else:
