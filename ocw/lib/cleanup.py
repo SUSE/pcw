@@ -2,7 +2,7 @@ import logging
 import traceback
 from webui.PCWConfig import PCWConfig
 from ocw.lib.azure import Azure
-from ocw.lib.EC2 import EC2
+from ocw.lib.ec2 import EC2
 from ocw.lib.gce import GCE
 from ocw.lib.openstack import Openstack
 from ocw.lib.eks import EKS

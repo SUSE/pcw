@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from webui.PCWConfig import PCWConfig
-from ocw.lib.EC2 import EC2
+from ocw.lib.ec2 import EC2
 
 
 class Command(BaseCommand):

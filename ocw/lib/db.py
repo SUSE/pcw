@@ -11,7 +11,7 @@ from webui.PCWConfig import PCWConfig
 from ..models import Instance, StateChoice, ProviderChoice, CspInfo
 from .emailnotify import send_mail, send_leftover_notification
 from .azure import Azure
-from .EC2 import EC2
+from .ec2 import EC2
 from .gce import GCE
 
 logger = logging.getLogger(__name__)

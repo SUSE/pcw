@@ -1,4 +1,4 @@
-from ocw.lib.EC2 import EC2, Provider
+from ocw.lib.ec2 import EC2, Provider
 from webui.PCWConfig import PCWConfig
 from tests.generators import mock_get_feature_property
 from tests.generators import ec2_max_age_days
