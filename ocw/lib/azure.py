@@ -47,8 +47,9 @@ class Azure(Provider):
             storage_account = PCWConfig.get_feature_property(
                 'cleanup', 'azure-storage-account-name', self._namespace)
             storage_key = self.get_storage_key(storage_account)
-            connection_string = f"DefaultEndpointsProtocol=https;AccountName={storage_account};AccountKey={storage_key};EndpointSuffix=core.windows.net"
-            self.__blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+            self.__blob_service_client = BlobServiceClient.from_connection_string(
+                f"DefaultEndpointsProtocol=https;AccountName={storage_account};AccountKey={storage_key};EndpointSuffix=core.windows.net"
+            )
         return self.__blob_service_client
 
     def container_client(self, container_name: str):

@@ -74,7 +74,9 @@ class EC2(Provider):
                     if self.dry_run:
                         self.log_info(f"Snapshot deletion of {snapshot['SnapshotId']} skipped due to dry run mode")
                     else:
-                        self.log_info(f"Deleting snapshot {snapshot['SnapshotId']} in region {region} with StartTime={snapshot['StartTime']}")
+                        self.log_info(
+                            f"Deleting snapshot {snapshot['SnapshotId']} in region {region} with StartTime={snapshot['StartTime']}"
+                        )
                         try:
                             self.ec2_client(region).delete_snapshot(SnapshotId=snapshot['SnapshotId'])
                         except ClientError as ex:
@@ -229,7 +231,9 @@ class EC2(Provider):
             for association in route_table['Associations']:
                 if not association['Main']:
                     if self.dry_run:
-                        self.log_info(f"{association['RouteTableAssociationId']} disassociation with routing table won't happen due to dry_run mode")
+                        self.log_info(
+                            f"{association['RouteTableAssociationId']} disassociation with routing table won't happen due to dry_run mode"
+                        )
                         self.log_dbg(association)
                     else:
                         self.log_info(f"{association['RouteTableAssociationId']} disassociation with routing table will happen")
