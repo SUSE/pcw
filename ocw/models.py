@@ -1,7 +1,7 @@
-from django.db import models
-from datetime import datetime, timedelta, timezone
-from webui.PCWConfig import PCWConfig
 import json
+from datetime import datetime, timedelta, timezone
+from django.db import models
+from webui.PCWConfig import PCWConfig
 from .enums import ProviderChoice, StateChoice
 
 
@@ -42,9 +42,9 @@ class Instance(models.Model):
         all_time_pattern = "(age={}, first_seen={}, last_seen={}, ttl={})"
         first_fmt = 'None'
         last_fmt = 'None'
-        if (self.first_seen):
+        if self.first_seen:
             first_fmt = self.first_seen.strftime('%Y-%m-%d %H:%M')
-        if (self.last_seen):
+        if self.last_seen:
             last_fmt = self.last_seen.strftime('%Y-%m-%d %H:%M')
         return all_time_pattern.format(self.age_formated(), first_fmt, last_fmt, self.ttl_formated())
 
@@ -59,7 +59,7 @@ class Instance(models.Model):
     def get_type(self):
         return self.cspinfo.type
 
-    class Meta:
+    class Meta:  # pylint: disable=too-few-public-methods
         unique_together = (('provider', 'instance_id', 'vault_namespace'),)
 
 

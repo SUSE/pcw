@@ -1,16 +1,17 @@
 # tutorial/tables.py
+from django_tables2.utils import A
+from django.utils.html import format_html
+from django.templatetags.static import static
+from django.template.loader import get_template
 import django_tables2 as tables
 import django_filters
 from .models import Instance
 from .models import ProviderChoice
 from .models import StateChoice
-from django_tables2.utils import A
-from django.utils.html import format_html
-from django.templatetags.static import static
-from django.template.loader import get_template
 
 
 class NoHeaderLinkColumn(tables.LinkColumn):
+    @property
     def header(self):
         return ""
 
@@ -20,6 +21,7 @@ class OpenQALinkColumn(tables.Column):
         kwargs['accessor'] = 'pk'
         super().__init__(*args, **kwargs)
 
+    @property
     def header(self):
         return ""
 
@@ -32,6 +34,7 @@ class OpenQALinkColumn(tables.Column):
 
 
 class MailColumn(tables.BooleanColumn):
+    @property
     def header(self):
         return ""
 
@@ -40,8 +43,7 @@ class MailColumn(tables.BooleanColumn):
         if value:
             return format_html('<img alt="Email notification was send" src="{}" width=20 height=20/>',
                                static('img/notified.png'))
-        else:
-            return ""
+        return ""
 
 
 class TagsColumn(tables.TemplateColumn):
@@ -50,7 +52,7 @@ class TagsColumn(tables.TemplateColumn):
         super().__init__(template_name="ocw/tags.html", orderable=False, **extra)
 
     @property
-    def header(self, **kwargs):
+    def header(self):
         return get_template('ocw/tags_header.html').render()
 
 
@@ -78,12 +80,12 @@ class InstanceTable(tables.Table):
     def render_ttl(self, record):
         return record.ttl_formated()
 
-    class Meta:
+    class Meta:  # pylint: disable=too-few-public-methods
         model = Instance
         exclude = ['active']
         template_name = 'django_tables2/bootstrap.html'
         row_attrs = {
-            'class': lambda record: "state_{}".format(record.state)
+            'class': lambda record: f"state_{record.state}"
         }
 
 
@@ -92,14 +94,14 @@ class BaseFilterSet(django_filters.FilterSet):
     def __init__(self, data=None, *args, **kwargs):
         if data is not None:
             data = data.copy()
-            for name, f in self.base_filters.items():
-                initial = f.extra.get('initial')
+            for name, filter_ in self.base_filters.items():
+                initial = filter_.extra.get('initial')
                 if not data.get(name) and initial is not None:
                     if isinstance(initial, list):
                         data.setlistdefault(name, initial)
                     else:
                         data.setdefault(name, initial)
-        super(BaseFilterSet, self).__init__(data, *args, **kwargs)
+        super().__init__(data, *args, **kwargs)
 
 
 class InstanceFilter(BaseFilterSet):
@@ -110,6 +112,6 @@ class InstanceFilter(BaseFilterSet):
     instance_id = django_filters.CharFilter(lookup_expr='icontains', field_name='instance_id')
     ignore = django_filters.BooleanFilter(field_name='ignore', initial=False)
 
-    class Meta:
+    class Meta:  # pylint: disable=too-few-public-methods
         model = Instance
         fields = ['provider', 'state', 'instance_id', 'region', 'ignore']

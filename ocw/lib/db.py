@@ -202,17 +202,14 @@ def auto_delete_instances() -> None:
 
 
 def is_updating():
-    global RUNNING
     return RUNNING
 
 
 def last_update():
-    global LAST_UPDATE
     return LAST_UPDATE if LAST_UPDATE is not None else ''
 
 
 def start_update():
-    global RUNNING
     if not RUNNING:
         getScheduler().get_job('update_db').reschedule(trigger='date', run_date=datetime.now(timezone.utc))
 
