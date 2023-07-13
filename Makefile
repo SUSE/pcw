@@ -16,8 +16,7 @@ pylint:
 
 .PHONY: flake8
 flake8:
-	flake8 --max-line-length=$(LINE_MAX) $(FILES)
-	flake8 --max-line-length=$(LINE_MAX) manage.py
+	flake8 --max-line-length=$(LINE_MAX) .
 
 .PHONY: test
 test:
