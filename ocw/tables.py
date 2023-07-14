@@ -75,10 +75,10 @@ class InstanceTable(tables.Table):
     ignore = tables.BooleanColumn()
 
     def render_age(self, record):
-        return record.age_formated()
+        return record.age_formatted()
 
     def render_ttl(self, record):
-        return record.ttl_formated()
+        return record.ttl_formatted()
 
     class Meta:  # pylint: disable=too-few-public-methods
         model = Instance

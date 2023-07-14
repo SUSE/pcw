@@ -24,7 +24,7 @@ def draw_instance_table(objects):
             obj.instance_id,
             obj.cspinfo.get_tag('openqa_created_by', 'N/A'),
             obj.vault_namespace,
-            obj.age_formated(),
+            obj.age_formatted(),
             build_absolute_uri(reverse(views.delete, args=[obj.id])),
             "" if link is None else link['url']
         ])

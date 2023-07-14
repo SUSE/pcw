@@ -69,7 +69,6 @@ class PCWConfig():
             'notify/smtp': {'default': None, 'return_type': str},
             'notify/smtp-port': {'default': 25, 'return_type': int},
             'notify/from': {'default': 'pcw@publiccloud.qa.suse.de', 'return_type': str},
-            'webui/openqa_url': {'default': 'https://openqa.suse.de', 'return_type': str}
         }
         key = '/'.join([feature, property])
         if key not in default_values:
