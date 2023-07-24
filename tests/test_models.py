@@ -6,7 +6,7 @@ from ocw.models import Instance, CspInfo, format_seconds, StateChoice
 
 @pytest.fixture(autouse=True)
 def no_requests(monkeypatch):
-    monkeypatch.setattr('ocw.lib.openqa.OpenQA_Client', lambda *args, **kwargs: MagicMock())
+    monkeypatch.setattr('openqa_client.client.OpenQA_Client', lambda *args, **kwargs: MagicMock())
     monkeypatch.setattr("ocw.lib.openqa.get_url", lambda x: x)
 
 

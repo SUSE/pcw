@@ -14,7 +14,7 @@ def openqa_client_mock():
 @pytest.fixture
 def openqa_instance(openqa_client_mock):
     with (
-        patch('ocw.lib.openqa.OpenQA_Client', return_value=openqa_client_mock),
+        patch('openqa_client.client.OpenQA_Client', return_value=openqa_client_mock),
         patch('ocw.lib.openqa.get_url', return_value=None)
     ):
         yield OpenQA(server="myserver")

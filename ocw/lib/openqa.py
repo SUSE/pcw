@@ -1,10 +1,17 @@
+import os
 from urllib.parse import urlparse
 from cachetools import cached
-import requests
 from requests.exceptions import RequestException
-from openqa_client.client import OpenQA_Client
+import openqa_client.client
 from openqa_client.const import JOB_STATE_CANCELLED
 from openqa_client.exceptions import OpenQAClientError
+
+
+if not bool(os.environ.get('REQUESTS_CA_BUNDLE')):
+    # Disable urllib3 warnings for InsecureRequestWarning only on openqa_client.client
+    openqa_client.client.requests.packages.urllib3.disable_warnings(
+        openqa_client.client.requests.packages.urllib3.exceptions.InsecureRequestWarning
+    )
 
 
 @cached(cache={})
@@ -16,7 +23,11 @@ def get_url(server):
     for scheme in ("https", "http"):
         try:
             url = f"{scheme}://{server}"
-            got = requests.head(url, timeout=30)
+            got = openqa_client.client.requests.head(
+                url,
+                timeout=5,
+                verify=bool(os.environ.get('REQUESTS_CA_BUNDLE')),
+            )
             got.raise_for_status()
             return url
         except RequestException:
@@ -36,7 +47,8 @@ class OpenQA:
 
     def __init__(self, **kwargs):
         kwargs.pop("server")
-        self.__client = OpenQA_Client(server=self.server, **kwargs)
+        self.__client = openqa_client.client.OpenQA_Client(server=self.server, **kwargs)
+        self.__client.session.verify = bool(os.environ.get('REQUESTS_CA_BUNDLE'))
 
     def is_cancelled(self, job_id: str) -> bool:
         if not job_id.isdigit():
