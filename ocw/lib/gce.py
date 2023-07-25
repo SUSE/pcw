@@ -35,7 +35,7 @@ class GCE(Provider):
             request = api_call().list_next(previous_request=request, previous_response=response)
         return results
 
-    def _delete_resource(self, api_call, resource_name, *args, **kwargs) -> None:
+    def _delete_resource(self, api_call, resource_name, *_, **kwargs) -> None:
         resource_type = {
             self.compute_client().disks: "disk",
             self.compute_client().firewalls: "firewall",

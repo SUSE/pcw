@@ -6,7 +6,7 @@ from tests.generators import ec2_csp_instance_mock, gce_instance_mock, azure_ins
 from ocw.models import ProviderChoice, StateChoice
 from ocw.lib.gce import GCE
 from ocw.lib.azure import Azure
-from ocw.lib.EC2 import EC2
+from ocw.lib.ec2 import EC2
 import pytest
 import dateutil.parser as dateparser
 from datetime import datetime, timezone

@@ -1,4 +1,3 @@
-import re
 import os
 import logging.config
 from django.core.management import utils
@@ -27,7 +26,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = utils.get_random_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('PCW_DEBUG', False)
+DEBUG = os.getenv('PCW_DEBUG')
 
 ALLOWED_HOSTS = ['*']
 
@@ -185,15 +184,14 @@ def build_absolute_uri(path=''):
     '''
     base_url = ConfigFile().get('default/base-url', "publiccloud.qa.suse.de")
 
-    if not re.match('^http', base_url):
-        base_url = 'https://{}'.format(base_url)
-
-    base_url = re.sub('/+$', '', base_url)
+    if not base_url.startswith("http"):
+        base_url = f'https://{base_url}'
+    base_url = base_url.rstrip("/")
 
     if len(path) == 0:
         return base_url
 
-    if not re.match('^/', path):
-        path = '/{}'.format(path)
+    if not path.startswith("/"):
+        path = f'/{path}'
 
     return base_url + path
