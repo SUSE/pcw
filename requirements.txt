@@ -4,6 +4,7 @@ azure-mgmt-storage==20.0.0
 azure-mgmt-resource==21.1.0
 azure-storage-blob==12.13.0
 azure-identity==1.10.0
+cachetools
 msrestazure==0.6.4
 uwsgi==2.0.21
 requests==2.31.0
@@ -15,6 +16,7 @@ texttable
 oauth2client
 google-api-python-client==2.55.0
 google-cloud-storage==2.4.0
+openqa_client
 openstacksdk~=1.2.0
 python-dateutil
 apscheduler

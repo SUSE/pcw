@@ -20,7 +20,7 @@ def mock_get_feature_property(feature: str, property: str, namespace: str = None
 
 def generate_model_instance(jobid_tag, created_by_tag):
     json_dump_tags = json.dumps({
-        'openqa_var_JOB_ID': jobid_tag,
+        'openqa_var_job_id': jobid_tag,
         'openqa_created_by': created_by_tag
     })
     return Instance(
