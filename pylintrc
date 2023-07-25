@@ -4,15 +4,13 @@ disable=
  C0115, # missing-class-docstring 
  C0116, # missing-function-docstring
  C0206, # Consider iterating with .items()
- C0209, # Formatting a regular string which could be a f-string
  C0415, # Import outside toplevel
  E1101, # no-member
- R0904, # Too many public methods
  R1702, # Too many nested blocks
- W0201, # Attribute %r defined outside __init__
  W0237, # arguments-renamed
  W0603, # Using the global statement
- W0703 # broad-except
+ W0703, # broad-except
+ W0719, # broad-exception-raised
 
 recursive = true
 fail-under=9.9
@@ -22,7 +20,7 @@ expected-line-ending-format =
 ignore-long-lines = "^\\s*(# )?<?https?://\\S+>?$"
 indent-after-paren = 4
 indent-string = "    "
-max-line-length = 130
+max-line-length = 140
 max-module-lines = 1000
 single-line-class-stmt = false
 single-line-if-stmt = false

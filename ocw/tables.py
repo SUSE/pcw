@@ -1,16 +1,17 @@
 # tutorial/tables.py
+from django_tables2.utils import A
+from django.utils.html import format_html
+from django.templatetags.static import static
+from django.template.loader import get_template
 import django_tables2 as tables
 import django_filters
 from .models import Instance
 from .models import ProviderChoice
 from .models import StateChoice
-from django_tables2.utils import A
-from django.utils.html import format_html
-from django.templatetags.static import static
-from django.template.loader import get_template
 
 
 class NoHeaderLinkColumn(tables.LinkColumn):
+    @property
     def header(self):
         return ""
 
@@ -20,11 +21,12 @@ class OpenQALinkColumn(tables.Column):
         kwargs['accessor'] = 'pk'
         super().__init__(*args, **kwargs)
 
+    @property
     def header(self):
         return ""
 
     def render(self, record):
-        link = record.get_openqa_job_link()
+        link = record.cspinfo.get_openqa_job_link()
         if link is not None:
             return format_html('<a href="{}" "><img alt="{}" title="{}" src="{}"/></a>',
                                link['url'], link['title'], link['title'], static('img/openqa.svg'))
@@ -32,6 +34,7 @@ class OpenQALinkColumn(tables.Column):
 
 
 class MailColumn(tables.BooleanColumn):
+    @property
     def header(self):
         return ""
 
@@ -40,23 +43,25 @@ class MailColumn(tables.BooleanColumn):
         if value:
             return format_html('<img alt="Email notification was send" src="{}" width=20 height=20/>',
                                static('img/notified.png'))
-        else:
-            return ""
+        return ""
 
 
-class CspInfoColumn(tables.TemplateColumn):
+class TagsColumn(tables.TemplateColumn):
 
     def __init__(self, template_name=None, **extra):
-        super().__init__(template_name="ocw/csp_info.html", orderable=False, **extra)
+        super().__init__(template_name="ocw/tags.html", orderable=False, **extra)
 
     @property
-    def header(self, **kwargs):
-        return get_template('ocw/csp_info_header.html').render()
+    def header(self):
+        return get_template('ocw/tags_header.html').render()
 
 
 class InstanceTable(tables.Table):
-    csp_info = CspInfoColumn()
+    tags = TagsColumn()
     notified = MailColumn()
+    type = tables.Column(accessor=A('get_type'))
+    first_seen = tables.DateTimeColumn(format='M d Y')
+    last_seen = tables.DateTimeColumn(format='M d Y')
     delete = NoHeaderLinkColumn('delete_instance', args=[A('pk')],
                                 text=format_html('<img width=20 height=20 title="Delete instance" src="{}"/>',
                                                  static('img/trash.png'))
@@ -70,17 +75,17 @@ class InstanceTable(tables.Table):
     ignore = tables.BooleanColumn()
 
     def render_age(self, record):
-        return record.age_formated()
+        return record.age_formatted()
 
     def render_ttl(self, record):
-        return record.ttl_formated()
+        return record.ttl_formatted()
 
-    class Meta:
+    class Meta:  # pylint: disable=too-few-public-methods
         model = Instance
         exclude = ['active']
         template_name = 'django_tables2/bootstrap.html'
         row_attrs = {
-            'class': lambda record: "state_{}".format(record.state)
+            'class': lambda record: f"state_{record.state}"
         }
 
 
@@ -89,14 +94,14 @@ class BaseFilterSet(django_filters.FilterSet):
     def __init__(self, data=None, *args, **kwargs):
         if data is not None:
             data = data.copy()
-            for name, f in self.base_filters.items():
-                initial = f.extra.get('initial')
+            for name, filter_ in self.base_filters.items():
+                initial = filter_.extra.get('initial')
                 if not data.get(name) and initial is not None:
                     if isinstance(initial, list):
                         data.setlistdefault(name, initial)
                     else:
                         data.setdefault(name, initial)
-        super(BaseFilterSet, self).__init__(data, *args, **kwargs)
+        super().__init__(data, *args, **kwargs)
 
 
 class InstanceFilter(BaseFilterSet):
@@ -105,9 +110,8 @@ class InstanceFilter(BaseFilterSet):
                                                 initial=[str(i) for i in [StateChoice.ACTIVE, StateChoice.DELETING]])
     region = django_filters.CharFilter(lookup_expr='icontains')
     instance_id = django_filters.CharFilter(lookup_expr='icontains', field_name='instance_id')
-    csp_info = django_filters.CharFilter(lookup_expr='icontains', field_name='csp_info')
     ignore = django_filters.BooleanFilter(field_name='ignore', initial=False)
 
-    class Meta:
+    class Meta:  # pylint: disable=too-few-public-methods
         model = Instance
-        fields = ['provider', 'state', 'instance_id', 'region', 'csp_info', 'ignore']
+        fields = ['provider', 'state', 'instance_id', 'region', 'ignore']

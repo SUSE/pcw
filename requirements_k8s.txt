@@ -1,0 +1,7 @@
+oauth2client
+kubernetes
+google-api-python-client==2.55.0
+azure-mgmt-containerservice==22.0.0
+azure-identity==1.13.0
+azure-mgmt-resource==23.0.1
+boto3

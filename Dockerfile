@@ -1,4 +1,4 @@
-FROM registry.suse.com/bci/python:3.10
+FROM registry.suse.com/bci/python:3.11
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UWSGI_WSGI_FILE=/pcw/webui/wsgi.py UWSGI_MASTER=1
 ENV UWSGI_HTTP_AUTO_CHUNKED=1 UWSGI_HTTP_KEEPALIVE=1 UWSGI_LAZY_APPS=1 UWSGI_WSGI_ENV_BEHAVIOR=holy
@@ -10,7 +10,7 @@ COPY requirements.txt /pcw/
 # * Install system requirements
 # * Install pip requirements
 # * Empty system cache to conserve some space
-RUN zypper -n in python310-devel gcc libffi-devel aws-cli && pip3.10 install -r /pcw/requirements.txt && rm -rf /var/cache
+RUN zypper -n in gcc libffi-devel && pip install --no-cache-dir -r /pcw/requirements.txt && zypper clean && rm -rf /var/cache
 
 # Copy program files only
 COPY ocw  /pcw/ocw/
@@ -29,4 +29,4 @@ VOLUME /pcw/db
 EXPOSE 8000/tcp
 
 # Once we are certain that this runs nicely, replace this with ENTRYPOINT.
-CMD ["/pcw/container-startup", "run"]
+ENTRYPOINT ["/pcw/container-startup", "run"]

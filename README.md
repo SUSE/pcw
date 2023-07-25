@@ -1,7 +1,10 @@
-[![Build Status](https://travis-ci.com/SUSE/pcw.svg?branch=master)](https://travis-ci.com/SUSE/pcw)
 [![codecov](https://codecov.io/gh/SUSE/pcw/branch/master/graph/badge.svg)](https://codecov.io/gh/SUSE/pcw)
 
 # OpenQA Public cloud Helper
+
+![PCW project logo](https://repository-images.githubusercontent.com/140823511/394bbeff-cd84-42f2-8a36-b4cd3923e4be)
+> **Jose Lausuch**: Where you thinking about PCW while laying on the beach? :stuck_out_tongue:
+> **Anton Smorodskyi**: YES, constantly! :partygeeko: I see it in every palm on the beach !
 
 PublicCloud-Watcher (PCW) is a web app which monitors, displays and deletes resources on various Cloud Service Providers (CSPs).
 PCW has two main flows :
@@ -29,6 +32,8 @@ PCW has two main flows :
         c. Volumes in all regions defined
         d. VPC's ( deletion of VPC means deletion of all assigned to VPC entities first ( security groups , networks etc. ))
     - For GCE deleting only images (check details in [ocw/lib/gce.py](ocw/lib/gce.py))
+    - For Openstack deleting instances, images & keypairs (check details in [ocw/lib/openstack.py](ocw/lib/openstack.py)
+
 
 The fastest way to run PCW is via the provided containers, as described in the [Running a container](#running-a-container) section.
 
@@ -36,9 +41,11 @@ The fastest way to run PCW is via the provided containers, as described in the [
 
 See the [requirements.txt](requirements.txt). It's recommended to setup `pcw` in a virtual environment to avoid package collisions:
 
-    virtualenv venv
-    . venv/bin/activate
-    pip install -r requirements.txt
+```bash
+virtualenv venv
+. venv/bin/activate
+pip install -r requirements.txt
+```
 
 ## Configure and run
 
@@ -47,7 +54,7 @@ Configuration of PCW happens via a global config file in `/etc/pcw.ini`. See [te
     cp templates/pwc.ini /etc/pcw.ini
 
 To be able to connect to CSP PCW needs Service Principal details. Depending on namespaces defined in `pcw.ini`  PCW will expect some JSON files to be created
-under `/var/pcw/[namespace name]/[azure/EC2/gce].json`. See [templates/var/example_namespace/](templates/var/example_namespace/) for examples.
+under `/var/pcw/[namespace name]/[Azure/EC2/GCE/Openstack].json`. See [templates/var/example_namespace/](templates/var/example_namespace/) for examples.
 
 PCW supports email notifications about left-over instances. See the `notify` section therein and their corresponding comments.
 
@@ -61,7 +68,7 @@ pip install -r requirements.txt
 ## Configuration steps, only required once to setup the database and user
 # Setup database
 python manage.py migrate
-# Setup superuser
+# Setup superuser (OPTIONAL)
 python manage.py createsuperuser --email admin@example.com --username admin
 python manage.py collectstatic
 
@@ -76,8 +83,10 @@ By default, PCW runs on http://127.0.0.1:8000/
 
 To build a docker/podman container with the default `suse/qac/pcw` tag, run
 
-    make docker-container
-    make podman-container
+```bash
+make docker-container
+make podman-container
+```
 
 This repository contains the skeleton `Dockerfile` for building a PCW docker/podman container.
 
@@ -85,7 +94,9 @@ This repository contains the skeleton `Dockerfile` for building a PCW docker/pod
 
 You can use the already build containers within [this repository](https://github.com/orgs/SUSE/packages?repo_name=pcw):
 
-    podman pull ghcr.io/suse/pcw:latest
+```bash
+podman pull ghcr.io/suse/pcw:latest
+```
 
 The PCW container supports two volumes to be mounted:
 
@@ -94,20 +105,26 @@ The PCW container supports two volumes to be mounted:
 
 To create a container using e.g. the data directory `/srv/pcw` for both volumes and expose port 8000, run the following:
 
-    podman create --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -v <local creds storage>:/var/pcw -p 8000:8000/tcp ghcr.io/suse/pcw:latest
-    podman start pcw
+```bash
+podman create --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -v <local creds storage>:/var/pcw -p 8000:8000/tcp ghcr.io/suse/pcw:latest
+podman start pcw
+```
 
 For usage in docker simply replace `podman` by `docker` in the above command.
 
 The `pcw` container runs by default the `/pcw/container-startup` startup helper script. You can interact with it by running
 
-    podman exec pcw /pcw/container-startup help
+```bash
+podman exec pcw /pcw/container-startup help
 
-    podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v <local creds storage>:/var/pcw -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
+podman run -ti --rm --hostname pcw --name pcw -v /srv/pcw/pcw.ini:/etc/pcw.ini -v <local creds storage>:/var/pcw -v /srv/pcw/db:/pcw/db -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup help
+```
 
-To create the admin superuser within the created container named `pcw`, run
+To create an user within the created container named `pcw`, run
 
-    podman run -ti --rm -v /srv/pcw/pcw.ini:/etc/pcw.ini -v /srv/pcw/db:/pcw/db -v <local creds storage>:/var/pcw -p 8000:8000/tcp ghcr.io/suse/pcw:latest /pcw/container-startup createsuperuser --email admin@example.com --username admin
+```bash
+podman exec pcw /pcw/container-startup createuser admin USE_A_STRONG_PASSWORD
+```
 
 ## Devel version of container
 
@@ -115,8 +132,10 @@ There is [devel version](Dockerfile_dev) of container file. Main difference is t
 
 Expected use would be :
 
-    make podman-container-devel
-    podman run  -v <local path to ini file>:/etc/pcw.ini -v <local creds storage>:/var/pcw -v <path to this folder>:/pcw  -t pcw-devel "python3 manage.py <any command available>"
+```bash
+make podman-container-devel
+podman run  -v <local path to ini file>:/etc/pcw.ini -v <local creds storage>:/var/pcw -v <path to this folder>:/pcw  -t pcw-devel "python3 manage.py <any command available>"
+```
 
 
 ## Codecov
@@ -124,8 +143,10 @@ Expected use would be :
 Running codecov locally require installation of `pytest pytest-cov codecov`.
 Then you can run it with
 
-    BROWSER=$(xdg-settings get default-web-browser)
-    pytest -v --cov=./ --cov-report=html && $BROWSER htmlcov/index.html
+```bash
+BROWSER=$(xdg-settings get default-web-browser)
+pytest -v --cov=./ --cov-report=html && $BROWSER htmlcov/index.html
+```
 
 and explore the results in your browser
 
@@ -139,3 +160,32 @@ To simplify problem investigation pcw has two [django commands](https://docs.dja
 
 those allows triggering core functionality without web UI. It is highly recommended to use `dry_run = True` in `pcw.ini` in
 such cases.
+
+## Testing
+
+```bash
+virtualenv ~/.pcw
+source ~/.pcw/bin/activate
+pip install -r requirements_test.txt
+make test
+```
+
+The tests contain a Selenium test for the webUI that uses Docker. You can either add yourself to the `docker` group (not recommended for security reasons) or use this approach to temporarily run a Bash session with the `docker` group added to your groups list:
+
+Set a password for the `docker` group:
+
+`sudo gpasswd docker`
+
+Copy this script to a personal directory in your `$PATH` with executable permissions:
+
+```bash
+#!/bin/bash
+
+if id -Gn | grep -q '\bdocker\b' ; then
+	exit 0
+fi
+
+exec /usr/bin/sg docker newgrp $(id -gn)
+```
+
+Then simply run `sudocker.sh` and then `exit` when you're done.

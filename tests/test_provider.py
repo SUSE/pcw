@@ -2,7 +2,7 @@ from ocw.lib.provider import Provider
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
-from webui.settings import PCWConfig
+from webui.PCWConfig import PCWConfig
 from .generators import mock_get_feature_property
 import pytest
 
@@ -35,15 +35,7 @@ def test_get_data(monkeypatch):
 def test_exec_cmd(provider_patch):
     provider = Provider('testexeccmd')
     out = provider.cmd_exec("echo 'test'")
-    assert out == 0
+    assert out.returncode == 0
 
     out = provider.cmd_exec("ls /invalid_dir")
-    assert out == 2
-
-    error = False
-    try:
-        provider.cmd_exec("invalid_command")
-    except FileNotFoundError:
-        error = True
-
-    assert error, 'An invalid command should raise an exception'
+    assert out.returncode != 0

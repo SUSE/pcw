@@ -1,8 +1,10 @@
 -r requirements.txt
+-r requirements_k8s.txt
 pytest
 pytest-django
 faker
 flake8
 pytest-cov
-codecov
 pylint
+docker~=6.0.1
+selenium

@@ -1,4 +1,4 @@
-FROM registry.suse.com/bci/python:3.10
+FROM registry.suse.com/bci/python:3.11
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UWSGI_WSGI_FILE=/pcw/webui/wsgi.py UWSGI_MASTER=1
 ENV UWSGI_HTTP_AUTO_CHUNKED=1 UWSGI_HTTP_KEEPALIVE=1 UWSGI_LAZY_APPS=1 UWSGI_WSGI_ENV_BEHAVIOR=holy
@@ -6,11 +6,11 @@ ENV UWSGI_HTTP_AUTO_CHUNKED=1 UWSGI_HTTP_KEEPALIVE=1 UWSGI_LAZY_APPS=1 UWSGI_WSG
 ## System preparation steps ################################################# ##
 
 # !!! Runtime changes won't affect requirements.txt
-COPY requirements.txt requirements_test.txt /tmp/
+COPY requirements.txt requirements_test.txt requirements_k8s.txt /tmp/
 # * Install system requirements
 # * Install pip requirements
 # * Empty system cache to conserve some space
-RUN zypper -n in python310-devel gcc libffi-devel aws-cli && pip3.10 install -r /tmp/requirements_test.txt && rm -rf /var/cache
+RUN zypper -n in gcc libffi-devel && pip install --no-cache-dir -r /tmp/requirements_test.txt && zypper clean && rm -rf /var/cache
 
 WORKDIR /pcw
 

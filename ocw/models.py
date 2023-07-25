@@ -1,47 +1,23 @@
-from django.db import models
-from enum import Enum
-from datetime import timedelta
-from webui.settings import PCWConfig
 import json
-
-
-class ChoiceEnum(Enum):
-    @classmethod
-    def choices(cls):
-        return [(i.name, i.value) for i in cls]
-
-    def __str__(self):
-        return self.name
-
-    def __eq__(self, other):
-        return str(self) == str(other)
-
-    def __ne__(self, other):
-        return not self == other
-
-
-class ProviderChoice(ChoiceEnum):
-    GCE = 'Google'
-    EC2 = 'EC2'
-    AZURE = 'Azure'
-
-
-class StateChoice(ChoiceEnum):
-    UNK = 'unkown'
-    ACTIVE = 'active'
-    DELETING = 'deleting'
-    DELETED = 'deleted'
+import logging
+from datetime import datetime, timedelta, timezone
+from django.db import models
+from .enums import ProviderChoice, StateChoice
+from .lib.openqa import OpenQA, get_url, OpenQAClientError
 
 
 def format_seconds(seconds):
+    if not seconds:
+        return "0s"
     days, remainder = divmod(seconds, 60*60*24)
     hours, remainder = divmod(remainder, 60*60)
     minutes, seconds = divmod(remainder, 60)
-    if days > 0:
-        return '{:.0f}d{:.0f}h{:.0f}m'.format(days, hours, minutes)
-    if hours > 0:
-        return '{:.0f}h{:.0f}m'.format(hours, minutes)
-    return '{:.0f}m'.format(minutes)
+    return "".join([
+        f"{days:.0f}d" if days > 0 else "",
+        f"{hours:.0f}h" if hours > 0 else "",
+        f"{minutes:.0f}m" if minutes > 0 else "",
+        f"{seconds:.0f}s" if seconds > 0 else "",
+    ])
 
 
 class Instance(models.Model):
@@ -56,44 +32,55 @@ class Instance(models.Model):
     instance_id = models.CharField(max_length=200)
     region = models.CharField(max_length=64, default='')
     vault_namespace = models.CharField(max_length=64, default='')
-    csp_info = models.TextField(default='')
     notified = models.BooleanField(default=False)
     ignore = models.BooleanField(default=False)
+    TAG_IGNORE = 'pcw_ignore'
 
-    def age_formated(self):
+    def age_formatted(self):
         return format_seconds(self.age.total_seconds())
 
-    def ttl_formated(self):
-        return format_seconds(self.ttl.total_seconds()) if (self.ttl) else ""
+    def ttl_formatted(self):
+        return format_seconds(self.ttl.total_seconds())
+
+    def ttl_expired(self):
+        return self.age.total_seconds() > self.ttl.total_seconds()
 
     def all_time_fields(self):
         all_time_pattern = "(age={}, first_seen={}, last_seen={}, ttl={})"
         first_fmt = 'None'
         last_fmt = 'None'
-        if (self.first_seen):
+        if self.first_seen:
             first_fmt = self.first_seen.strftime('%Y-%m-%d %H:%M')
-        if (self.last_seen):
+        if self.last_seen:
             last_fmt = self.last_seen.strftime('%Y-%m-%d %H:%M')
-        return all_time_pattern.format(self.age_formated(), first_fmt, last_fmt, self.ttl_formated())
+        return all_time_pattern.format(self.age_formatted(), first_fmt, last_fmt, self.ttl_formatted())
 
-    def tags(self):
-        try:
-            info = json.loads(self.csp_info)
-            if 'tags' in info:
-                return info['tags']
-        except json.JSONDecodeError:
-            pass
-        return dict()
+    def set_alive(self):
+        self.last_seen = datetime.now(tz=timezone.utc)
+        self.active = True
+        self.age = self.last_seen - self.first_seen
+        if self.state != StateChoice.DELETING:
+            self.state = StateChoice.ACTIVE
+        self.ignore = bool(self.cspinfo.get_tag(Instance.TAG_IGNORE))
 
-    def get_openqa_job_link(self):
-        tags = self.tags()
-        if tags.get('openqa_created_by', '') == 'openqa-suse-de' and 'openqa_var_JOB_ID' in tags:
-            url = '{}/t{}'.format(PCWConfig.get_feature_property('webui', 'openqa_url'), tags['openqa_var_JOB_ID'])
-            title = tags.get('openqa_var_NAME', '')
-            return {'url': url, 'title': title}
-        return None
+    def get_type(self):
+        return self.cspinfo.type
 
-    class Meta:
+    def is_cancelled(self) -> bool:
+        job = self.cspinfo.get_tag("openqa_var_job_id")
+        server = self.cspinfo.get_tag("openqa_var_server")
+        if job and server:
+            try:
+                return OpenQA(
+                    server=server,
+                    retries=1,  # default is 5
+                    wait=5,     # default is 10
+                ).is_cancelled(job)
+            except OpenQAClientError as exc:
+                logging.warning("%s: %s", server, exc)
+        return False
+
+    class Meta:  # pylint: disable=too-few-public-methods
         unique_together = (('provider', 'instance_id', 'vault_namespace'),)
 
 
@@ -105,3 +92,21 @@ class CspInfo(models.Model):
     )
     tags = models.TextField(default='')
     type = models.CharField(max_length=200)
+
+    def get_openqa_job_link(self):
+        server = self.get_tag('openqa_var_server')
+        if server:
+            try:
+                server = get_url(server)
+            except OpenQAClientError as exc:
+                logging.warning("%s: %s", server, exc)
+                return None
+            job_id = self.get_tag('openqa_var_job_id')
+            if job_id:
+                url = f"{server}/t{job_id}"
+                title = self.get_tag('openqa_var_name', '')
+                return {'url': url, 'title': title}
+        return None
+
+    def get_tag(self, tag_name, default_value=None):
+        return json.loads(self.tags).get(tag_name, default_value)

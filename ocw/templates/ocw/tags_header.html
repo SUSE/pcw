@@ -1,0 +1,32 @@
+{% load static %}
+<span style="color:#007bff" >Tags</span>
+<a id="tags_toggle_all" href="javascript:toggle_tags()"><img  src="{% static 'img/plus.png' %}" width=10 height=10/></a>
+<script>
+function toggle_tags(){
+  ihide="{% static 'img/minus.png' %}";
+  ishow="{% static 'img/plus.png' %}";
+  img_button = $('a#tags_toggle_all img');
+  if (img_button.attr('src') == ishow) {
+    $('.tags_short').each(function(i) {
+      $(this).hide();
+    });
+    $('.tags_long').each(function(i) {
+      $(this).show();
+    });
+    img_button.attr('src', ihide);
+  } else {
+    $('.tags_short').each(function(i) {
+      $(this).show();
+    });
+    $('.tags_long').each(function(i) {
+      $(this).hide();
+    });
+    img_button.attr('src', ishow);
+  }
+}
+
+function toggle_tags_row(id){
+  $('#tags_long_'+id).toggle(800);
+  $('#tags_short_'+id).toggle(0);
+}
+</script>

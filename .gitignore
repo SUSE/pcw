@@ -12,8 +12,11 @@ static/
 .coverage
 tests/auth.json
 tests/pcw.ini
-htmlcov/*
+htmlcov/
 
 # Configuration and program data
 /db
 pcw.ini
+
+# Credentials
+creds/
