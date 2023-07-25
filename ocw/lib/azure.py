@@ -7,6 +7,7 @@ from azure.mgmt.storage import StorageManagementClient
 from azure.storage.blob import BlobServiceClient
 from azure.core.exceptions import ResourceNotFoundError
 from msrest.exceptions import AuthenticationError
+from dateutil.parser import parse
 from webui.PCWConfig import PCWConfig
 from .provider import Provider
 from ..models import Instance
@@ -19,6 +20,7 @@ class Azure(Provider):
         super().__init__(namespace)
         self.__resource_group = PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', namespace)
         self.check_credentials()
+        self.__gallery = PCWConfig.get_feature_property('cleanup', 'azure-gallery-name', namespace)
 
     def __new__(cls, vault_namespace: str) -> 'Azure':
         if vault_namespace not in Azure.__instances:
@@ -96,6 +98,9 @@ class Azure(Provider):
             return ', '.join(type_set)
         return "N/A"
 
+    def get_resource_properties(self, resource_id):
+        return self.resource_mgmt_client().resources.get_by_id(resource_id, api_version="2023-07-03").properties
+
     def list_resource_groups(self) -> list:
         return list(self.resource_mgmt_client().resource_groups.list())
 
@@ -106,22 +111,21 @@ class Azure(Provider):
             self.log_info(f"Deleting of resource group {resource_id}")
             self.resource_mgmt_client().resource_groups.begin_delete(resource_id)
 
-    def list_images_by_resource_group(self, resource_group):
-        return self.list_by_resource_group(resource_group,
-                                           filters="resourceType eq 'Microsoft.Compute/images'")
+    def list_images(self):
+        return self.list_resource(filters="resourceType eq 'Microsoft.Compute/images'")
 
-    def list_disks_by_resource_group(self, resource_group):
-        return self.list_by_resource_group(resource_group,
-                                           filters="resourceType eq 'Microsoft.Compute/disks'")
+    def list_disks(self):
+        return self.list_resource(filters="resourceType eq 'Microsoft.Compute/disks'")
 
-    def list_by_resource_group(self, resource_group, filters=None) -> list:
+    def list_resource(self, filters=None) -> list:
         return list(self.resource_mgmt_client().resources.list_by_resource_group(
-            resource_group, filter=filters, expand="changedTime"))
+            self.__resource_group, filter=filters, expand="changedTime"))
 
     def cleanup_all(self) -> None:
         self.log_info("Call cleanup_all")
-        self.cleanup_images_from_rg()
-        self.cleanup_disks_from_rg()
+        self.cleanup_images()
+        self.cleanup_gallery_img_versions()
+        self.cleanup_disks()
         self.cleanup_blob_containers()
 
     @staticmethod
@@ -157,9 +161,9 @@ class Azure(Provider):
                             self.log_info(f"Deleting blob {blob.name}")
                             self.container_client(container.name).delete_blob(blob.name, delete_snapshots="include")
 
-    def cleanup_images_from_rg(self) -> None:
-        self.log_dbg("Call cleanup_images_from_rg")
-        for item in self.list_images_by_resource_group(self.__resource_group):
+    def cleanup_images(self) -> None:
+        self.log_dbg("Call cleanup_images")
+        for item in self.list_images():
             if self.is_outdated(item.changed_time):
                 if self.dry_run:
                     self.log_info(f"Deletion of image {item.name} skipped due to dry run mode")
@@ -167,15 +171,40 @@ class Azure(Provider):
                     self.log_info(f"Delete image '{item.name}'")
                     self.compute_mgmt_client().images.begin_delete(self.__resource_group, item.name)
 
-    def cleanup_disks_from_rg(self) -> None:
-        self.log_dbg("Call cleanup_disks_from_rg")
-        for item in self.list_disks_by_resource_group(self.__resource_group):
+    def cleanup_disks(self) -> None:
+        self.log_dbg("Call cleanup_disks")
+        for item in self.list_disks():
             if self.is_outdated(item.changed_time):
                 if self.compute_mgmt_client().disks.get(self.__resource_group, item.name).managed_by:
-                    self.log_warn(f"Disk is in use - unable delete {item.name}")
+                    self.log_warn(f"Disk is in use - skipping {item.name}")
                 else:
                     if self.dry_run:
                         self.log_info(f"Deletion of disk {item.name} skipped due to dry run mode")
                     else:
                         self.log_info(f"Delete disk '{item.name}'")
                         self.compute_mgmt_client().disks.begin_delete(self.__resource_group, item.name)
+
+    def cleanup_gallery_img_versions(self) -> None:
+        self.log_dbg("Call cleanup_gallery_img_versions")
+        gallery = self.compute_mgmt_client().galleries.get(self.__resource_group, self.__gallery)
+        if Instance.TAG_IGNORE in gallery.tags:
+            self.log_err(f"Gallery in resource group {self.__resource_group} has {Instance.TAG_IGNORE} tag: {self.__gallery}")
+            return
+        for image in self.compute_mgmt_client().gallery_images.list_by_gallery(self.__resource_group, gallery.name):
+            if Instance.TAG_IGNORE in image.tags:
+                self.log_info(f"Gallery {self.__gallery} image {image} has {Instance.TAG_IGNORE} tag")
+                continue
+            for version in self.compute_mgmt_client().gallery_image_versions.list_by_gallery_image(
+                    self.__resource_group, gallery.name, image.name):
+                if Instance.TAG_IGNORE in version.tags:
+                    self.log_info(f"Image version {version} for image {image} in gallery {self.__gallery} has {Instance.TAG_IGNORE} tag")
+                    continue
+                properties = self.get_resource_properties(version.id)
+                if self.is_outdated(parse(properties['publishingProfile']['publishedDate'])):
+                    if self.dry_run:
+                        self.log_info(f"Deletion of version {gallery.name}/{image.name}/{version.name} skipped due to dry run mode")
+                    else:
+                        self.log_info(f"Delete version '{gallery.name}/{image.name}/{version.name}'")
+                        self.compute_mgmt_client().gallery_image_versions.begin_delete(
+                                self.__resource_group, gallery.name, image.name, version.name
+                        )

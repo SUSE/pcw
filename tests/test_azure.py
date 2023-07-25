@@ -160,29 +160,27 @@ def test_cleanup_blob_containers_all_new_one_pcw_ignore(azure_patch, container_c
     assert container_client_all_new.deleted_blobs == []
 
 
-def test_cleanup_images_from_rg_all_new(azure_patch, monkeypatch, mock_compute_mgmt_client):
-    monkeypatch.setattr(Azure, 'list_by_resource_group', lambda *args, **kwargs: [FakeItem(), FakeItem()])
-    azure_patch.cleanup_images_from_rg()
+def test_cleanup_images_all_new(azure_patch, monkeypatch, mock_compute_mgmt_client):
+    monkeypatch.setattr(Azure, 'list_resource', lambda *args, **kwargs: [FakeItem(), FakeItem()])
+    azure_patch.cleanup_images()
 
     assert len(deleted_images) == 0
 
 
-def test_cleanup_images_from_rg_one_old(azure_patch, monkeypatch, mock_compute_mgmt_client):
+def test_cleanup_images_one_old(azure_patch, monkeypatch, mock_compute_mgmt_client):
     old_times = datetime.now(timezone.utc) - timedelta(hours=generators.max_age_hours+1)
-    monkeypatch.setattr(Azure, 'list_by_resource_group', lambda *args, **kwargs: [FakeItem(old_times, "to_delete"),
-                                                                                  FakeItem()
-                                                                                  ])
+    monkeypatch.setattr(Azure, 'list_resource', lambda *args, **kwargs: [FakeItem(old_times, "to_delete"), FakeItem()])
     azure_patch.dry_run = True
-    azure_patch.cleanup_images_from_rg()
+    azure_patch.cleanup_images()
     assert len(deleted_images) == 0
 
     azure_patch.dry_run = False
-    azure_patch.cleanup_images_from_rg()
+    azure_patch.cleanup_images()
     assert len(deleted_images) == 1
     assert deleted_images[0] == "to_delete"
 
 
-def test_cleanup_disks_from_rg_all_new(azure_patch, monkeypatch):
+def test_cleanup_disks_all_new(azure_patch, monkeypatch):
 
     global deleted_images
     # to make sure that we not failing due to other test left dirty env.
@@ -199,13 +197,13 @@ def test_cleanup_disks_from_rg_all_new(azure_patch, monkeypatch):
 
     monkeypatch.setattr(Azure, 'compute_mgmt_client', mock_compute_mgmt_client)
 
-    monkeypatch.setattr(Azure, 'list_by_resource_group', lambda *args, **kwargs: [FakeItem(), FakeItem()])
-    azure_patch.cleanup_disks_from_rg()
+    monkeypatch.setattr(Azure, 'list_resource', lambda *args, **kwargs: [FakeItem(), FakeItem()])
+    azure_patch.cleanup_disks()
 
     assert len(deleted_images) == 0
 
 
-def test_cleanup_disks_from_rg_one_old_no_managed_by(azure_patch, monkeypatch):
+def test_cleanup_disks_one_old_no_managed_by(azure_patch, monkeypatch):
     global deleted_images
     # to make sure that we not failing due to other test left dirty env.
     deleted_images = list()
@@ -222,20 +220,18 @@ def test_cleanup_disks_from_rg_one_old_no_managed_by(azure_patch, monkeypatch):
     monkeypatch.setattr(Azure, 'compute_mgmt_client', mock_compute_mgmt_client)
 
     old_times = datetime.now(timezone.utc) - timedelta(hours=generators.max_age_hours+1)
-    monkeypatch.setattr(Azure, 'list_by_resource_group', lambda *args, **kwargs: [FakeItem(old_times, "to_delete"),
-                                                                                  FakeItem()
-                                                                                  ])
+    monkeypatch.setattr(Azure, 'list_resource', lambda *args, **kwargs: [FakeItem(old_times, "to_delete"), FakeItem()])
     azure_patch.dry_run = True
-    azure_patch.cleanup_disks_from_rg()
+    azure_patch.cleanup_disks()
     assert len(deleted_images) == 0
 
     azure_patch.dry_run = False
-    azure_patch.cleanup_disks_from_rg()
+    azure_patch.cleanup_disks()
     assert len(deleted_images) == 1
     assert deleted_images[0] == "to_delete"
 
 
-def test_cleanup_disks_from_rg_one_old_with_managed_by(azure_patch, monkeypatch):
+def test_cleanup_disks_one_old_with_managed_by(azure_patch, monkeypatch):
     global deleted_images
     # to make sure that we not failing due to other test left dirty env.
     deleted_images = list()
@@ -252,10 +248,8 @@ def test_cleanup_disks_from_rg_one_old_with_managed_by(azure_patch, monkeypatch)
     monkeypatch.setattr(Azure, 'compute_mgmt_client', mock_compute_mgmt_client)
 
     old_times = datetime.now(timezone.utc) - timedelta(hours=generators.max_age_hours+1)
-    monkeypatch.setattr(Azure, 'list_by_resource_group', lambda *args, **kwargs: [FakeItem(old_times, "to_delete"),
-                                                                                  FakeItem()
-                                                                                  ])
-    azure_patch.cleanup_disks_from_rg()
+    monkeypatch.setattr(Azure, 'list_resource', lambda *args, **kwargs: [FakeItem(old_times, "to_delete"), FakeItem()])
+    azure_patch.cleanup_disks()
 
     assert len(deleted_images) == 0
 
@@ -269,13 +263,14 @@ def test_cleanup_all(azure_patch, monkeypatch):
 
     monkeypatch.setattr(Azure, 'get_storage_key', lambda *args, **kwargs: 'FOOXX')
     monkeypatch.setattr(Azure, 'cleanup_blob_containers', count_call)
-    monkeypatch.setattr(Azure, 'cleanup_disks_from_rg', count_call)
-    monkeypatch.setattr(Azure, 'cleanup_images_from_rg', count_call)
+    monkeypatch.setattr(Azure, 'cleanup_disks', count_call)
+    monkeypatch.setattr(Azure, 'cleanup_images', count_call)
+    monkeypatch.setattr(Azure, 'cleanup_gallery_img_versions', count_call)
     monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
 
     az = Azure('fake')
     az.cleanup_all()
-    assert called == 3
+    assert called == 4
 
 
 def test_check_credentials(monkeypatch):
