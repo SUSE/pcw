@@ -5,13 +5,12 @@ from os.path import basename
 from datetime import datetime, timedelta, timezone
 import dateutil.parser as dateparser
 from django.db import transaction
-from django.db.models import F
 from ocw.apps import getScheduler
 from webui.PCWConfig import PCWConfig
 from ..models import Instance, StateChoice, ProviderChoice, CspInfo
 from .emailnotify import send_mail, send_leftover_notification
 from .azure import Azure
-from .EC2 import EC2
+from .ec2 import EC2
 from .gce import GCE
 
 logger = logging.getLogger(__name__)
@@ -152,7 +151,7 @@ def update_run() -> None:
             except Exception:
                 logger.exception("[%s] Update failed for %s", namespace, provider)
                 error_occured = True
-                send_mail('Error on update {} in namespace {}'.format(provider, namespace),
+                send_mail(f'Error on update {provider} in namespace {namespace}',
                           traceback.format_exc())
 
     auto_delete_instances()
@@ -174,7 +173,7 @@ def delete_instance(instance: type[Instance]) -> None:
         GCE(instance.vault_namespace).delete_instance(instance.instance_id, instance.region)
     else:
         raise NotImplementedError(
-            "Provider({}).delete() isn't implemented".format(instance.provider))
+            f"Provider({instance.provider}).delete() isn't implemented")
 
     instance.state = StateChoice.DELETING
     instance.save()
@@ -183,37 +182,39 @@ def delete_instance(instance: type[Instance]) -> None:
 def auto_delete_instances() -> None:
     for namespace in PCWConfig.get_namespaces_for('default'):
         logger.debug("Running auto_delete_instances for %s", namespace)
-        obj = Instance.objects
-        obj = obj.filter(state=StateChoice.ACTIVE, vault_namespace=namespace, age__gte=F('ttl')).exclude(ignore=True)
-        logger.debug("Found %d instances for deletion", len(obj))
+        instances = [
+            i for i in Instance.objects.filter(state=StateChoice.ACTIVE, vault_namespace=namespace).exclude(ignore=True)
+            if i.ttl_expired() or i.is_cancelled()
+        ]
+        logger.debug("Found %d instances for deletion", len(instances))
         email_text = set()
-        for i in obj:
-            logger.debug("[%s] TTL expire for instance %s:%s %s", i.vault_namespace,
-                         i.provider, i.instance_id, i.all_time_fields())
+        for instance in instances:
+            if instance.ttl_expired():
+                logger.debug("[%s] TTL expired for instance %s:%s %s", instance.vault_namespace,
+                             instance.provider, instance.instance_id, instance.all_time_fields())
+            else:
+                logger.debug("[%s] Job cancelled for instance %s:%s %s", instance.vault_namespace,
+                             instance.provider, instance.instance_id, instance.all_time_fields())
             try:
-                delete_instance(i)
+                delete_instance(instance)
             except Exception:
-                msg = "[{}] Deleting instance ({}:{}) failed".format(i.vault_namespace, i.provider, i.instance_id)
+                msg = f"[{instance.vault_namespace}] Deleting instance ({instance.provider}:{instance.instance_id}) failed"
                 logger.exception(msg)
-                email_text.add("{}\n\n{}".format(msg, traceback.format_exc()))
+                email_text.add(f"{msg}\n\n{traceback.format_exc()}")
 
         if len(email_text) > 0:
-            send_mail('[{}] Error on auto deleting instance(s)'.format(namespace),
-                      "\n{}\n".format('#'*79).join(email_text))
+            send_mail(f'[{namespace}] Error on auto deleting instance(s)', f"\n{'#'*79}\n".join(email_text))
 
 
 def is_updating():
-    global RUNNING
     return RUNNING
 
 
 def last_update():
-    global LAST_UPDATE
     return LAST_UPDATE if LAST_UPDATE is not None else ''
 
 
 def start_update():
-    global RUNNING
     if not RUNNING:
         getScheduler().get_job('update_db').reschedule(trigger='date', run_date=datetime.now(timezone.utc))
 

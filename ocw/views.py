@@ -1,30 +1,33 @@
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse, HttpResponse
+from django.core.serializers import serialize
 from django.shortcuts import redirect
 from django_tables2 import SingleTableView
 from .lib import db
 from .models import Instance
 from .tables import InstanceTable
 from .tables import InstanceFilter
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponse
-from django.core.serializers import serialize
+
+# pylint: disable=unused-argument
 
 
-class FilteredSingleTableView(SingleTableView):
+class FilteredSingleTableView(SingleTableView):  # pylint: disable=too-many-ancestors
     filter_class = None
+    filter = None
 
     def get_table_data(self):
-        data = super(FilteredSingleTableView, self).get_table_data()
+        data = super().get_table_data()
         self.filter = self.filter_class(self.request.GET, queryset=data)
         return self.filter.qs
 
     def get_context_data(self, **kwargs):
-        context = super(FilteredSingleTableView, self).get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
         context['filter'] = self.filter
         return context
 
 
 # Displayed with '/ocw/instances' @see urls.py
-class FilteredInstanceTableView(FilteredSingleTableView):
+class FilteredInstanceTableView(FilteredSingleTableView):  # pylint: disable=too-many-ancestors
     model = Instance
     table_class = InstanceTable
     filter_class = InstanceFilter
@@ -71,6 +74,6 @@ def update_status(request):
 
 @login_required
 def delete(request, key_id=None):
-    o = Instance.objects.get(id=key_id)
-    db.delete_instance(o)
+    obj = Instance.objects.get(id=key_id)
+    db.delete_instance(obj)
     return redirect('update')

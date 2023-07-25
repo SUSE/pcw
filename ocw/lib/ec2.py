@@ -34,17 +34,17 @@ class EC2(Provider):
         return EC2.__instances[vault_namespace]
 
     def check_credentials(self) -> None:
-
         self.__secret = self.get_data('secret_access_key')
         self.__key = self.get_data('access_key_id')
 
         for i in range(1, 5):
             try:
                 self.get_all_regions()
+                return
             except Exception:
-                self.log_info("check_credentials (attemp:{}) with key {}", i, self.__key)
+                self.log_info(f"check_credentials (attempt:{i}) with key {self.__key}")
                 time.sleep(1)
-        self.get_all_regions()
+        raise ValueError("Invalid EC2 credentials")
 
     def ec2_resource(self, region: str) -> "boto3.session.Session.resource":
         if region not in self.__ec2_resource:
@@ -68,38 +68,36 @@ class EC2(Provider):
         self.log_dbg("Call clean_snapshots")
         for region in self.all_regions:
             response = self.ec2_client(region).describe_snapshots(OwnerIds=['self'])
-            self.log_dbg("Found {} snapshots in {}", len(response['Snapshots']), region)
+            self.log_dbg(f"Found {len(response['Snapshots'])} snapshots in {region}")
             for snapshot in response['Snapshots']:
                 if EC2.is_outdated(snapshot['StartTime'], valid_period_days):
-                    try:
-                        if self.dry_run:
-                            self.log_info("Snapshot deletion of {} skipped due to dry run mode",
-                                          snapshot['SnapshotId'])
-                        else:
-                            self.log_info("Deleting snapshot {} in region {} with StartTime={}",
-                                          snapshot['SnapshotId'], region, snapshot['StartTime'])
+                    if self.dry_run:
+                        self.log_info(f"Snapshot deletion of {snapshot['SnapshotId']} skipped due to dry run mode")
+                    else:
+                        self.log_info(
+                            f"Deleting snapshot {snapshot['SnapshotId']} in region {region} with StartTime={snapshot['StartTime']}"
+                        )
+                        try:
                             self.ec2_client(region).delete_snapshot(SnapshotId=snapshot['SnapshotId'])
-                    except ClientError as ex:
-                        if ex.response['Error']['Code'] == 'InvalidSnapshot.InUse':
-                            self.log_info(ex.response['Error']['Message'])
-                        else:
-                            raise ex
+                        except ClientError as ex:
+                            if ex.response['Error']['Code'] == 'InvalidSnapshot.InUse':
+                                self.log_info(ex.response['Error']['Message'])
+                            else:
+                                raise ex
 
     def cleanup_volumes(self, valid_period_days: float) -> None:
         self.log_dbg("Call cleanup_volumes")
         for region in self.all_regions:
             response = self.ec2_client(region).describe_volumes()
-            self.log_dbg("Found {} volumes in {}", len(response['Volumes']), region)
+            self.log_dbg(f"Found {len(response['Volumes'])} volumes in {region}")
             for volume in response['Volumes']:
                 if EC2.is_outdated(volume['CreateTime'], valid_period_days):
                     if self.volume_protected(volume):
-                        self.log_info('Volume {} has tag pcw_ignore so protected from deletion',
-                                      volume['VolumeId'])
+                        self.log_info(f"Volume {volume['VolumeId']} has tag pcw_ignore so protected from deletion")
                     elif self.dry_run:
-                        self.log_info("Volume deletion of {} skipped due to dry run mode", volume['VolumeId'])
+                        self.log_info(f"Volume deletion of {volume['VolumeId']} skipped due to dry run mode")
                     else:
-                        self.log_info("Deleting volume {} in region {} with CreateTime={}", volume['VolumeId'], region,
-                                      volume['CreateTime'])
+                        self.log_info(f"Deleting volume {volume['VolumeId']} in region {region} with CreateTime={volume['CreateTime']}")
                         try:
                             self.ec2_client(region).delete_volume(VolumeId=volume['VolumeId'])
                         except ClientError as ex:
@@ -126,13 +124,13 @@ class EC2(Provider):
     def delete_instance(self, region: str, instance_id: str):
         try:
             if self.dry_run:
-                self.log_info("Instance termination {} skipped due to dry run mode", instance_id)
+                self.log_info(f"Instance termination {instance_id} skipped due to dry run mode")
             else:
-                self.log_info("Deleting {}", instance_id)
+                self.log_info(f"Deleting {instance_id}", instance_id)
                 self.ec2_resource(region).instances.filter(InstanceIds=[instance_id]).terminate()
         except ClientError as ex:
             if ex.response['Error']['Code'] == 'InvalidInstanceID.NotFound':
-                self.log_warn("Failed to delete instance with id {}. It does not exists on EC2", instance_id)
+                self.log_warn(f"Failed to delete instance with id {instance_id}. It does not exists on EC2")
             else:
                 raise ex
 
@@ -149,7 +147,7 @@ class EC2(Provider):
 
     def delete_vpc(self, region: str, vpc, vpc_id: str):
         try:
-            self.log_info('{} has no associated instances. Initializing cleanup of it', vpc)
+            self.log_info(f'{vpc} has no associated instances. Initializing cleanup of it')
             self.delete_routing_tables(region, vpc_id)
             self.delete_security_groups(vpc)
             self.delete_network_acls(vpc)
@@ -172,14 +170,14 @@ class EC2(Provider):
         for subnet in vpc.subnets.all():
             for interface in subnet.network_interfaces.all():
                 if self.dry_run:
-                    self.log_info('Deletion of {} skipped due to dry_run mode', interface)
+                    self.log_info(f'Deletion of {interface} skipped due to dry_run mode')
                 else:
-                    self.log_info('Deleting {}', interface)
+                    self.log_info(f'Deleting {interface}')
                     interface.delete()
             if self.dry_run:
-                self.log_info('Deletion of {} skipped due to dry_run mode', subnet)
+                self.log_info(f'Deletion of {subnet} skipped due to dry_run mode')
             else:
-                self.log_info('Deleting {}', subnet)
+                self.log_info(f'Deleting {subnet}')
                 subnet.delete()
 
     def delete_network_acls(self, vpc) -> None:
@@ -187,9 +185,9 @@ class EC2(Provider):
         for netacl in vpc.network_acls.all():
             if not netacl.is_default:
                 if self.dry_run:
-                    self.log_info('Deletion of {} skipped due to dry_run mode', netacl)
+                    self.log_info(f'Deletion of {netacl} skipped due to dry_run mode')
                 else:
-                    self.log_info('Deleting {}', netacl)
+                    self.log_info(f'Deleting {netacl}')
                     netacl.delete()
 
     def delete_vpc_peering_connections(self, region: str, vpc_id: str) -> None:
@@ -199,9 +197,9 @@ class EC2(Provider):
         for vpcpeer in response['VpcPeeringConnections']:
             vpcpeer_connection = self.ec2_resource(region).VpcPeeringConnection(vpcpeer['VpcPeeringConnectionId'])
             if self.dry_run:
-                self.log_info('Deletion of {} skipped due to dry_run mode', vpcpeer_connection)
+                self.log_info(f'Deletion of {vpcpeer_connection} skipped due to dry_run mode')
             else:
-                self.log_info('Deleting {}', vpcpeer_connection)
+                self.log_info(f'Deleting {vpcpeer_connection}')
                 vpcpeer_connection.delete()
 
     def delete_security_groups(self, vpc) -> None:
@@ -209,9 +207,9 @@ class EC2(Provider):
         for sgroup in vpc.security_groups.all():
             if sgroup.group_name != 'default':
                 if self.dry_run:
-                    self.log_info('Deletion of {} skipped due to dry_run mode', sgroup)
+                    self.log_info(f'Deletion of {sgroup} skipped due to dry_run mode')
                 else:
-                    self.log_info('Deleting {}', sgroup)
+                    self.log_info(f'Deleting {sgroup}')
                     sgroup.delete()
 
     def delete_vpc_endpoints(self, region, vpc_id):
@@ -219,52 +217,52 @@ class EC2(Provider):
         response = self.ec2_client(region).describe_vpc_endpoints(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])
         for end_point in response['VpcEndpoints']:
             if self.dry_run:
-                self.log_info('Deletion of {} skipped due to dry_run mode', end_point)
+                self.log_info(f'Deletion of {end_point} skipped due to dry_run mode')
             else:
-                self.log_info('Deleting {}', end_point)
+                self.log_info(f'Deleting {end_point}')
                 self.ec2_client(region).delete_vpc_endpoints(VpcEndpointIds=[end_point['VpcEndpointId']])
 
     def delete_routing_tables(self, region: str, vpc_id: str) -> None:
         self.log_dbg('Call delete_routing_tables')
         vpc_filter = [{"Name": "vpc-id", "Values": [vpc_id]}]
         route_tables = self.ec2_client(region).describe_route_tables(Filters=vpc_filter)['RouteTables']
-        self.log_dbg('Got {} routing tables', len(route_tables))
+        self.log_dbg(f'Got {len(route_tables)} routing tables')
         for route_table in route_tables:
             for association in route_table['Associations']:
                 if not association['Main']:
                     if self.dry_run:
-                        self.log_info('{} disassociation with routing table won\'t happen due to dry_run mode',
-                                      association['RouteTableAssociationId'])
+                        self.log_info(
+                            f"{association['RouteTableAssociationId']} disassociation with routing table won't happen due to dry_run mode"
+                        )
                         self.log_dbg(association)
                     else:
-                        self.log_info('{} disassociation with routing table will happen',
-                                      association['RouteTableAssociationId'])
+                        self.log_info(f"{association['RouteTableAssociationId']} disassociation with routing table will happen")
                         self.log_dbg(association)
                         self.ec2_client(region).disassociate_route_table(AssociationId=association['RouteTableAssociationId'])
             for route in route_table['Routes']:
                 if 'GatewayId' in route and route['GatewayId'] != 'local':
                     if self.dry_run:
-                        self.log_info('{} route will not be deleted due to dry_run mode', route_table['RouteTableId'])
+                        self.log_info(f"{route_table['RouteTableId']} route will not be deleted due to dry_run mode")
                         self.log_dbg(route)
                     else:
-                        self.log_info('Delete route {}', route_table['RouteTableId'])
+                        self.log_info(f"Delete route {route_table['RouteTableId']}")
                         self.log_dbg(route)
                         self.ec2_client(region).delete_route(RouteTableId=route_table['RouteTableId'],
                                                              DestinationCidrBlock=route['DestinationCidrBlock'])
             if route_table['Associations'] == []:
                 if self.dry_run:
-                    self.log_info('{} routing table will not be deleted due to dry_run mode', route_table['RouteTableId'])
+                    self.log_info(f"{route_table['RouteTableId']} routing table will not be deleted due to dry_run mode")
                 else:
-                    self.log_info('Delete routing table {}', route_table['RouteTableId'])
+                    self.log_info(f"Delete routing table {route_table['RouteTableId']}")
                     self.ec2_client(region).delete_route_table(RouteTableId=route_table['RouteTableId'])
 
     def delete_internet_gw(self, vpc) -> None:
         self.log_dbg('Call delete_internet_gw')
         for gate in vpc.internet_gateways.all():
             if self.dry_run:
-                self.log_info('{} will be not deleted due to dry_run mode', gate)
+                self.log_info(f'{gate} will be not deleted due to dry_run mode')
             else:
-                self.log_info('Deleting {}', gate)
+                self.log_info(f'Deleting {gate}')
                 vpc.detach_internet_gateway(InternetGatewayId=gate.id)
                 gate.delete()
 
@@ -276,13 +274,13 @@ class EC2(Provider):
         vpc_known_exception = "botocore.exceptions.ClientError: An error occurred (DependencyViolation)"
         for region in self.all_regions:
             response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
-            self.log_dbg("Found {} VPC\'s in {}", len(response['Vpcs']), region)
+            self.log_dbg(f"Found {len(response['Vpcs'])} VPC's in {region}")
             for response_vpc in response['Vpcs']:
                 vpc_id = response_vpc['VpcId']
                 if self.volume_protected(response_vpc):
-                    self.log_dbg('{} has protection tag pcw_ignore obey the order!', vpc_id)
+                    self.log_dbg(f'{vpc_id} has protection tag pcw_ignore obey the order!')
                     continue
-                self.log_dbg('Found {} in {}. (OwnerId={}).', vpc_id, region, response_vpc['OwnerId'])
+                self.log_dbg(f"Found {vpc_id} in {region}. (OwnerId={response_vpc['OwnerId']}).")
                 if PCWConfig.getBoolean('cleanup/vpc-notify-only', self._namespace):
                     vpc_notify.append(vpc_id)
                 else:
@@ -302,7 +300,7 @@ class EC2(Provider):
     def vpc_can_be_deleted(self, resource_vpc, vpc_id) -> bool:
         for subnet in resource_vpc.subnets.all():
             if len(list(subnet.instances.all())) > 0:
-                self.log_info('{} has associated instance(s) so can not be deleted', vpc_id)
+                self.log_info(f'{vpc_id} has associated instance(s) so can not be deleted')
                 return False
         return True
 
@@ -318,11 +316,11 @@ class EC2(Provider):
         self.log_dbg('Call cleanup_images')
         for region in self.all_regions:
             response = self.ec2_client(region).describe_images(Owners=['self'])
-            self.log_dbg("Found {} images in {}", len(response['Images']), region)
+            self.log_dbg(f"Found {len(response['Images'])} images in {region}")
             for img in response['Images']:
                 if EC2.is_outdated(parse(img['CreationDate']), valid_period_days):
                     if self.dry_run:
-                        self.log_info("Image deletion {} skipped due to dry run mode", img['ImageId'])
+                        self.log_info(f"Image deletion {img['ImageId']} skipped due to dry run mode")
                     else:
-                        self.log_info("Delete image '{}' (ami:{})".format(img['Name'], img['ImageId']))
+                        self.log_info(f"Delete image '{img['Name']}' (ami:{img['ImageId']})")
                         self.ec2_client(region).deregister_image(ImageId=img['ImageId'], DryRun=False)

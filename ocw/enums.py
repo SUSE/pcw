@@ -26,14 +26,13 @@ class ProviderChoice(ChoiceEnum):
     def from_str(provider):
         if provider.upper() == ProviderChoice.GCE:
             return ProviderChoice.GCE
-        elif provider.upper() == ProviderChoice.EC2:
+        if provider.upper() == ProviderChoice.EC2:
             return ProviderChoice.EC2
-        elif provider.upper() == ProviderChoice.AZURE:
+        if provider.upper() == ProviderChoice.AZURE:
             return ProviderChoice.AZURE
-        elif provider.upper() == ProviderChoice.OSTACK:
+        if provider.upper() == ProviderChoice.OSTACK:
             return ProviderChoice.OSTACK
-        else:
-            raise ValueError("{} is not convertable to ProviderChoice".format(provider))
+        raise ValueError(f"{provider} is not convertable to ProviderChoice")
 
 
 class StateChoice(ChoiceEnum):

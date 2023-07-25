@@ -1,64 +1,29 @@
+from pytest import fixture
+from unittest.mock import MagicMock, patch
 import json
 from datetime import datetime, timezone, timedelta
-from ocw.lib.gce import GCE, Provider
+from ocw.lib.gce import GCE
 from webui.PCWConfig import PCWConfig
 from tests.generators import max_age_hours, mock_get_feature_property
 
 
-class FakeRequest:
-    def __init__(self, response={}):
+class MockRequest:
+    def __init__(self, response=None):
+        if response is None:
+            response = {}
         self.response = response
 
     def execute(self):
         return self.response
 
 
-class FakeMockRegions:
+class MockResource:
     def __init__(self, responses):
+        self.deleted_resources = list()
         self.responses = responses
 
-    def list(self, *args, **kwargs):
-        return self.responses.pop(0)
-
-    def list_next(self, *args, **kwargs):
-        return self.responses.pop(0)
-
-    def get(self, project, region):
-        def something():
-            pass
-        something.execute = lambda: self.responses
-        return something
-
-
-def test_list_regions(monkeypatch):
-    def mocked_compute_client():
-        pass
-    fmr = FakeMockRegions([FakeRequest({'items': [{'name': 'Wonderland'}]}), None])
-    mocked_compute_client.regions = lambda *args, **kwargs: fmr
-    monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)
-    monkeypatch.setattr(GCE, 'get_data', lambda *args, **kwargs: {"project_id": "project"})
-    monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
-    gce = GCE('fake')
-    assert gce.list_regions() == ['Wonderland']
-
-
-def test_list_zones(monkeypatch):
-    def mocked_compute_client():
-        pass
-    fmr = FakeMockRegions({'zones': ['somethingthatIdonotknow/RabbitHole']})
-    mocked_compute_client.regions = lambda *args, **kwargs: fmr
-    monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)
-    monkeypatch.setattr(GCE, 'get_data', lambda *args, **kwargs: {"project_id": "project"})
-    monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
-    gce = GCE('fake')
-    assert gce.list_zones('Oxfordshire') == ['RabbitHole']
-
-
-class FakeMockImages:
-    def __init__(self, responses):
-        self.deleted_images = list()
-        self.deleted_disks = list()
-        self.responses = responses
+    def __call__(self, *args, **kwargs):
+        return self
 
     def list(self, *args, **kwargs):
         return self.responses.pop(0)
@@ -67,77 +32,152 @@ class FakeMockImages:
         return self.responses.pop(0)
 
     def delete(self, *args, **kwargs):
-        if 'image' in kwargs:
-            self.deleted_images.append(kwargs['image'])
-        elif 'disk' in kwargs:
-            self.deleted_disks.append(kwargs['disk'])
-        else:
-            raise ValueError("Unexpected delete request")
-        if len(self.responses) > 0:
-            return self.responses.pop(0)
-        return FakeRequest(None)
+        for resource in ('image', 'disk', 'instance', 'firewall', 'route', 'network', 'subnetwork'):
+            if resource in kwargs:
+                self.deleted_resources.append(kwargs[resource])
+                if len(self.responses) > 0:
+                    return self.responses.pop(0)
+                return MockRequest(None)
+        raise ValueError("Unexpected delete request")
+
+    def get(self, project, region):
+        def something():
+            pass
+        something.execute = lambda: self.responses
+        return something
 
 
-def test_cleanup_all(monkeypatch):
+class MockClient:
+    def disks(self): pass
+    def firewalls(self): pass
+    def images(self): pass
+    def instances(self): pass
+    def networks(self): pass
+    def routes(self): pass
+    def subnetworks(self): pass
+
+
+@fixture
+def gce():
+    with (
+        patch.object(PCWConfig, 'get_feature_property', new=mock_get_feature_property),
+        patch.object(GCE, 'get_data', return_value={"project_id": "project"}),
+        patch.object(GCE, 'read_auth_json', return_value={}),
+    ):
+        gce = GCE('fake')
+        gce.compute_client = MockClient
+        gce.compute_client.instances = MockResource([MockRequest({'items': ['instance1', 'instance2']}), None])
+        yield gce
+
+
+def test_delete_instance(gce):
+    instances = MockResource([MockRequest({'items': ['instance1', 'instance2']}), None])
+    gce.compute_client.instances = instances
+    gce.delete_instance("instance1", "zone1")
+    assert instances.deleted_resources == ["instance1"]
+
+
+def test_list_instances(gce):
+    assert gce.list_instances(zone="zone1") == ["instance1", "instance2"]
+
+
+def test_list_all_instances(gce):
+    with (
+        patch.object(gce, "list_regions", return_value=["region1"]),
+        patch.object(gce, "list_zones", return_value=["zone1"]),
+    ):
+        assert gce.list_all_instances() == ["instance1", "instance2"]
+
+
+def test_list_regions(gce):
+    gce.compute_client.regions = MockResource([MockRequest({'items': [{'name': 'Wonderland'}]}), None])
+    assert gce.list_regions() == ['Wonderland']
+
+
+def test_list_zones(gce):
+    gce.compute_client.regions = MockResource({'zones': ['somethingthatIdonotknow/RabbitHole']})
+    gce.compute_client.list_zones = {'zones': ['somethingthatIdonotknow/RabbitHole']}
+    assert gce.list_zones('Oxfordshire') == ['RabbitHole']
+
+
+def _test_cleanup(gce, resource_type, cleanup_call):
     older_than_max_age = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours+1)).strftime("%m/%d/%Y, %H:%M:%S")
     now_age = datetime.now(timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
 
-    fmi = FakeMockImages([
-        FakeRequest({   # on images().list()
-            'items': [
-                {'name': 'keep', 'creationTimestamp': now_age},
-                {'name': 'delete1', 'creationTimestamp': older_than_max_age}
-            ], 'id': "id"}),
-        FakeRequest(),    # on images().delete()
-        FakeRequest({   # on images().list_next()
-            'items': [
-                {'name': 'keep', 'creationTimestamp': now_age},
-                {'name': 'delete2', 'creationTimestamp': older_than_max_age}
-            ], 'id': "id"}),
-        FakeRequest({'error': {'errors': [{'message': 'err message'}]},
-                    'warnings': [{'message': 'warning message'}]}),
-        None   # on images().list_next()
-    ])
+    for _ in range(2):
+        resources = MockResource([
+            MockRequest({   # on images().list()
+                'items': [
+                    {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
+                    {'name': 'delete1', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
+                ], 'id': "id"}),
+            MockRequest(),  # on images().delete()
+            MockRequest({   # on images().list_next()
+                'items': [
+                    {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
+                    {'name': 'delete2', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
+                ], 'id': "id"}),
+            MockRequest({'error': {'errors': [{'message': 'err message'}]},
+                        'warnings': [{'message': 'warning message'}]}),
+            None   # on images().list_next()
+        ])
 
-    fmd = FakeMockImages([
-        FakeRequest({   # on disks().list()
-            'items': [
-                {'name': 'keep', 'creationTimestamp': now_age},
-                {'name': 'delete_disk1', 'creationTimestamp': older_than_max_age}
-            ], 'id': "id"}),
-        FakeRequest(),    # on disks().delete()
-        FakeRequest({   # on disks().list_next()
-            'items': [
-                {'name': 'keep', 'creationTimestamp': now_age},
-                {'name': 'delete_disk2', 'creationTimestamp': older_than_max_age}
-            ], 'id': "id"}),
-        FakeRequest({'error': {'errors': [{'message': 'err message'}]},
-                    'warnings': [{'message': 'warning message'}]}),
-        None   # on disks().list_next()
-    ])
+        with (
+            patch.object(gce, 'list_regions', return_value=['region1']),
+            patch.object(gce, 'list_zones', return_value=['zone1']),
+        ):
+            setattr(gce.compute_client, resource_type, resources)
 
-    def mocked_compute_client():
-        pass
-    mocked_compute_client.instances = lambda *args, **kwargs: []
-    mocked_compute_client.images = lambda *args, **kwargs: fmi
-    mocked_compute_client.disks = lambda *args, **kwargs: fmd
-    monkeypatch.setattr(GCE, 'compute_client', lambda self: mocked_compute_client)
-    monkeypatch.setattr(GCE, 'get_data', lambda *args, **kwargs: {"project_id": "project"})
-    monkeypatch.setattr(GCE, 'list_regions', lambda *args, **kwargs: ['region1'])
-    monkeypatch.setattr(GCE, 'list_zones', lambda *args, **kwargs: ['zone1'])
-    monkeypatch.setattr(PCWConfig, 'get_feature_property', mock_get_feature_property)
-    monkeypatch.setattr(Provider, 'read_auth_json', lambda *args, **kwargs: '{}')
+            gce.dry_run = not gce.dry_run
+            cleanup_call()
+            if gce.dry_run:
+                assert resources.deleted_resources == []
+            else:
+                assert resources.deleted_resources == ['delete1', 'delete2']
 
-    gce = GCE('fake')
+
+def test_cleanup_disks(gce):
+    _test_cleanup(gce, "disks", gce.cleanup_disks)
+
+
+def test_cleanup_images(gce):
+    _test_cleanup(gce, "images", gce.cleanup_images)
+
+
+def test_cleanup_firewalls(gce):
+    _test_cleanup(gce, "firewalls", gce.cleanup_firewalls)
+
+
+def test_cleanup_routes(gce):
+    _test_cleanup(gce, "routes", gce.cleanup_routes)
+
+
+def test_cleanup_subnetworks(gce):
+    _test_cleanup(gce, "subnetworks", gce.cleanup_subnetworks)
+
+
+def test_cleanup_networks(gce):
+    _test_cleanup(gce, "networks", gce.cleanup_networks)
+
+
+def test_cleanup_all(gce):
+    gce.cleanup_disks = MagicMock()
+    gce.cleanup_images = MagicMock()
+    gce.cleanup_firewalls = MagicMock()
+    gce.cleanup_routes = MagicMock()
+    gce.cleanup_subnetworks = MagicMock()
+    gce.cleanup_networks = MagicMock()
     gce.cleanup_all()
-    assert fmi.deleted_images == ['delete1', 'delete2']
-    assert fmd.deleted_disks == ['delete_disk1', 'delete_disk2']
+    gce.cleanup_disks.assert_called_once()
+    gce.cleanup_images.assert_called_once()
+    gce.cleanup_firewalls.assert_called_once()
+    gce.cleanup_routes.assert_called_once()
+    gce.cleanup_networks.assert_called_once()
+    gce.cleanup_subnetworks.assert_called_once()
 
 
 def test_get_error_reason():
-
     class MockHttpError:
-
         def __init__(self, content) -> None:
             if content is not None:
                 self.content = json.dumps(content)

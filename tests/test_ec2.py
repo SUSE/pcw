@@ -1,4 +1,4 @@
-from ocw.lib.EC2 import EC2, Provider
+from ocw.lib.ec2 import EC2, Provider
 from webui.PCWConfig import PCWConfig
 from tests.generators import mock_get_feature_property
 from tests.generators import ec2_max_age_days
@@ -267,6 +267,10 @@ def test_cleanup_images_one_old(ec2_patch):
             {'Name': Faker().uuid4(), 'CreationDate': older_than_max_age_str, 'ImageId': 2},
         ]
     }
+    ec2_patch.dry_run = True
+    ec2_patch.cleanup_images(ec2_max_age_days)
+    assert MockedEC2Client.deleted_images == []
+    ec2_patch.dry_run = False
     ec2_patch.cleanup_images(ec2_max_age_days)
     assert MockedEC2Client.deleted_images == [2]
 
@@ -320,6 +324,10 @@ def test_cleanup_volumes_cleanupcheck(ec2_patch):
                     {'VolumeId': MockedEC2Client.volumeid_to_delete, 'CreateTime': older_than_max_age_date,
                      'Tags': [{'Key': 'pcw_ignore', 'Value': '1'}]}, ]
     }
+    ec2_patch.dry_run = True
+    ec2_patch.cleanup_volumes(ec2_max_age_days)
+    assert len(MockedEC2Client.deleted_volumes) == 0
+    ec2_patch.dry_run = False
     ec2_patch.cleanup_volumes(ec2_max_age_days)
     assert len(MockedEC2Client.deleted_volumes) == 1
     assert MockedEC2Client.deleted_volumes[0] == MockedEC2Client.volumeid_to_delete
@@ -401,12 +409,22 @@ def test_delete_vpc_no_delete_due_notify_only_config(ec2_patch_for_vpc, monkeypa
 
 
 def test_delete_internet_gw(ec2_patch):
+    ec2_patch.dry_run = True
+    ec2_patch.delete_internet_gw(MockedVpc('vpcId'))
+    assert MockedVpc.detach_internet_gateway_called == 0
+    assert MockedCollectionItem.delete_called == 0
+    ec2_patch.dry_run = False
     ec2_patch.delete_internet_gw(MockedVpc('vpcId'))
     assert MockedVpc.detach_internet_gateway_called == 1
     assert MockedCollectionItem.delete_called == 1
 
 
 def test_delete_routing_tables(ec2_patch):
+    ec2_patch.dry_run = True
+    ec2_patch.delete_routing_tables(MockedVpc('vpcId'), 'vpcId')
+    assert MockedEC2Client.disassociate_route_table_called == 0
+    assert MockedEC2Client.delete_route_called == 0
+    ec2_patch.dry_run = False
     ec2_patch.delete_routing_tables(MockedVpc('vpcId'), 'vpcId')
     assert MockedEC2Client.disassociate_route_table_called
     assert MockedEC2Client.delete_route_called
@@ -414,27 +432,48 @@ def test_delete_routing_tables(ec2_patch):
 
 def test_delete_vpc_endpoints(ec2_patch):
     MockedEC2Client.response = {'VpcEndpoints': [{'VpcEndpointId': 'id'}]}
+    ec2_patch.dry_run = True
+    ec2_patch.delete_vpc_endpoints('region', 'vpcId')
+    assert MockedEC2Client.delete_vpc_endpoints_called == 0
+    ec2_patch.dry_run = False
     ec2_patch.delete_vpc_endpoints('region', 'vpcId')
     assert MockedEC2Client.delete_vpc_endpoints_called
 
 
 def test_delete_security_groups(ec2_patch):
+    ec2_patch.dry_run = True
+    ec2_patch.delete_security_groups(MockedVpc('vpcId'))
+    assert MockedCollectionItem.delete_called == 1
+    ec2_patch.dry_run = False
     ec2_patch.delete_security_groups(MockedVpc('vpcId'))
     assert MockedCollectionItem.delete_called == 2
 
 
 def test_delete_vpc_peering_connections(ec2_patch):
     MockedEC2Client.response = {'VpcPeeringConnections': [{'VpcPeeringConnectionId': 'id'}]}
+    ec2_patch.dry_run = True
+    ec2_patch.delete_vpc_peering_connections('region', 'vpcId')
+    assert MockedVpcPeeringConnection.delete_called == 0
+    ec2_patch.dry_run = False
     ec2_patch.delete_vpc_peering_connections('region', 'vpcId')
     assert MockedVpcPeeringConnection.delete_called
 
 
 def test_delete_network_acls(ec2_patch):
+    ec2_patch.dry_run = True
+    ec2_patch.delete_network_acls(MockedVpc('vpcId'))
+    assert MockedCollectionItem.delete_called == 2
+    ec2_patch.dry_run = False
     ec2_patch.delete_network_acls(MockedVpc('vpcId'))
     assert MockedCollectionItem.delete_called == 3
 
 
 def test_delete_vpc_subnets(ec2_patch):
+    ec2_patch.dry_run = True
+    ec2_patch.delete_vpc_subnets(MockedVpc('vpcId'))
+    assert MockedCollectionItem.delete_called == 3
+    assert MockedInterface.delete_called == 0
+    ec2_patch.dry_run = False
     ec2_patch.delete_vpc_subnets(MockedVpc('vpcId'))
     assert MockedCollectionItem.delete_called == 4
     assert MockedInterface.delete_called

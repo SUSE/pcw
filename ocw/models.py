@@ -1,19 +1,23 @@
-from django.db import models
-from datetime import datetime, timedelta, timezone
-from webui.PCWConfig import PCWConfig
 import json
+import logging
+from datetime import datetime, timedelta, timezone
+from django.db import models
 from .enums import ProviderChoice, StateChoice
+from .lib.openqa import OpenQA, get_url, OpenQAClientError
 
 
 def format_seconds(seconds):
+    if not seconds:
+        return "0s"
     days, remainder = divmod(seconds, 60*60*24)
     hours, remainder = divmod(remainder, 60*60)
     minutes, seconds = divmod(remainder, 60)
-    if days > 0:
-        return '{:.0f}d{:.0f}h{:.0f}m'.format(days, hours, minutes)
-    if hours > 0:
-        return '{:.0f}h{:.0f}m'.format(hours, minutes)
-    return '{:.0f}m'.format(minutes)
+    return "".join([
+        f"{days:.0f}d" if days > 0 else "",
+        f"{hours:.0f}h" if hours > 0 else "",
+        f"{minutes:.0f}m" if minutes > 0 else "",
+        f"{seconds:.0f}s" if seconds > 0 else "",
+    ])
 
 
 class Instance(models.Model):
@@ -32,21 +36,24 @@ class Instance(models.Model):
     ignore = models.BooleanField(default=False)
     TAG_IGNORE = 'pcw_ignore'
 
-    def age_formated(self):
+    def age_formatted(self):
         return format_seconds(self.age.total_seconds())
 
-    def ttl_formated(self):
-        return format_seconds(self.ttl.total_seconds()) if (self.ttl) else ""
+    def ttl_formatted(self):
+        return format_seconds(self.ttl.total_seconds())
+
+    def ttl_expired(self):
+        return self.age.total_seconds() > self.ttl.total_seconds()
 
     def all_time_fields(self):
         all_time_pattern = "(age={}, first_seen={}, last_seen={}, ttl={})"
         first_fmt = 'None'
         last_fmt = 'None'
-        if (self.first_seen):
+        if self.first_seen:
             first_fmt = self.first_seen.strftime('%Y-%m-%d %H:%M')
-        if (self.last_seen):
+        if self.last_seen:
             last_fmt = self.last_seen.strftime('%Y-%m-%d %H:%M')
-        return all_time_pattern.format(self.age_formated(), first_fmt, last_fmt, self.ttl_formated())
+        return all_time_pattern.format(self.age_formatted(), first_fmt, last_fmt, self.ttl_formatted())
 
     def set_alive(self):
         self.last_seen = datetime.now(tz=timezone.utc)
@@ -59,7 +66,21 @@ class Instance(models.Model):
     def get_type(self):
         return self.cspinfo.type
 
-    class Meta:
+    def is_cancelled(self) -> bool:
+        job = self.cspinfo.get_tag("openqa_var_job_id")
+        server = self.cspinfo.get_tag("openqa_var_server")
+        if job and server:
+            try:
+                return OpenQA(
+                    server=server,
+                    retries=1,  # default is 5
+                    wait=5,     # default is 10
+                ).is_cancelled(job)
+            except OpenQAClientError as exc:
+                logging.warning("%s: %s", server, exc)
+        return False
+
+    class Meta:  # pylint: disable=too-few-public-methods
         unique_together = (('provider', 'instance_id', 'vault_namespace'),)
 
 
@@ -73,11 +94,18 @@ class CspInfo(models.Model):
     type = models.CharField(max_length=200)
 
     def get_openqa_job_link(self):
-        if self.get_tag('openqa_created_by') == 'openqa-suse-de' and self.get_tag('openqa_var_JOB_ID') is not None:
-            url = '{}/t{}'.format(PCWConfig.get_feature_property('webui', 'openqa_url'),
-                                  self.get_tag('openqa_var_JOB_ID'))
-            title = self.get_tag('openqa_var_NAME', '')
-            return {'url': url, 'title': title}
+        server = self.get_tag('openqa_var_server')
+        if server:
+            try:
+                server = get_url(server)
+            except OpenQAClientError as exc:
+                logging.warning("%s: %s", server, exc)
+                return None
+            job_id = self.get_tag('openqa_var_job_id')
+            if job_id:
+                url = f"{server}/t{job_id}"
+                title = self.get_tag('openqa_var_name', '')
+                return {'url': url, 'title': title}
         return None
 
     def get_tag(self, tag_name, default_value=None):

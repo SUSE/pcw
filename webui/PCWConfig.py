@@ -40,11 +40,13 @@ class ConfigFile:
                 config_pointer = config_pointer[i]
             else:
                 if default is None:
-                    raise LookupError('Missing attribute {} in file {}'.format(config_path, self.filename))
+                    raise LookupError(f'Missing attribute {config_path} in file {self.filename}')
                 return default
         return config_pointer
 
-    def getList(self, config_path: str, default: list = []) -> list:
+    def getList(self, config_path: str, default: list = None) -> list:
+        if default is None:
+            default = []
         return [i.strip() for i in self.get(config_path, ','.join(default)).split(',')]
 
 
@@ -67,13 +69,12 @@ class PCWConfig():
             'notify/smtp': {'default': None, 'return_type': str},
             'notify/smtp-port': {'default': 25, 'return_type': int},
             'notify/from': {'default': 'pcw@publiccloud.qa.suse.de', 'return_type': str},
-            'webui/openqa_url': {'default': 'https://openqa.suse.de', 'return_type': str}
         }
         key = '/'.join([feature, property])
         if key not in default_values:
-            raise LookupError("Missing {} in default_values list".format(key))
+            raise LookupError(f"Missing {key} in default_values list")
         if namespace:
-            setting = '{}.namespace.{}/{}'.format(feature, namespace, property)
+            setting = f'{feature}.namespace.{namespace}/{property}'
             if PCWConfig.has(setting):
                 return default_values[key]['return_type'](ConfigFile().get(setting))
         return default_values[key]['return_type'](
@@ -82,13 +83,13 @@ class PCWConfig():
     @staticmethod
     def get_namespaces_for(feature: str) -> list:
         if PCWConfig.has(feature):
-            return ConfigFile().getList('{}/namespaces'.format(feature), ConfigFile().getList('default/namespaces'))
-        return list()
+            return ConfigFile().getList(f'{feature}/namespaces', ConfigFile().getList('default/namespaces'))
+        return []
 
     @staticmethod
     def get_providers_for(feature: str, namespace: str):
-        return ConfigFile().getList('{}.namespace.{}/providers'.format(feature, namespace),
-                                    ConfigFile().getList('{}/providers'.format(feature), ['EC2', 'AZURE', 'GCE', 'OSTACK']))
+        return ConfigFile().getList(f'{feature}.namespace.{namespace}/providers',
+                                    ConfigFile().getList(f'{feature}/providers', ['EC2', 'AZURE', 'GCE', 'OSTACK']))
 
     @staticmethod
     def get_k8s_clusters_for_provider(namespace: str, provider: str) -> list:
@@ -114,8 +115,8 @@ class PCWConfig():
     @staticmethod
     def getBoolean(config_path: str, namespace: str = None, default=False) -> bool:
         if namespace:
-            (feature, property) = config_path.split('/')
-            setting = '{}.namespace.{}/{}'.format(feature, namespace, property)
+            feature, property = config_path.split('/')
+            setting = f'{feature}.namespace.{namespace}/{property}'
             if PCWConfig.has(setting):
                 value = ConfigFile().get(setting)
             else:
