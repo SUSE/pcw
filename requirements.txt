@@ -1,6 +1,6 @@
 boto3
 azure-mgmt-compute==27.2.0
-azure-mgmt-storage==20.0.0
+azure-mgmt-storage==21.0.0
 azure-mgmt-resource==23.0.1
 azure-storage-blob==12.13.0
 azure-identity==1.13.0
@@ -9,7 +9,7 @@ msrestazure==0.6.4
 uwsgi==2.0.21
 requests==2.31.0
 Django~=4.2.2
-django-tables2==2.5.3
+django-tables2==2.6.0
 django-filter==23.2
 django-bootstrap4==23.1
 texttable
