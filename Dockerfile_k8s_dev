@@ -1,4 +1,4 @@
-FROM registry.suse.com/bci/python:3.10
+FROM registry.suse.com/bci/python:3.11
 
 RUN zypper -n in gcc tar gzip kubernetes1.24-client aws-cli azure-cli && zypper clean && rm -rf /var/cache
 
@@ -8,7 +8,7 @@ RUN curl -s https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cl
 
 # Install python dependences
 COPY requirements_k8s.txt requirements.txt requirements_test.txt /pcw/
-RUN  pip3.10 install --no-cache-dir -r /pcw/requirements_test.txt
+RUN  pip3.11 install --no-cache-dir -r /pcw/requirements_test.txt
 
 ENV PATH ${PATH}:/opt/google-cloud-sdk/bin/
 
