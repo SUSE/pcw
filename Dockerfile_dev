@@ -5,12 +5,10 @@ ENV UWSGI_HTTP_AUTO_CHUNKED=1 UWSGI_HTTP_KEEPALIVE=1 UWSGI_LAZY_APPS=1 UWSGI_WSG
 
 ## System preparation steps ################################################# ##
 
-# !!! Runtime changes won't affect requirements.txt
+RUN zypper -n in gcc libffi-devel && zypper clean && rm -rf /var/cache
+
 COPY requirements.txt requirements_test.txt requirements_k8s.txt /tmp/
-# * Install system requirements
-# * Install pip requirements
-# * Empty system cache to conserve some space
-RUN zypper -n in gcc libffi-devel && pip install --no-cache-dir -r /tmp/requirements_test.txt && zypper clean && rm -rf /var/cache
+RUN pip install --no-cache-dir -r /tmp/requirements_test.txt
 
 WORKDIR /pcw
 
