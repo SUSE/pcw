@@ -6,7 +6,7 @@ azure-storage-blob==12.13.0
 azure-identity==1.13.0
 cachetools
 msrestazure==0.6.4
-uwsgi==2.0.21
+uwsgi==2.0.22
 requests==2.31.0
 Django~=4.2.2
 django-tables2==2.6.0
