@@ -8,7 +8,7 @@ RUN curl -s https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cl
 
 # Install python dependences
 COPY requirements_k8s.txt requirements.txt requirements_test.txt /pcw/
-RUN  pip3.11 install --no-cache-dir -r /pcw/requirements_test.txt
+RUN  pip3.11 install --no-cache-dir -r /pcw/requirements_k8s.txt
 
 ENV PATH ${PATH}:/opt/google-cloud-sdk/bin/
 
