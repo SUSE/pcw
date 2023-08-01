@@ -2,6 +2,7 @@ import contextlib
 import json
 import random
 import os
+import shutil
 import sys
 import pytest
 
@@ -31,10 +32,16 @@ def podman_container():
     if os.getenv("SKIP_SELENIUM"):
         pytest.skip("Skipping because SKIP_SELENIUM is set")
 
+    if not shutil.which("geckodriver"):
+        pytest.skip("Please install geckodriver in your PATH. Skipping...")
+
     try:
         client = PodmanClient()
     except (APIError, PodmanError) as exc:
         pytest.skip(f"Broken Podman environment: {exc}")
+
+    if not client.info()['host']['remoteSocket']["exists"]:
+        pytest.skip("Please run systemctl --user enable --now podman.socket")
 
     # Get random number for ephemeral port, container and image name
     port = random.randint(32768, 60999)  # Typical values from /proc/sys/net/ipv4/ip_local_port_range
