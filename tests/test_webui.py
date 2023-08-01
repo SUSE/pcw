@@ -33,8 +33,8 @@ def podman_container():
 
     try:
         client = PodmanClient()
-    except (APIError, PodmanError):
-        pytest.skip("No Podman environment. Skipping...")
+    except (APIError, PodmanError) as exc:
+        pytest.skip(f"Broken Podman environment: {exc}")
 
     # Get random number for ephemeral port, container and image name
     port = random.randint(32768, 60999)  # Typical values from /proc/sys/net/ipv4/ip_local_port_range
@@ -47,7 +47,9 @@ def podman_container():
             dockerfile="Dockerfile",
             tag=image_name,
         )
-    except (APIError, PodmanError) as exc:
+    except APIError as exc:
+        pytest.skip(f"Broken Podman environment: {exc}")
+    except PodmanError as exc:
         for log in exc.build_log:
             line = json.loads(log.decode("utf-8"))
             if line:
@@ -73,9 +75,11 @@ def podman_container():
     # Cleanup
     with contextlib.suppress(APIError, PodmanError):
         container.stop()
+    with contextlib.suppress(APIError, PodmanError):
         container.remove()
+    with contextlib.suppress(APIError, PodmanError):
         client.images.remove(image_name)
-        client.close()
+    client.close()
 
 
 @pytest.fixture
@@ -89,8 +93,8 @@ def browser():
 
 
 def test_login_logout(podman_container, browser):  # pylint: disable=redefined-outer-name
-    # Get randomly assigned port. NOTE: podman_container.ports doesn't work
-    port = podman_container.attrs['HostConfig']['PortBindings'][f'{PORT}/tcp'][0]['HostPort']
+    # Get randomly assigned port
+    port = podman_container.ports[f'{PORT}/tcp'][0]['HostPort']
     browser.get(f"http://127.0.0.1:{port}")
     browser.find_element(By.XPATH, XPATH["login"]).click()
     browser.find_element(By.NAME, value="username").send_keys(USERNAME)
