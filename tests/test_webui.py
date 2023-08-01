@@ -1,8 +1,8 @@
-import os
 import random
 import pytest
 import docker
 
+from subprocess import DEVNULL
 from docker.errors import DockerException
 from selenium.webdriver import firefox
 from selenium.webdriver.common.by import By
@@ -52,7 +52,7 @@ def docker_container():
 
 @pytest.fixture
 def browser():
-    service = firefox.service.Service(log_path=os.devnull)
+    service = firefox.service.Service(log_output=DEVNULL)
     options = firefox.options.Options()
     options.add_argument('-headless')
     driver = firefox.webdriver.WebDriver(options=options, service=service)
