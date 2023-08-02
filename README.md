@@ -170,22 +170,7 @@ pip install -r requirements_test.txt
 make test
 ```
 
-The tests contain a Selenium test for the webUI that uses Docker. You can either add yourself to the `docker` group (not recommended for security reasons) or use this approach to temporarily run a Bash session with the `docker` group added to your groups list:
+The tests contain a Selenium test for the webUI that uses Podman.  Make sure that you have the latest [geckodriver](https://github.com/mozilla/geckodriver/releases) installed anywhere in your `PATH` and that the `podman.socket` is enabled:
+`systemctl --user enable --now podman.socket`
 
-Set a password for the `docker` group:
-
-`sudo gpasswd docker`
-
-Copy this script to a personal directory in your `$PATH` with executable permissions:
-
-```bash
-#!/bin/bash
-
-if id -Gn | grep -q '\bdocker\b' ; then
-	exit 0
-fi
-
-exec /usr/bin/sg docker newgrp $(id -gn)
-```
-
-Then simply run `sudocker.sh` and then `exit` when you're done.
+Set the `SKIP_SELENIUM` environment variable when running `pytest` or `make test` to skip the Selenium test.
