@@ -1,7 +1,7 @@
 import os
 import kubernetes
 from ocw.lib.provider import Provider
-from ocw.lib.k8s import clean_jobs
+from ocw.lib.k8s import clean_jobs, clean_namespaces
 from webui.PCWConfig import PCWConfig
 
 
@@ -35,14 +35,22 @@ class AKS(Provider):
                                    f"for resource-group {resource_group} : {res.stderr}")
 
             kubernetes.config.load_kube_config(config_file=kubeconfig)
-            self.__kubectl_client[cluster_name] = kubernetes.client.BatchV1Api()
+            self.__kubectl_client[cluster_name] = kubernetes.client
 
         return self.__kubectl_client[cluster_name]
 
     def cleanup_k8s_jobs(self):
         clusters = PCWConfig.get_k8s_clusters_for_provider(self._namespace, "azure")
-        self.log_info(f"Cleanup k8s jobs in AKS clusters. {len(clusters)}  will be queried ")
+        self.log_info(f"Cleanup jobs in AKS clusters. {len(clusters)}  will be queried ")
         for cluster in clusters:
-            self.log_info(f"Cleanup k8s jobs in AKS cluster {cluster['cluster_name']}")
-            client = self.kubectl_client(cluster["resource_group"], cluster["cluster_name"])
+            self.log_info(f"Cleaning jobs in AKS cluster {cluster['cluster_name']}")
+            client = self.kubectl_client(cluster["resource_group"], cluster["cluster_name"]).BatchV1Api()
             clean_jobs(self, client, cluster["cluster_name"])
+
+    def cleanup_k8s_namespaces(self):
+        clusters = PCWConfig.get_k8s_clusters_for_provider(self._namespace, "azure")
+        self.log_info(f"Cleanup namespaces in AKS clusters. {len(clusters)}  will be queried ")
+        for cluster in clusters:
+            self.log_info(f"Cleaning namespaces in AKS cluster {cluster['cluster_name']}")
+            client = self.kubectl_client(cluster["resource_group"], cluster["cluster_name"]).CoreV1Api()
+            clean_namespaces(self, client, cluster["cluster_name"])

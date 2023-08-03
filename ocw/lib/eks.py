@@ -6,7 +6,7 @@ import kubernetes
 import boto3
 from webui.PCWConfig import PCWConfig, ConfigFile
 from ocw.lib.provider import Provider
-from ocw.lib.k8s import clean_jobs
+from ocw.lib.k8s import clean_jobs, clean_namespaces
 
 TAG_IGNORE = 'pcw_ignore'
 
@@ -79,7 +79,7 @@ class EKS(Provider):
                 raise RuntimeError(f"Cannot get the kubeconfig for the cluster {cluster_name} on region {region}")
 
             kubernetes.config.load_kube_config(config_file=kubeconfig)
-            self.__kubectl_client[region_cluster] = kubernetes.client.BatchV1Api()
+            self.__kubectl_client[region_cluster] = kubernetes.client
 
         return self.__kubectl_client[region_cluster]
 
@@ -155,11 +155,21 @@ class EKS(Provider):
                     self.eks_client(region).delete_cluster(name=cluster)
 
     def cleanup_k8s_jobs(self):
-        self.log_info("Cleanup k8s jobs in EKS clusters")
+        self.log_info("Cleanup jobs in EKS clusters")
         for region in self.__cluster_regions:
             self.log_dbg(f"Region {region}")
             clusters = self.eks_client(region).list_clusters()['clusters']
             for cluster_name in clusters:
-                self.log_info(f"Cleanup k8s jobs in EKS cluster {cluster_name} in region {region}")
-                client = self.kubectl_client(region, cluster_name)
+                self.log_info(f"Cleaning jobs in EKS cluster {cluster_name} in region {region}")
+                client = self.kubectl_client(region, cluster_name).BatchV1Api()
                 clean_jobs(self, client, cluster_name)
+
+    def cleanup_k8s_namespaces(self):
+        self.log_info("Cleanup namespaces in EKS clusters")
+        for region in self.__cluster_regions:
+            self.log_dbg(f"Region {region}")
+            clusters = self.eks_client(region).list_clusters()['clusters']
+            for cluster_name in clusters:
+                self.log_info(f"Cleaning namespaces in EKS cluster {cluster_name} in region {region}")
+                client = self.kubectl_client(region, cluster_name).CoreV1Api()
+                clean_namespaces(self, client, cluster_name)

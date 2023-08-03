@@ -3,7 +3,7 @@ import kubernetes
 import googleapiclient.discovery
 from google.oauth2 import service_account
 from ocw.lib.gce import GCE
-from ocw.lib.k8s import clean_jobs
+from ocw.lib.k8s import clean_jobs, clean_namespaces
 
 
 class GKE(GCE):
@@ -45,7 +45,7 @@ class GKE(GCE):
             raise FileNotFoundError(f"{kubeconfig} doesn't exists")
 
         kubernetes.config.load_kube_config(config_file=kubeconfig)
-        self.__kubectl_client[zone] = kubernetes.client.BatchV1Api()
+        self.__kubectl_client[zone] = kubernetes.client
         return self.__kubectl_client[zone]
 
     def get_clusters(self, zone):
@@ -57,11 +57,21 @@ class GKE(GCE):
         return []
 
     def cleanup_k8s_jobs(self):
-        self.log_info("Cleanup k8s jobs in GKE clusters")
+        self.log_info("Cleanup jobs in GKE clusters")
         for region in self.list_regions():
             for zone in self.list_zones(region):
                 for cluster in self.get_clusters(zone):
                     cluster_name = cluster["name"]
-                    self.log_info(f"Cleanup k8s jobs in GKE cluster {cluster_name} in zone {zone}")
-                    client = self.kubectl_client(zone, cluster)
+                    self.log_info(f"Cleaning jobs in GKE cluster {cluster_name} in zone {zone}")
+                    client = self.kubectl_client(zone, cluster).BatchV1Api()
                     clean_jobs(self, client, cluster_name)
+
+    def cleanup_k8s_namespaces(self):
+        self.log_info("Cleanup namespaces in GKE clusters")
+        for region in self.list_regions():
+            for zone in self.list_zones(region):
+                for cluster in self.get_clusters(zone):
+                    cluster_name = cluster["name"]
+                    self.log_info(f"Cleaning namespaces in GKE cluster {cluster_name} in zone {zone}")
+                    client = self.kubectl_client(zone, cluster).CoreV1Api()
+                    clean_namespaces(self, client, cluster_name)
