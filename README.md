@@ -164,8 +164,8 @@ such cases.
 ## Testing
 
 ```bash
-virtualenv ~/.pcw
-source ~/.pcw/bin/activate
+virtualenv .
+source bin/activate
 pip install -r requirements_test.txt
 make test
 ```
