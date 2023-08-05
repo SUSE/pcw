@@ -1,4 +1,4 @@
-from pytest import fixture
+from pytest import fixture, mark
 from unittest.mock import MagicMock, patch
 import json
 from datetime import datetime, timezone, timedelta
@@ -70,6 +70,27 @@ def gce():
         gce.compute_client.instances = MockResource([MockRequest({'items': ['instance1', 'instance2']}), None])
         yield gce
 
+@fixture
+def mocked_resource():
+    older_than_max_age = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours+1)).strftime("%m/%d/%Y, %H:%M:%S")
+    now_age = datetime.now(timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
+    return MockResource([
+        MockRequest({   # on images().list()
+            'items': [
+                {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
+                {'name': 'delete1', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
+            ], 'id': "id"}),
+        MockRequest(),  # on images().delete()
+        MockRequest({   # on images().list_next()
+            'items': [
+                {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
+                {'name': 'delete2', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
+            ], 'id': "id"}),
+        MockRequest({'error': {'errors': [{'message': 'err message'}]},
+                    'warnings': [{'message': 'warning message'}]}),
+        None   # on images().list_next()
+    ])
+
 
 def test_delete_instance(gce):
     instances = MockResource([MockRequest({'items': ['instance1', 'instance2']}), None])
@@ -101,68 +122,59 @@ def test_list_zones(gce):
     assert gce.list_zones('Oxfordshire') == ['RabbitHole']
 
 
-def _test_cleanup(gce, resource_type, cleanup_call):
-    older_than_max_age = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours+1)).strftime("%m/%d/%Y, %H:%M:%S")
-    now_age = datetime.now(timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
+def _test_cleanup(gce, resource_type, cleanup_call, resources):
 
-    for _ in range(2):
-        resources = MockResource([
-            MockRequest({   # on images().list()
-                'items': [
-                    {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
-                    {'name': 'delete1', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
-                ], 'id': "id"}),
-            MockRequest(),  # on images().delete()
-            MockRequest({   # on images().list_next()
-                'items': [
-                    {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
-                    {'name': 'delete2', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
-                ], 'id': "id"}),
-            MockRequest({'error': {'errors': [{'message': 'err message'}]},
-                        'warnings': [{'message': 'warning message'}]}),
-            None   # on images().list_next()
-        ])
+    with (
+        patch.object(gce, 'list_regions', return_value=['region1']),
+        patch.object(gce, 'list_zones', return_value=['zone1']),
+    ):
+        setattr(gce.compute_client, resource_type, resources)
+        cleanup_call()
+        if gce.dry_run:
+            assert resources.deleted_resources == []
+        else:
+            assert resources.deleted_resources == ['delete1', 'delete2']
 
-        with (
-            patch.object(gce, 'list_regions', return_value=['region1']),
-            patch.object(gce, 'list_zones', return_value=['zone1']),
-        ):
-            setattr(gce.compute_client, resource_type, resources)
-
-            gce.dry_run = not gce.dry_run
-            cleanup_call()
-            if gce.dry_run:
-                assert resources.deleted_resources == []
-            else:
-                assert resources.deleted_resources == ['delete1', 'delete2']
+@mark.parametrize("dry_run", [True, False])
+def test_cleanup_disks(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "disks", gce.cleanup_disks, mocked_resource)
 
 
-def test_cleanup_disks(gce):
-    _test_cleanup(gce, "disks", gce.cleanup_disks)
+@mark.parametrize("dry_run", [True, False])
+def test_cleanup_images(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "images", gce.cleanup_images, mocked_resource)
 
 
-def test_cleanup_images(gce):
-    _test_cleanup(gce, "images", gce.cleanup_images)
+@mark.parametrize("dry_run", [True, False])
+def test_cleanup_firewalls(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "firewalls", gce.cleanup_firewalls, mocked_resource)
 
 
-def test_cleanup_firewalls(gce):
-    _test_cleanup(gce, "firewalls", gce.cleanup_firewalls)
+@mark.parametrize("dry_run", [True, False])
+def test_cleanup_forwarding_rules(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "forwardingRules", gce.cleanup_forwarding_rules, mocked_resource)
 
 
-def test_cleanup_forwarding_rules(gce):
-    _test_cleanup(gce, "forwardingRules", gce.cleanup_forwarding_rules)
+@mark.parametrize("dry_run", [True, False])
+def test_cleanup_routes(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "routes", gce.cleanup_routes, mocked_resource)
 
 
-def test_cleanup_routes(gce):
-    _test_cleanup(gce, "routes", gce.cleanup_routes)
+@mark.parametrize("dry_run", [True, False])
+def test_cleanup_subnetworks(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "subnetworks", gce.cleanup_subnetworks, mocked_resource)
 
 
-def test_cleanup_subnetworks(gce):
-    _test_cleanup(gce, "subnetworks", gce.cleanup_subnetworks)
-
-
-def test_cleanup_networks(gce):
-    _test_cleanup(gce, "networks", gce.cleanup_networks)
+@mark.parametrize("dry_run", [True, False])
+def test_cleanup_networks(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "networks", gce.cleanup_networks, mocked_resource)
 
 
 def test_cleanup_all(gce):
@@ -184,12 +196,13 @@ def test_cleanup_all(gce):
 
 
 def test_get_error_reason():
+
+
+
     class MockHttpError:
         def __init__(self, content) -> None:
-            if content is not None:
-                self.content = json.dumps(content)
-            else:
-                self.content = ""
+            self.content = json.dumps(content) if content is not None else ""
+
 
     assert GCE.get_error_reason(MockHttpError(content=None)) == "unknown"
     assert GCE.get_error_reason(MockHttpError({})) == "unknown"
