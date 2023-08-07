@@ -20,10 +20,13 @@ def main():
         try:
             if ProviderChoice.GCE in providers:
                 GKE(namespace).cleanup_k8s_jobs()
+                GKE(namespace).cleanup_k8s_namespaces()
             if ProviderChoice.EC2 in providers:
                 EKS(namespace).cleanup_k8s_jobs()
+                EKS(namespace).cleanup_k8s_namespaces()
             if ProviderChoice.AZURE in providers:
                 AKS(namespace).cleanup_k8s_jobs()
+                AKS(namespace).cleanup_k8s_namespaces()
         except Exception:
             logger.exception("[%s] Cleanup failed!", namespace)
 

@@ -3,7 +3,8 @@ import kubernetes
 from ocw.lib.provider import Provider
 from ocw.lib.aks import AKS
 from webui.PCWConfig import PCWConfig
-from tests.kubernetes import MockedSubprocessReturn, MockedKubernetesClient, MockedKubernetesConfig, MockedKubernetesJob
+from tests.kubernetes import MockedSubprocessReturn, MockedKubernetesClient, MockedKubernetesConfig
+from tests.kubernetes import MockedKubernetesJob, MockedKubernetesNamespace
 
 
 class MockedAKSCluster():
@@ -48,3 +49,26 @@ def test_cleanup_k8s_jobs(aks_patch, monkeypatch):
     mocked_kubernetes.deleted_jobs = []
     aks_patch.cleanup_k8s_jobs()
     assert len(mocked_kubernetes.deleted_jobs) == 0
+
+
+def test_cleanup_k8s_namespaces(aks_patch, monkeypatch):
+    mocked_kubernetes = MockedKubernetesClient(namespaces=[
+        MockedKubernetesNamespace("helm-test-234", 1),  # good name, too fresh
+        MockedKubernetesNamespace("helm-test-342", 9),  # good name, old enough
+        MockedKubernetesNamespace("kube-system", 9),  # bad name
+        MockedKubernetesNamespace("something-else-745", 9)  # bad name
+    ])
+    monkeypatch.setattr(AKS, "kubectl_client", lambda *args, **kwargs: mocked_kubernetes)
+    monkeypatch.setattr(PCWConfig, "get_k8s_clusters_for_provider", lambda *args, **kwargs: [
+        {'resource_group': 'group', 'cluster_name': 'cluster'}])
+    assert len(mocked_kubernetes.list_namespace().items) == 4
+
+    aks_patch.cleanup_k8s_namespaces()
+    assert len(mocked_kubernetes.deleted_namespaces) == 1
+    assert mocked_kubernetes.deleted_namespaces[0] == "helm-test-342"
+
+    # test dry_run
+    aks_patch.dry_run = True
+    mocked_kubernetes.deleted_namespaces = []
+    aks_patch.cleanup_k8s_namespaces()
+    assert len(mocked_kubernetes.deleted_namespaces) == 0

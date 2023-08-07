@@ -7,14 +7,22 @@ class MockedKubernetesConfig():
 
 
 class MockedKubernetesClient():
-    def __init__(self, jobs=None):
+    def __init__(self, jobs=None, namespaces=None):
         if jobs is None:
             jobs = []
+        if namespaces is None:
+            namespaces = []
         self.jobs = jobs
+        self.namespaces = namespaces
         self.deleted_jobs = []
+        self.deleted_namespaces = []
 
     # pylint: disable=C0103
     def BatchV1Api(self):
+        return self
+
+    # pylint: disable=C0103
+    def CoreV1Api(self):
         return self
 
     def list_job_for_all_namespaces(self, *args, **kwargs):
@@ -22,6 +30,12 @@ class MockedKubernetesClient():
 
     def delete_namespaced_job(self, name, namespace):
         self.deleted_jobs.append(name)
+
+    def list_namespace(self, *args, **kwargs):
+        return MockedKubernetesResult(self.namespaces)
+
+    def delete_namespace(self, name):
+        self.deleted_namespaces.append(name)
 
 
 class MockedKubernetesResult():
@@ -44,6 +58,17 @@ class MockedKubernetesJob():
     def __init__(self, name, age):
         self.status = MockedKubernetesJobStatus(age)
         self.metadata = MockedKubernetesJobMetadata(name)
+
+
+class MockedKubernetesNamespaceMetadata():
+    def __init__(self, name, age):
+        self.name = name
+        self.creation_timestamp = datetime.now(timezone.utc) - timedelta(days=age)
+
+
+class MockedKubernetesNamespace():
+    def __init__(self, name, age):
+        self.metadata = MockedKubernetesNamespaceMetadata(name, age)
 
 
 class MockedSubprocessReturn():

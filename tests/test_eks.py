@@ -5,7 +5,8 @@ from ocw.lib.provider import Provider
 from ocw.lib.eks import EKS
 from webui.PCWConfig import PCWConfig
 from tests.generators import mock_get_feature_property
-from tests.kubernetes import MockedSubprocessReturn, MockedKubernetesClient, MockedKubernetesConfig, MockedKubernetesJob
+from tests.kubernetes import MockedSubprocessReturn, MockedKubernetesClient, MockedKubernetesConfig
+from tests.kubernetes import MockedKubernetesJob, MockedKubernetesNamespace
 
 
 def test_all_clusters(eks_patch, monkeypatch):
@@ -189,3 +190,30 @@ def test_cleanup_k8s_jobs(eks_patch, monkeypatch):
     mocked_kubernetes.deleted_jobs = []
     eks_patch.cleanup_k8s_jobs()
     assert len(mocked_kubernetes.deleted_jobs) == 0
+
+
+def test_cleanup_k8s_namespaces(eks_patch, monkeypatch):
+    mocked_eks = MockedEKSClient()
+    mocked_eks.clusters_list = {'clusters': ['cluster1']}
+    monkeypatch.setattr(EKS, 'eks_client', lambda self, region: mocked_eks)
+
+    monkeypatch.setattr(EKS, 'create_credentials_file', lambda *args, **kwargs: None)
+    monkeypatch.setattr(kubernetes, 'config', MockedKubernetesConfig())
+    mocked_kubernetes = MockedKubernetesClient(namespaces=[
+        MockedKubernetesNamespace("helm-test-234", 1),  # good name, too fresh
+        MockedKubernetesNamespace("helm-test-342", 9),  # good name, old enough
+        MockedKubernetesNamespace("kube-system", 9),  # bad name
+        MockedKubernetesNamespace("something-else-745", 9)  # bad name
+    ])
+    monkeypatch.setattr(EKS, "kubectl_client", lambda *args, **kwargs: mocked_kubernetes)
+    assert len(mocked_kubernetes.list_namespace().items) == 4
+
+    eks_patch.cleanup_k8s_namespaces()
+    assert len(mocked_kubernetes.deleted_namespaces) == 1
+    assert mocked_kubernetes.deleted_namespaces[0] == "helm-test-342"
+
+    # test dry_run
+    eks_patch.dry_run = True
+    mocked_kubernetes.deleted_namespaces = []
+    eks_patch.cleanup_k8s_namespaces()
+    assert len(mocked_kubernetes.deleted_namespaces) == 0
