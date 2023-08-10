@@ -2,12 +2,19 @@
 .*.swp
 *__pycache__*
 env/
-venv/
-.venv/
 tags
 *.egg-info/
 .cache
 static/
+
+# virtualenv
+venv/
+.venv/
+pyvenv.cfg
+lib64/
+lib/
+bin/
+
 # Codecov
 .coverage
 tests/auth.json
