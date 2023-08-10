@@ -10,7 +10,7 @@ COPY requirements.txt /pcw/
 # * Install system requirements
 # * Install pip requirements
 # * Empty system cache to conserve some space
-RUN zypper -n in gcc libffi-devel && pip install --no-cache-dir -r /pcw/requirements.txt && zypper clean && rm -rf /var/cache
+RUN zypper -n in gcc libffi-devel && pip install --no-cache-dir wheel && pip install --no-cache-dir -r /pcw/requirements.txt && zypper clean && rm -rf /var/cache
 
 # Copy program files only
 COPY ocw  /pcw/ocw/

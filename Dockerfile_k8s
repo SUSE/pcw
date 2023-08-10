@@ -8,7 +8,7 @@ RUN curl -sf https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-c
 
 # Install python dependences
 COPY requirements_k8s.txt /pcw/
-RUN  pip3.11 install --no-cache-dir -r /pcw/requirements_k8s.txt
+RUN  pip install --no-cache-dir wheel && pip install --no-cache-dir -r /pcw/requirements_k8s.txt
 
 # Copy program files only
 COPY ocw /pcw/ocw/
