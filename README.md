@@ -31,7 +31,7 @@ PCW has two main flows :
         b. Snapshots in all region defined
         c. Volumes in all regions defined
         d. VPC's ( deletion of VPC means deletion of all assigned to VPC entities first ( security groups , networks etc. ))
-    - For GCE deleting only images (check details in [ocw/lib/gce.py](ocw/lib/gce.py))
+    - For GCE deleting disks, images & network resources (check details in [ocw/lib/gce.py](ocw/lib/gce.py))
     - For Openstack deleting instances, images & keypairs (check details in [ocw/lib/openstack.py](ocw/lib/openstack.py)
 
 

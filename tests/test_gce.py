@@ -32,7 +32,7 @@ class MockResource:
         return self.responses.pop(0)
 
     def delete(self, *args, **kwargs):
-        for resource in ('image', 'disk', 'instance', 'firewall', 'route', 'network', 'subnetwork'):
+        for resource in ('image', 'disk', 'instance', 'firewall', 'forwardingRule', 'route', 'network', 'subnetwork'):
             if resource in kwargs:
                 self.deleted_resources.append(kwargs[resource])
                 if len(self.responses) > 0:
@@ -50,6 +50,7 @@ class MockResource:
 class MockClient:
     def disks(self): pass
     def firewalls(self): pass
+    def forwardingRules(self): pass
     def images(self): pass
     def instances(self): pass
     def networks(self): pass
@@ -148,6 +149,10 @@ def test_cleanup_firewalls(gce):
     _test_cleanup(gce, "firewalls", gce.cleanup_firewalls)
 
 
+def test_cleanup_forwarding_rules(gce):
+    _test_cleanup(gce, "forwardingRules", gce.cleanup_forwarding_rules)
+
+
 def test_cleanup_routes(gce):
     _test_cleanup(gce, "routes", gce.cleanup_routes)
 
@@ -164,6 +169,7 @@ def test_cleanup_all(gce):
     gce.cleanup_disks = MagicMock()
     gce.cleanup_images = MagicMock()
     gce.cleanup_firewalls = MagicMock()
+    gce.cleanup_forwarding_rules = MagicMock()
     gce.cleanup_routes = MagicMock()
     gce.cleanup_subnetworks = MagicMock()
     gce.cleanup_networks = MagicMock()
@@ -171,6 +177,7 @@ def test_cleanup_all(gce):
     gce.cleanup_disks.assert_called_once()
     gce.cleanup_images.assert_called_once()
     gce.cleanup_firewalls.assert_called_once()
+    gce.cleanup_forwarding_rules.assert_called_once()
     gce.cleanup_routes.assert_called_once()
     gce.cleanup_networks.assert_called_once()
     gce.cleanup_subnetworks.assert_called_once()

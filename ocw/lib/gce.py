@@ -39,6 +39,7 @@ class GCE(Provider):
         resource_type = {
             self.compute_client().disks: "disk",
             self.compute_client().firewalls: "firewall",
+            self.compute_client().forwardingRules: "forwardingRule",
             self.compute_client().images: "image",
             self.compute_client().instances: "instance",
             self.compute_client().networks: "network",
@@ -118,6 +119,7 @@ class GCE(Provider):
         self.cleanup_disks()
         self.cleanup_images()
         self.cleanup_firewalls()
+        self.cleanup_forwarding_rules()
         self.cleanup_routes()
         self.cleanup_subnetworks()
         self.cleanup_networks()
@@ -157,6 +159,21 @@ class GCE(Provider):
                 self._delete_resource(
                     self.compute_client().firewalls, firewall["name"], project=self.project, firewall=firewall["name"]
                 )
+
+    def cleanup_forwarding_rules(self) -> None:
+        self.log_dbg("Forwarding rules cleanup")
+        for region in self.list_regions():
+            rules = [
+                rule for rule in self._paginated(self.compute_client().forwardingRules, project=self.project, region=region)
+                if basename(rule["network"]) not in self.__skip_networks
+            ]
+            self.log_dbg(f"{len(rules)} forwarding_rules found")
+            for rule in rules:
+                if self.is_outdated(parse(rule["creationTimestamp"]).astimezone(timezone.utc)):
+                    self._delete_resource(
+                        self.compute_client().forwardingRules, rule["name"],
+                        project=self.project, region=region, forwardingRule=rule["name"]
+                    )
 
     def cleanup_routes(self) -> None:
         self.log_dbg("Routes cleanup")
