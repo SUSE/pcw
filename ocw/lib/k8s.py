@@ -18,19 +18,19 @@ def clean_jobs(provider: Provider, client: BatchV1Api, cluster_name: str):
                                   f"with age {age} (days)")
 
 
-def clean_namespaces(provider: Provider, client: CoreV1Api, cluster_name: str):
+def clean_namespaces(provider: Provider, client: CoreV1Api):
     now = datetime.now(timezone.utc)
     # Retrieve the list of all namespaces
     namespaces = client.list_namespace(watch=False)
 
-    for ns in namespaces.items:
-        age = (now - ns.metadata.creation_timestamp).days
-        if ns.metadata.name.startswith('helm-test') and age > 7:
+    for namespace in namespaces.items:
+        age = (now - namespace.metadata.creation_timestamp).days
+        if namespace.metadata.name.startswith('helm-test') and age > 7:
             # Delete the namespace
             if provider.dry_run:
-                provider.log_info(f"Skip deleting namespace {ns.metadata.name} created {ns.metadata.creation_timestamp}")
+                provider.log_info(f"Skip deleting namespace {namespace.metadata.name} created {namespace.metadata.creation_timestamp}.")
             else:
-                provider.log_info(f"Deleting namespace {ns.metadata.name} created {ns.metadata.creation_timestamp}")
-                client.delete_namespace(ns.metadata.name)
+                provider.log_info(f"Deleting namespace {namespace.metadata.name} created {namespace.metadata.creation_timestamp}.")
+                client.delete_namespace(namespace.metadata.name)
         else:
-            provider.log_dbg(f"Namespace {ns.metadata.name} will be kept.")
+            provider.log_dbg(f"Namespace {namespace.metadata.name} will be kept.")
