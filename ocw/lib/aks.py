@@ -53,4 +53,4 @@ class AKS(Provider):
         for cluster in clusters:
             self.log_info(f"Cleaning namespaces in AKS cluster {cluster['cluster_name']}")
             client = self.kubectl_client(cluster["resource_group"], cluster["cluster_name"]).CoreV1Api()
-            clean_namespaces(self, client, cluster["cluster_name"])
+            clean_namespaces(self, client)

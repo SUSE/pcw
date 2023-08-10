@@ -172,4 +172,4 @@ class EKS(Provider):
             for cluster_name in clusters:
                 self.log_info(f"Cleaning namespaces in EKS cluster {cluster_name} in region {region}")
                 client = self.kubectl_client(region, cluster_name).CoreV1Api()
-                clean_namespaces(self, client, cluster_name)
+                clean_namespaces(self, client)

@@ -74,4 +74,4 @@ class GKE(GCE):
                     cluster_name = cluster["name"]
                     self.log_info(f"Cleaning namespaces in GKE cluster {cluster_name} in zone {zone}")
                     client = self.kubectl_client(zone, cluster).CoreV1Api()
-                    clean_namespaces(self, client, cluster_name)
+                    clean_namespaces(self, client)
