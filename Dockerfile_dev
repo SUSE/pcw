@@ -8,7 +8,7 @@ ENV UWSGI_HTTP_AUTO_CHUNKED=1 UWSGI_HTTP_KEEPALIVE=1 UWSGI_LAZY_APPS=1 UWSGI_WSG
 RUN zypper -n in gcc libffi-devel && zypper clean && rm -rf /var/cache
 
 COPY requirements.txt requirements_test.txt requirements_k8s.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements_test.txt
+RUN pip install --no-cache-dir wheel && pip install --no-cache-dir -r /tmp/requirements_test.txt
 
 WORKDIR /pcw
 
