@@ -91,13 +91,17 @@ class GCE(Provider):
         return [region["name"] for region in regions]
 
     def list_zones(self, region) -> list:
-        region = (
-            self.compute_client()
-            .regions()
-            .get(project=self.project, region=region)
-            .execute()
-        )
-        return [basename(z) for z in region["zones"]]
+        try:
+            region = (
+                self.compute_client()
+                .regions()
+                .get(project=self.project, region=region)
+                .execute()
+            )
+            return [basename(z) for z in region["zones"]]
+        except (KeyError, HttpError) as exc:
+            self.log_dbg("list_zones: %s", exc)
+            return []
 
     def delete_instance(self, instance_id, zone) -> None:
         self._delete_resource(
