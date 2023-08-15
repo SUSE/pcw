@@ -2,8 +2,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from openqa_client.const import JOB_STATE_CANCELLED
 from openqa_client.exceptions import OpenQAClientError
-from requests.exceptions import RequestException
-from ocw.lib.openqa import OpenQA, get_url
+from requests.exceptions import RequestException, SSLError
+from ocw.lib.openqa import OpenQA, get_url, verify_tls
 
 
 @pytest.fixture
@@ -15,7 +15,8 @@ def openqa_client_mock():
 def openqa_instance(openqa_client_mock):
     with (
         patch('openqa_client.client.OpenQA_Client', return_value=openqa_client_mock),
-        patch('ocw.lib.openqa.get_url', return_value=None)
+        patch('ocw.lib.openqa.get_url', return_value=None),
+        patch('ocw.lib.openqa.verify_tls', return_value=None),
     ):
         yield OpenQA(server="myserver")
 
@@ -109,3 +110,26 @@ def test_get_url_with_invalid_server():
         with pytest.raises(OpenQAClientError):
             get_url("invalid-openqa.suse.de")
     get_url.cache_clear()
+
+
+# Create a mock response for requests.head
+class MockResponse:
+    def raise_for_status(self):
+        pass
+
+
+def test_verify_tls_valid_url():
+    with patch("requests.head", return_value=MockResponse()):
+        assert verify_tls("https://www.example.com")
+
+
+def test_verify_tls_invalid_url():
+    with patch("requests.head", side_effect=SSLError()):
+        result = verify_tls("https://www.invalidurl.com")
+        assert not result
+
+
+def test_verify_tls_request_exception():
+    with patch("requests.head", side_effect=RequestException()):
+        result = verify_tls("https://www.example.com")
+        assert not result

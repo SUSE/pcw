@@ -1,18 +1,25 @@
 from urllib.parse import urlparse
 from cachetools import cached
-from requests.exceptions import RequestException
+import requests
+from requests.exceptions import RequestException, SSLError
 import openqa_client.client
 from openqa_client.const import JOB_STATE_CANCELLED
 from openqa_client.exceptions import OpenQAClientError
 
 
-# We don't verify TLS server certificates because we
-# may encounter self-signed or expired certificates
-DEFAULT_VERIFY = False
+DEFAULT_TIMEOUT = 3
+
+
+def verify_tls(url: str) -> bool:
+    try:
+        requests.head(url, timeout=DEFAULT_TIMEOUT, verify=True).raise_for_status()
+    except (RequestException, SSLError):
+        return False
+    return True
 
 
 @cached(cache={})
-def get_url(server):
+def get_url(server: str) -> str:
     if server:
         server = server.rstrip('/').replace("_", ".")
     if urlparse(server).scheme != "":
@@ -20,10 +27,10 @@ def get_url(server):
     for scheme in ("https", "http"):
         try:
             url = f"{scheme}://{server}"
-            got = openqa_client.client.requests.head(
+            got = requests.head(
                 url,
-                timeout=5,
-                verify=DEFAULT_VERIFY,
+                timeout=DEFAULT_TIMEOUT,
+                verify=False,
             )
             got.raise_for_status()
             return url
@@ -45,7 +52,7 @@ class OpenQA:
     def __init__(self, **kwargs):
         kwargs.pop("server")
         self.__client = openqa_client.client.OpenQA_Client(server=self.server, **kwargs)
-        self.__client.session.verify = DEFAULT_VERIFY
+        self.__client.session.verify = verify_tls(self.server)
 
     def is_cancelled(self, job_id: str) -> bool:
         if not job_id.isdigit():

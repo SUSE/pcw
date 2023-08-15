@@ -16,7 +16,7 @@ pylint:
 
 .PHONY: flake8
 flake8:
-	flake8 --max-line-length=$(LINE_MAX) .
+	flake8 --max-line-length=$(LINE_MAX) $(FILES) tests/*.py
 
 .PHONY: test
 test:
