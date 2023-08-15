@@ -1,4 +1,3 @@
-import os
 from urllib.parse import urlparse
 from cachetools import cached
 from requests.exceptions import RequestException
@@ -7,11 +6,9 @@ from openqa_client.const import JOB_STATE_CANCELLED
 from openqa_client.exceptions import OpenQAClientError
 
 
-if not bool(os.environ.get('REQUESTS_CA_BUNDLE')):
-    # Disable urllib3 warnings for InsecureRequestWarning only on openqa_client.client
-    openqa_client.client.requests.packages.urllib3.disable_warnings(
-        openqa_client.client.requests.packages.urllib3.exceptions.InsecureRequestWarning
-    )
+# We don't verify TLS server certificates because we
+# may encounter self-signed or expired certificates
+DEFAULT_VERIFY = False
 
 
 @cached(cache={})
@@ -26,7 +23,7 @@ def get_url(server):
             got = openqa_client.client.requests.head(
                 url,
                 timeout=5,
-                verify=bool(os.environ.get('REQUESTS_CA_BUNDLE')),
+                verify=DEFAULT_VERIFY,
             )
             got.raise_for_status()
             return url
@@ -48,7 +45,7 @@ class OpenQA:
     def __init__(self, **kwargs):
         kwargs.pop("server")
         self.__client = openqa_client.client.OpenQA_Client(server=self.server, **kwargs)
-        self.__client.session.verify = bool(os.environ.get('REQUESTS_CA_BUNDLE'))
+        self.__client.session.verify = DEFAULT_VERIFY
 
     def is_cancelled(self, job_id: str) -> bool:
         if not job_id.isdigit():
