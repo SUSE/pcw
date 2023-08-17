@@ -173,7 +173,11 @@ class EC2(Provider):
                     self.log_info(f'Deletion of {interface} skipped due to dry_run mode')
                 else:
                     self.log_info(f'Deleting {interface}')
-                    interface.delete()
+                    try:
+                        interface.delete()
+                    except ClientError as exc:
+                        self.log_err("delete_vpc_subnets: %s", exc)
+                        continue
             if self.dry_run:
                 self.log_info(f'Deletion of {subnet} skipped due to dry_run mode')
             else:

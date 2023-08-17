@@ -100,7 +100,7 @@ class GCE(Provider):
             )
             return [basename(z) for z in region["zones"]]
         except (KeyError, HttpError) as exc:
-            self.log_dbg("list_zones: %s", exc)
+            self.log_err("list_zones: %s", exc)
             return []
 
     def delete_instance(self, instance_id, zone) -> None:
