@@ -118,6 +118,11 @@ class MockResponse:
         pass
 
 
+@pytest.fixture(autouse=True)
+def mock_env_missing(monkeypatch):
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/path/to/cert")
+
+
 def test_verify_tls_valid_url():
     with patch("requests.head", return_value=MockResponse()):
         assert verify_tls("https://www.example.com")
