@@ -4,9 +4,9 @@ import random
 import os
 import shutil
 import sys
-import pytest
-
 from subprocess import DEVNULL
+
+import pytest
 from podman import PodmanClient
 from podman.errors import APIError, PodmanError
 from selenium.webdriver import firefox
@@ -24,11 +24,7 @@ XPATH = {
 
 
 @pytest.fixture(scope="session")
-def podman_container():
-    import warnings
-    # Ignore ResourceWarning messages that can happen at random when closing resources
-    warnings.filterwarnings(action="ignore", message="unclosed", category=ResourceWarning)
-
+def client():
     if os.getenv("SKIP_SELENIUM"):
         pytest.skip("Skipping because SKIP_SELENIUM is set")
 
@@ -39,13 +35,24 @@ def podman_container():
         client = PodmanClient()
     except (APIError, PodmanError) as exc:
         pytest.skip(f"Broken Podman environment: {exc}")
-
-    if not client.info()['host']['remoteSocket']["exists"]:
+    if not client.info()["host"]["remoteSocket"]["exists"]:
         pytest.skip("Please run systemctl --user enable --now podman.socket")
 
+    yield client
+
+    client.close()
+
+
+@pytest.fixture(scope="session")
+def random_port():
     # Get random number for ephemeral port, container and image name
-    port = random.randint(32768, 60999)  # Typical values from /proc/sys/net/ipv4/ip_local_port_range
-    image_name = f"pcw-test{port}"
+    # Typical values from /proc/sys/net/ipv4/ip_local_port_range
+    return random.randint(32768, 60999)
+
+
+@pytest.fixture(scope="session")
+def image(random_port, client):
+    image_name = f"pcw-test{random_port}"
 
     # Build image
     try:
@@ -60,17 +67,26 @@ def podman_container():
         for log in exc.build_log:
             line = json.loads(log.decode("utf-8"))
             if line:
-                print(line.get("stream"), file=sys.stderr, end='')
+                print(line.get("stream"), file=sys.stderr, end="")
         pytest.fail(f"{exc}")
 
+    yield image_name
+
+    # Cleanup
+    with contextlib.suppress(APIError, PodmanError):
+        client.images.remove(image_name)
+
+
+@pytest.fixture(scope="session")
+def container(random_port, image, client):
     try:
         # Run container
         container = client.containers.run(
-            image=image_name,
-            name=image_name,
+            image=image,
+            name=image,
             detach=True,
             remove=True,
-            ports={f"{PORT}/tcp": port}
+            ports={f"{PORT}/tcp": random_port}
         )
         # Create user in database
         container.exec_run(f"/pcw/container-startup createuser {USERNAME} {PASSWORD}")
@@ -84,13 +100,10 @@ def podman_container():
         container.stop()
     with contextlib.suppress(APIError, PodmanError):
         container.remove()
-    with contextlib.suppress(APIError, PodmanError):
-        client.images.remove(image_name)
-    client.close()
 
 
 @pytest.fixture
-def browser():
+def browser(container):
     service = firefox.service.Service(log_output=DEVNULL)
     options = firefox.options.Options()
     options.add_argument('-headless')
@@ -99,10 +112,8 @@ def browser():
     driver.quit()
 
 
-def test_login_logout(podman_container, browser):  # pylint: disable=redefined-outer-name
-    # Get randomly assigned port
-    port = podman_container.ports[f'{PORT}/tcp'][0]['HostPort']
-    browser.get(f"http://127.0.0.1:{port}")
+def test_login_logout(random_port, browser):  # pylint: disable=redefined-outer-name
+    browser.get(f"http://127.0.0.1:{random_port}")
     browser.find_element(By.XPATH, XPATH["login"]).click()
     browser.find_element(By.NAME, value="username").send_keys(USERNAME)
     browser.find_element(By.NAME, value="password").send_keys(PASSWORD)
