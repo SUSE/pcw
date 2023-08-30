@@ -1,3 +1,4 @@
+import os
 from urllib.parse import urlparse
 from cachetools import cached
 import requests
@@ -11,11 +12,13 @@ DEFAULT_TIMEOUT = 3
 
 
 def verify_tls(url: str) -> bool:
-    try:
-        requests.head(url, timeout=DEFAULT_TIMEOUT, verify=True).raise_for_status()
-    except (RequestException, SSLError):
-        return False
-    return True
+    verify = os.environ.get("REQUESTS_CA_BUNDLE", False)
+    if verify:
+        try:
+            requests.head(url, timeout=DEFAULT_TIMEOUT, verify=verify).raise_for_status()
+        except (RequestException, SSLError):
+            return False
+    return verify
 
 
 @cached(cache={})

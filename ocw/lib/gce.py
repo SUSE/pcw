@@ -99,9 +99,12 @@ class GCE(Provider):
                 .execute()
             )
             return [basename(z) for z in region["zones"]]
-        except (KeyError, HttpError) as exc:
-            self.log_err("list_zones: %s", exc)
-            return []
+        except HttpError as exc:
+            if GCE.get_error_reason(exc) == 'notFound':
+                self.log_dbg("list_zones: region {} not found", region)
+                return []
+            else:
+                raise exc
 
     def delete_instance(self, instance_id, zone) -> None:
         self._delete_resource(

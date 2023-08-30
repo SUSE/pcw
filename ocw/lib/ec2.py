@@ -176,8 +176,13 @@ class EC2(Provider):
                     try:
                         interface.delete()
                     except ClientError as exc:
-                        self.log_err("delete_vpc_subnets: %s", exc)
-                        continue
+                        # From https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html
+                        # If a network interface is in use, you may also receive the InvalidParameterValue error.
+                        if exc.response['Error']['Code'] == 'InvalidParameterValue':
+                            self.log_info(exc.response['Error'])
+                            continue
+                        else:
+                            raise
             if self.dry_run:
                 self.log_info(f'Deletion of {subnet} skipped due to dry_run mode')
             else:
