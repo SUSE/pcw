@@ -22,9 +22,9 @@ LAST_UPDATE = None
 def save_or_update_instance(csp_data: dict) -> None:
     provider = csp_data['provider']
     namespace = csp_data['namespace']
-    if Instance.objects.filter(provider=provider, instance_id=csp_data['id'], vault_namespace=namespace).exists():
+    if Instance.objects.filter(provider=provider, instance_id=csp_data['id'], namespace=namespace).exists():
         logger.debug("[%s] Update instance %s:%s", namespace, provider, csp_data['id'])
-        local_instance = Instance.objects.get(provider=provider, instance_id=csp_data['id'], vault_namespace=namespace)
+        local_instance = Instance.objects.get(provider=provider, instance_id=csp_data['id'], namespace=namespace)
         if local_instance.region != csp_data['region']:
             logger.info("[%s] Instance %s:%s changed region from %s to %s", namespace,
                         provider, csp_data['id'], local_instance.region, csp_data['region'])
@@ -38,7 +38,7 @@ def save_or_update_instance(csp_data: dict) -> None:
         logger.debug("[%s] Create instance %s:%s", namespace, provider, csp_data['id'])
         local_instance = Instance(
             provider=provider,
-            vault_namespace=namespace,
+            namespace=namespace,
             first_seen=csp_data['first_seen'],
             instance_id=csp_data['id'],
             ttl=timedelta(seconds=int(csp_data['tags'].get('openqa_ttl', csp_data['default_ttl']))),
@@ -107,7 +107,7 @@ def gce_extract_data(csp_instance, namespace: str, default_ttl: int) -> dict:
 
 
 def _update_provider(provider: str, namespace: str, default_ttl: int) -> None:
-    instance_cnt = Instance.objects.filter(provider=provider, vault_namespace=namespace).update(active=False)
+    instance_cnt = Instance.objects.filter(provider=provider, namespace=namespace).update(active=False)
     logger.debug("%d got active state false", instance_cnt)
     if ProviderChoice.from_str(provider) == ProviderChoice.AZURE:
         instances = Azure(namespace).list_resource_groups()
@@ -129,7 +129,7 @@ def _update_provider(provider: str, namespace: str, default_ttl: int) -> None:
         for i in instances:
             save_or_update_instance(gce_extract_data(i, namespace, default_ttl))
         logger.info("%d instances from GCE successfully processed", len(instances))
-    Instance.objects.filter(provider=provider, vault_namespace=namespace,
+    Instance.objects.filter(provider=provider, namespace=namespace,
                             active=False).update(state=StateChoice.DELETED)
 
 
@@ -166,11 +166,11 @@ def update_run() -> None:
 
 def delete_instance(instance: type[Instance]) -> None:
     if instance.provider == ProviderChoice.AZURE:
-        Azure(instance.vault_namespace).delete_resource(instance.instance_id)
+        Azure(instance.namespace).delete_resource(instance.instance_id)
     elif instance.provider == ProviderChoice.EC2:
-        EC2(instance.vault_namespace).delete_instance(instance.region, instance.instance_id)
+        EC2(instance.namespace).delete_instance(instance.region, instance.instance_id)
     elif instance.provider == ProviderChoice.GCE:
-        GCE(instance.vault_namespace).delete_instance(instance.instance_id, instance.region)
+        GCE(instance.namespace).delete_instance(instance.instance_id, instance.region)
     else:
         raise NotImplementedError(
             f"Provider({instance.provider}).delete() isn't implemented")
@@ -183,22 +183,22 @@ def auto_delete_instances() -> None:
     for namespace in PCWConfig.get_namespaces_for('default'):
         logger.debug("Running auto_delete_instances for %s", namespace)
         instances = [
-            i for i in Instance.objects.filter(state=StateChoice.ACTIVE, vault_namespace=namespace).exclude(ignore=True)
+            i for i in Instance.objects.filter(state=StateChoice.ACTIVE, namespace=namespace).exclude(ignore=True)
             if i.ttl_expired() or i.is_cancelled()
         ]
         logger.debug("Found %d instances for deletion", len(instances))
         email_text = set()
         for instance in instances:
             if instance.ttl_expired():
-                logger.debug("[%s] TTL expired for instance %s:%s %s", instance.vault_namespace,
+                logger.debug("[%s] TTL expired for instance %s:%s %s", instance.namespace,
                              instance.provider, instance.instance_id, instance.all_time_fields())
             else:
-                logger.debug("[%s] Job cancelled for instance %s:%s %s", instance.vault_namespace,
+                logger.debug("[%s] Job cancelled for instance %s:%s %s", instance.namespace,
                              instance.provider, instance.instance_id, instance.all_time_fields())
             try:
                 delete_instance(instance)
             except Exception:
-                msg = f"[{instance.vault_namespace}] Deleting instance ({instance.provider}:{instance.instance_id}) failed"
+                msg = f"[{instance.namespace}] Deleting instance ({instance.provider}:{instance.instance_id}) failed"
                 logger.exception(msg)
                 email_text.add(f"{msg}\n\n{traceback.format_exc()}")
 

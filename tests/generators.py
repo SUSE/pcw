@@ -27,7 +27,7 @@ def generate_model_instance(jobid_tag, created_by_tag):
         cspinfo=CspInfo(tags=json_dump_tags, type=fake.uuid4()),
         provider=fake.uuid4(),
         instance_id=fake.uuid4(),
-        vault_namespace=fake.uuid4()
+        namespace=fake.uuid4()
     )
 
 

@@ -34,7 +34,7 @@ def example_instance_data():
         'last_seen': datetime(2023, 1, 2, tzinfo=timezone.utc),
         'instance_id': 'INSTANCE_ID',
         'region': 'REGION',
-        'vault_namespace': 'VAULT_NAMESPACE',
+        'namespace': 'NAMESPACE',
     }
 
 

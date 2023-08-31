@@ -23,15 +23,15 @@ class EC2(Provider):
         else:
             self.all_regions = self.get_all_regions()
 
-    def __new__(cls, vault_namespace: str):
-        if vault_namespace not in EC2.__instances:
-            EC2.__instances[vault_namespace] = self = object.__new__(cls)
+    def __new__(cls, namespace: str):
+        if namespace not in EC2.__instances:
+            EC2.__instances[namespace] = self = object.__new__(cls)
             self.__ec2_client = {}
             self.__ec2_resource = {}
             self.__secret = None
             self.__key = None
 
-        return EC2.__instances[vault_namespace]
+        return EC2.__instances[namespace]
 
     def check_credentials(self) -> None:
         self.__secret = self.get_data('secret_access_key')

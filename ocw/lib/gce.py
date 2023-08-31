@@ -12,10 +12,10 @@ class GCE(Provider):
     __instances = {}
     __skip_networks = frozenset({"default"})
 
-    def __new__(cls, vault_namespace):
-        if vault_namespace not in GCE.__instances:
-            GCE.__instances[vault_namespace] = object.__new__(cls)
-        return GCE.__instances[vault_namespace]
+    def __new__(cls, namespace):
+        if namespace not in GCE.__instances:
+            GCE.__instances[namespace] = object.__new__(cls)
+        return GCE.__instances[namespace]
 
     def __init__(self, namespace):
         super().__init__(namespace)

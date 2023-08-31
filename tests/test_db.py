@@ -39,7 +39,7 @@ class InstanceMock:
         self.region = None
         self.save_called = False
         self.provider = provider
-        self.vault_namespace = fake.uuid4()
+        self.namespace = fake.uuid4()
 
     def save(self):
         self.save_called = True
@@ -69,7 +69,7 @@ def extract_data():
 
 @pytest.fixture
 def azure_fixture(monkeypatch, extract_data):
-    monkeypatch.setattr(Azure, '__new__', lambda cls, vault_namespace: AzureMock())
+    monkeypatch.setattr(Azure, '__new__', lambda cls, namespace: AzureMock())
     return extract_data
 
 
@@ -219,7 +219,7 @@ def test_update_run_update_provider_throw_exception(update_run_patch, monkeypatc
 
 
 def test_delete_instances_azure(monkeypatch):
-    monkeypatch.setattr(Azure, '__new__', lambda cls, vault_namespace: AzureMock())
+    monkeypatch.setattr(Azure, '__new__', lambda cls, namespace: AzureMock())
 
     instance = InstanceMock(ProviderChoice.AZURE)
 
@@ -230,7 +230,7 @@ def test_delete_instances_azure(monkeypatch):
 
 
 def test_delete_instances_ec2(monkeypatch):
-    monkeypatch.setattr(EC2, '__new__', lambda cls, vault_namespace: EC2Mock())
+    monkeypatch.setattr(EC2, '__new__', lambda cls, namespace: EC2Mock())
 
     instance = InstanceMock(ProviderChoice.EC2)
 
@@ -241,7 +241,7 @@ def test_delete_instances_ec2(monkeypatch):
 
 
 def test_delete_instances_gce(monkeypatch):
-    monkeypatch.setattr(GCE, '__new__', lambda cls, vault_namespace: GCEMock())
+    monkeypatch.setattr(GCE, '__new__', lambda cls, namespace: GCEMock())
 
     instance = InstanceMock(ProviderChoice.GCE)
 
