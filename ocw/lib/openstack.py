@@ -25,7 +25,6 @@ class Openstack(Provider):
         if self.__client is None:
             self.__client = openstack.connect(
                 debug=bool(DEBUG),
-                insecure=True,  # Trust the certificate
                 auth_url=self.get_data('auth_url'),
                 project_name=self.get_data('project_name'),
                 username=self.get_data('username'),
