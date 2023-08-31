@@ -15,11 +15,11 @@ class Openstack(Provider):
         super().__init__(namespace)
         self.client()
 
-    def __new__(cls, vault_namespace: str):
-        if vault_namespace not in Openstack.__instances:
-            Openstack.__instances[vault_namespace] = self = object.__new__(cls)
+    def __new__(cls, namespace: str):
+        if namespace not in Openstack.__instances:
+            Openstack.__instances[namespace] = self = object.__new__(cls)
             self.__client = None
-        return Openstack.__instances[vault_namespace]
+        return Openstack.__instances[namespace]
 
     def client(self) -> None:
         if self.__client is None:

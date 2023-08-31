@@ -9,11 +9,11 @@ class AKS(Provider):
     __instances = {}
     default_region: str = 'eu-central-1'
 
-    def __new__(cls, vault_namespace):
-        if vault_namespace not in AKS.__instances:
-            AKS.__instances[vault_namespace] = self = object.__new__(cls)
+    def __new__(cls, namespace):
+        if namespace not in AKS.__instances:
+            AKS.__instances[namespace] = self = object.__new__(cls)
             self.__kubectl_client = {}
-        return AKS.__instances[vault_namespace]
+        return AKS.__instances[namespace]
 
     def subscription(self) -> str:
         return self.get_data('subscription_id')

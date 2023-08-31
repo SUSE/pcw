@@ -16,14 +16,14 @@ class EKS(Provider):
     default_region: str = 'eu-central-1'
     __cluster_regions = []
 
-    def __new__(cls, vault_namespace):
-        if vault_namespace not in EKS.__instances:
-            EKS.__instances[vault_namespace] = self = object.__new__(cls)
+    def __new__(cls, namespace):
+        if namespace not in EKS.__instances:
+            EKS.__instances[namespace] = self = object.__new__(cls)
             self.__eks_client = {}
             self.__kubectl_client = {}
             self.__aws_dir = None
 
-        return EKS.__instances[vault_namespace]
+        return EKS.__instances[namespace]
 
     def __init__(self, namespace: str):
         super().__init__(namespace)

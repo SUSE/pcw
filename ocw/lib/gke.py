@@ -9,13 +9,13 @@ from ocw.lib.k8s import clean_jobs, clean_namespaces
 class GKE(GCE):
     __instances = {}
 
-    def __new__(cls, vault_namespace):
-        if vault_namespace not in GKE.__instances:
-            GKE.__instances[vault_namespace] = self = object.__new__(cls)
+    def __new__(cls, namespace):
+        if namespace not in GKE.__instances:
+            GKE.__instances[namespace] = self = object.__new__(cls)
             self.__gke_client = None
             self.__kubectl_client = {}
 
-        return GKE.__instances[vault_namespace]
+        return GKE.__instances[namespace]
 
     def gke_client(self):
         if self.__gke_client is None:

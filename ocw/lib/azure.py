@@ -22,14 +22,14 @@ class Azure(Provider):
         self.check_credentials()
         self.__gallery = PCWConfig.get_feature_property('cleanup', 'azure-gallery-name', namespace)
 
-    def __new__(cls, vault_namespace: str) -> 'Azure':
-        if vault_namespace not in Azure.__instances:
-            Azure.__instances[vault_namespace] = self = object.__new__(cls)
+    def __new__(cls, namespace: str) -> 'Azure':
+        if namespace not in Azure.__instances:
+            Azure.__instances[namespace] = self = object.__new__(cls)
             self.__compute_mgmt_client = None
             self.__sp_credentials = None
             self.__resource_mgmt_client = None
             self.__blob_service_client = None
-        return Azure.__instances[vault_namespace]
+        return Azure.__instances[namespace]
 
     def subscription(self) -> str:
         return self.get_data('subscription_id')

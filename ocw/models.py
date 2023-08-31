@@ -31,7 +31,7 @@ class Instance(models.Model):
                              help_text='Local computed state of that Instance')
     instance_id = models.CharField(max_length=200)
     region = models.CharField(max_length=64, default='')
-    vault_namespace = models.CharField(max_length=64, default='')
+    namespace = models.CharField(max_length=64, default='')
     notified = models.BooleanField(default=False)
     ignore = models.BooleanField(default=False)
     TAG_IGNORE = 'pcw_ignore'
@@ -81,7 +81,7 @@ class Instance(models.Model):
         return False
 
     class Meta:  # pylint: disable=too-few-public-methods
-        unique_together = (('provider', 'instance_id', 'vault_namespace'),)
+        unique_together = (('provider', 'instance_id', 'namespace'),)
 
 
 class CspInfo(models.Model):

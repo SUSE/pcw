@@ -23,7 +23,7 @@ def draw_instance_table(objects):
             obj.provider,
             obj.instance_id,
             obj.cspinfo.get_tag('openqa_created_by', 'N/A'),
-            obj.vault_namespace,
+            obj.namespace,
             obj.age_formatted(),
             build_absolute_uri(reverse(views.delete, args=[obj.id])),
             "" if link is None else link['url']
@@ -40,7 +40,7 @@ def send_leftover_notification():
         # Handle namespaces
         for namespace in PCWConfig.get_namespaces_for('notify'):
             receiver_email = PCWConfig.get_feature_property('notify', 'to', namespace)
-            namespace_objects = all_instances.filter(vault_namespace=namespace)
+            namespace_objects = all_instances.filter(namespace=namespace)
             if namespace_objects.filter(notified=False).count() > 0 and receiver_email:
                 send_mail(f'CSP left overs - {namespace}',
                           body_prefix + draw_instance_table(namespace_objects), receiver_email=receiver_email)

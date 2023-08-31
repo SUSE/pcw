@@ -51,7 +51,7 @@ def instance_json(request):
             "ttl",
             "instance_id",
             "region",
-            "vault_namespace",
+            "namespace",
             "ignore"
         ),
     )
