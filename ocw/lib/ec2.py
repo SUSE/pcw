@@ -181,8 +181,7 @@ class EC2(Provider):
                         if exc.response['Error']['Code'] == 'InvalidParameterValue':
                             self.log_info(exc.response['Error'])
                             continue
-                        else:
-                            raise
+                        raise
             if self.dry_run:
                 self.log_info(f'Deletion of {subnet} skipped due to dry_run mode')
             else:
