@@ -55,7 +55,8 @@ class OpenQA:
     def __init__(self, **kwargs):
         kwargs.pop("server")
         self.__client = openqa_client.client.OpenQA_Client(server=self.server, **kwargs)
-        self.__client.session.verify = verify_tls(self.server)
+        # Temporary fix for openQA-python-client
+        self.__client.session.verify = "/usr/share/pki/trust/anchors/SUSE_Trust_Root.crt.pem"
 
     def is_cancelled(self, job_id: str) -> bool:
         if not job_id.isdigit():
