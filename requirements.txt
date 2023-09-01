@@ -1,6 +1,6 @@
 boto3
 azure-mgmt-compute==30.1.0
-azure-mgmt-storage==21.0.0
+azure-mgmt-storage==21.1.0
 azure-mgmt-resource==23.0.1
 azure-storage-blob==12.17.0
 azure-identity==1.14.0
