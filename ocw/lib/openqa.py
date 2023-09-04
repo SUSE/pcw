@@ -27,7 +27,7 @@ def get_url(server: str) -> str:
         server = server.rstrip('/').replace("_", ".")
     if urlparse(server).scheme != "":
         return server
-    for scheme in ("https", "http"):
+    for scheme in ("http", "https"):
         try:
             url = f"{scheme}://{server}"
             got = requests.head(
@@ -55,7 +55,8 @@ class OpenQA:
     def __init__(self, **kwargs):
         kwargs.pop("server")
         self.__client = openqa_client.client.OpenQA_Client(server=self.server, **kwargs)
-        self.__client.session.verify = verify_tls(self.server)
+        if self.server.startswith("https://"):
+            self.__client.session.verify = verify_tls(self.server)
 
     def is_cancelled(self, job_id: str) -> bool:
         if not job_id.isdigit():
