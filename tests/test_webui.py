@@ -12,6 +12,13 @@ from podman.errors import APIError, PodmanError
 from selenium.webdriver import firefox
 from selenium.webdriver.common.by import By
 
+# This can be dropped when Selenium switches to no longer write to geckodriver.log
+import warnings
+# Ignore ResourceWarning messages that can happen at random when closing resources:
+#   Exception ignored in: <_io.FileIO name='/dev/null' mode='wb' closefd=True>
+warnings.filterwarnings(action="ignore", message="unclosed", category=ResourceWarning)
+
+
 USERNAME = "username"
 PASSWORD = "password"
 PORT = 8000

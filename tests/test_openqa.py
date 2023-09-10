@@ -15,7 +15,7 @@ def openqa_client_mock():
 def openqa_instance(openqa_client_mock):
     with (
         patch('openqa_client.client.OpenQA_Client', return_value=openqa_client_mock),
-        patch('ocw.lib.openqa.get_url', return_value=None),
+        patch('ocw.lib.openqa.get_url', return_value=""),
         patch('ocw.lib.openqa.verify_tls', return_value=None),
     ):
         yield OpenQA(server="myserver")
@@ -74,16 +74,16 @@ def test_singleton():
 
 def test_get_url_cache():
     with patch("requests.head") as mock_head:
-        url = get_url("https://openqa.suse.de/")
-        url2 = get_url("https://openqa.suse.de")
+        url = get_url("http://openqa.suse.de/")
+        url2 = get_url("http://openqa.suse.de")
         url3 = get_url("openqa.suse.de")
         assert url == url2 == url3
         assert mock_head.call_count == 1
 
 
 def test_get_url_with_valid_scheme():
-    url = get_url("https://openqa.suse.de")
-    assert url == "https://openqa.suse.de"
+    url = get_url("http://openqa.suse.de")
+    assert url == "http://openqa.suse.de"
     get_url.cache_clear()
 
 
@@ -100,7 +100,7 @@ def test_get_url_with_valid_scheme_retry():
         response_mock = mock_head.return_value
         response_mock.raise_for_status.side_effect = [RequestException, None]
         url = get_url("openqa.suse.de")
-        assert url == "http://openqa.suse.de"
+        assert url == "https://openqa.suse.de"
     get_url.cache_clear()
 
 
