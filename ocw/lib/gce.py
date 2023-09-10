@@ -1,3 +1,4 @@
+import contextlib
 import json
 from os.path import basename
 from datetime import timezone
@@ -59,7 +60,19 @@ class GCE(Provider):
             if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
                 self.log_dbg(f"{resource_type.title()} '{resource_name}' can not be deleted because in use")
             elif GCE.get_error_reason(err) == 'badRequest':
-                self.log_err(f"{resource_type.title()} '{resource_name}' can not be deleted because of unknown reason")
+                # These are system generated routes when you create a network. These
+                # will be deleted by the deletion of the network and do not block the
+                # deletion of that network.
+                # There are no properties on the Route struct that indicate a route is a
+                # default one. Typically, the name will contain the word "default" or the
+                # description will contain the word "Default" but a property like Kind
+                # returns "compute#route" for all routes.
+                # All this creating false alarms in log which we want to prevent.
+                # Only way to prevent is mute error
+                if resource_type.title() == "Route" and "The local route cannot be deleted" in str(err):
+                    self.log_info("Skip deletion of local route")
+                else:
+                    self.log_err(f"{resource_type.title()} '{resource_name}' can not be deleted. Error : {err}")
             else:
                 raise err
 
@@ -112,13 +125,9 @@ class GCE(Provider):
 
     @staticmethod
     def get_error_reason(error: "googleapiclient.errors.HttpError") -> str:
-        reason = "unknown"
-        try:
-            error_content = json.loads(error.content)
-            return error_content['error']['errors'][0]['reason']
-        except (KeyError, ValueError, IndexError):
-            pass
-        return reason
+        with contextlib.suppress(KeyError, ValueError, IndexError):
+            return json.loads(error.content)['error']['errors'][0]['reason']
+        return "unknown"
 
     def cleanup_all(self) -> None:
         self.log_info("Call cleanup_all")

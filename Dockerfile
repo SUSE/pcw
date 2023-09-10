@@ -11,7 +11,8 @@ COPY requirements.txt /pcw/
 # * Install pip requirements
 # * Empty system cache to conserve some space
 RUN source /etc/os-release && zypper addrepo -G -cf "https://download.opensuse.org/repositories/SUSE:/CA/$VERSION_ID/SUSE:CA.repo" && \
-    zypper -n in ca-certificates-suse gcc libffi-devel && pip install --no-cache-dir -r /pcw/requirements.txt && zypper clean && rm -rf /var/cache
+    zypper -n in ca-certificates-suse gcc libffi-devel && \
+    pip install --no-cache-dir wheel && pip install --no-cache-dir -r /pcw/requirements.txt && zypper clean && rm -rf /var/cache
 
 # Copy program files only
 COPY ocw  /pcw/ocw/
