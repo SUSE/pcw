@@ -10,7 +10,7 @@ uwsgi==2.0.22
 requests==2.31.0
 Django~=4.2.2
 django-tables2==2.6.0
-django-filter==23.2
+django-filter==23.3
 django-bootstrap4==23.1
 texttable
 oauth2client
