@@ -21,3 +21,4 @@ openstacksdk~=1.5.0
 python-dateutil
 apscheduler
 kubernetes
+influxdb-client
