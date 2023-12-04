@@ -3,6 +3,7 @@ import json
 from os.path import basename
 from datetime import timezone
 from dateutil.parser import parse
+from webui.PCWConfig import ConfigFile
 import googleapiclient.discovery
 from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
@@ -11,7 +12,6 @@ from .provider import Provider
 
 class GCE(Provider):
     __instances = {}
-    __skip_networks = frozenset({"default"})
 
     def __new__(cls, namespace):
         if namespace not in GCE.__instances:
@@ -20,6 +20,9 @@ class GCE(Provider):
 
     def __init__(self, namespace):
         super().__init__(namespace)
+
+        self.__skip_networks = frozenset(ConfigFile().getList('cleanup/gce-skip-networks', ["default"]))
+
         self.__compute_client = None
         self.private_key_data = self.get_data()
         self.project = self.private_key_data["project_id"]
