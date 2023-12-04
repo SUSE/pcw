@@ -53,8 +53,8 @@ class ConfigFile:
 class PCWConfig():
 
     @staticmethod
-    def get_feature_property(feature: str, property: str, namespace: str = None):
-        default_values = {
+    def get_feature_property(feature: str, feature_property: str, namespace: str | None = None) -> str | int:
+        default_values: dict[str, dict[str, int | type[int] | str | type[str] | type[str] | None]] = {
             'cleanup/max-age-hours': {'default': 24 * 7, 'return_type': int},
             'cleanup/azure-gallery-name': {'default': 'test_image_gallery', 'return_type': str},
             'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload', 'return_type': str},
@@ -70,12 +70,15 @@ class PCWConfig():
             'notify/smtp': {'default': None, 'return_type': str},
             'notify/smtp-port': {'default': 25, 'return_type': int},
             'notify/from': {'default': 'pcw@publiccloud.qa.suse.de', 'return_type': str},
+            'influxdb/org': {'default': 'pcw', 'return_type': str},
+            'influxdb/bucket': {'default': 'cloud_stat', 'return_type': str},
+            'influxdb/url': {'default': None, 'return_type': str},
         }
-        key = '/'.join([feature, property])
+        key = '/'.join([feature, feature_property])
         if key not in default_values:
             raise LookupError(f"Missing {key} in default_values list")
         if namespace:
-            setting = f'{feature}.namespace.{namespace}/{property}'
+            setting = f'{feature}.namespace.{namespace}/{feature_property}'
             if PCWConfig.has(setting):
                 return default_values[key]['return_type'](ConfigFile().get(setting))
         return default_values[key]['return_type'](
@@ -114,10 +117,10 @@ class PCWConfig():
             return False
 
     @staticmethod
-    def getBoolean(config_path: str, namespace: str = None, default=False) -> bool:
+    def getBoolean(config_path: str, namespace: str | None = None, default=False) -> bool:
         if namespace:
-            feature, property = config_path.split('/')
-            setting = f'{feature}.namespace.{namespace}/{property}'
+            feature, feature_property = config_path.split('/')
+            setting = f'{feature}.namespace.{namespace}/{feature_property}'
             if PCWConfig.has(setting):
                 value = ConfigFile().get(setting)
             else:

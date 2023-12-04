@@ -10,7 +10,8 @@ from msrest.exceptions import AuthenticationError
 from dateutil.parser import parse
 from webui.PCWConfig import PCWConfig
 from .provider import Provider
-from ..models import Instance
+from ..models import Instance, ProviderChoice
+from .influx import influxwrite, Influx
 
 
 class Azure(Provider):
@@ -81,10 +82,11 @@ class Azure(Provider):
         storage_keys = [v.value for v in storage_keys.keys]
         return storage_keys[0]
 
+    @influxwrite(Influx.VMS_QUANTITY, ProviderChoice.AZURE)
     def list_instances(self) -> list:
         return list(self.compute_mgmt_client().virtual_machines.list_all())
 
-    def get_vm_types_in_resource_group(self, resource_group: str) -> str:
+    def get_vm_types_in_resource_group(self, resource_group: str) -> str | None:
         self.log_dbg(f"Listing VMs for {resource_group}")
         type_set = set()
         try:
@@ -94,9 +96,7 @@ class Azure(Provider):
         except ResourceNotFoundError:
             self.log_dbg(f"{resource_group} already deleted")
             return None
-        if len(type_set) > 0:
-            return ', '.join(type_set)
-        return "N/A"
+        return ', '.join(type_set) if type_set else "N/A"
 
     def get_resource_properties(self, resource_id):
         return self.resource_mgmt_client().resources.get_by_id(resource_id, api_version="2023-07-03").properties
@@ -111,9 +111,11 @@ class Azure(Provider):
             self.log_info(f"Deleting of resource group {resource_id}")
             self.resource_mgmt_client().resource_groups.begin_delete(resource_id)
 
+    @influxwrite(Influx.IMAGES_QUANTITY, ProviderChoice.AZURE)
     def list_images(self):
         return self.list_resource(filters="resourceType eq 'Microsoft.Compute/images'")
 
+    @influxwrite(Influx.DISK_QUANTITY, ProviderChoice.AZURE)
     def list_disks(self):
         return self.list_resource(filters="resourceType eq 'Microsoft.Compute/disks'")
 

@@ -11,9 +11,6 @@ static/
 venv/
 .venv/
 pyvenv.cfg
-lib64/
-lib/
-bin/
 
 # Codecov
 .coverage
