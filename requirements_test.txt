@@ -6,5 +6,5 @@ faker
 flake8
 pytest-cov
 pylint
-podman~=4.6.0
+podman~=4.8.1
 selenium~=4.12.0
