@@ -10,8 +10,7 @@ from msrest.exceptions import AuthenticationError
 from dateutil.parser import parse
 from webui.PCWConfig import PCWConfig
 from .provider import Provider
-from ..models import Instance, ProviderChoice
-from .influx import influxwrite, Influx
+from ..models import Instance
 
 
 class Azure(Provider):
@@ -82,7 +81,6 @@ class Azure(Provider):
         storage_keys = [v.value for v in storage_keys.keys]
         return storage_keys[0]
 
-    @influxwrite(Influx.VMS_QUANTITY, ProviderChoice.AZURE)
     def list_instances(self) -> list:
         return list(self.compute_mgmt_client().virtual_machines.list_all())
 
@@ -111,11 +109,9 @@ class Azure(Provider):
             self.log_info(f"Deleting of resource group {resource_id}")
             self.resource_mgmt_client().resource_groups.begin_delete(resource_id)
 
-    @influxwrite(Influx.IMAGES_QUANTITY, ProviderChoice.AZURE)
     def list_images(self):
         return self.list_resource(filters="resourceType eq 'Microsoft.Compute/images'")
 
-    @influxwrite(Influx.DISK_QUANTITY, ProviderChoice.AZURE)
     def list_disks(self):
         return self.list_resource(filters="resourceType eq 'Microsoft.Compute/disks'")
 

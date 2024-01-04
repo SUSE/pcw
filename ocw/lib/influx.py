@@ -1,25 +1,15 @@
+from typing import Callable
 import os
 import logging
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS, WriteApi
 from influxdb_client.client.exceptions import InfluxDBError
-from urllib3.exceptions import HTTPError, TimeoutError
+from urllib3.exceptions import HTTPError
 
 
 from webui.PCWConfig import PCWConfig
-from ocw.enums import ProviderChoice
 
 logger = logging.getLogger(__name__)
-
-
-def influxwrite(influx_type: str, provider: ProviderChoice):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            objects = func(*args, **kwargs)
-            Influx().write(provider.value, influx_type, len(objects))
-            return objects
-        return wrapper
-    return decorator
 
 
 class Influx:
@@ -53,5 +43,10 @@ class Influx:
             point = Point(measurement).field(field, value)
             try:
                 self.__client.write(bucket=self.bucket, org=self.org, record=point)
-            except (InfluxDBError, HTTPError, TimeoutError) as exception:
-                logger.warning(f"Failed to write to influxdb(record={point}): {exception}")
+            except (InfluxDBError, HTTPError) as exception:
+                logger.warning("Failed to write to influxdb(record=%s): %s", point, exception)
+
+    def dump_resource(self, provider: str, field: str, dump_method: Callable) -> None:
+        items_cnt = len(dump_method())
+        logger.debug("%d instances found in %s", items_cnt, provider)
+        self.write(provider, field, items_cnt)
