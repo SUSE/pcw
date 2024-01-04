@@ -256,8 +256,7 @@ class EC2(Provider):
                     else:
                         self.log_info(f"Delete route {route_table['RouteTableId']}")
                         self.log_dbg(route)
-                        self.ec2_client(region).delete_route(RouteTableId=route_table['RouteTableId'],
-                                                             DestinationCidrBlock=route['DestinationCidrBlock'])
+                        self.ec2_client(region).delete_route(RouteTableId=route_table['RouteTableId'])
             if route_table['Associations'] == []:
                 if self.dry_run:
                     self.log_info(f"{route_table['RouteTableId']} routing table will not be deleted due to dry_run mode")
