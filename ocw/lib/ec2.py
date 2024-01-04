@@ -162,6 +162,15 @@ class EC2(Provider):
                 self.log_info('Delete VPC={}', vpc_id)
                 self.ec2_resource(region).meta.client.delete_vpc(VpcId=vpc_id)
             return None
+        except ClientError as ex:
+            # Our cleanup is not perfect yet so often at this stage we have VPC's
+            # which has dependencies still and we don't want to have emails about this known problem
+            # See https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html for more details
+            if 'is currently in use.' in ex.response['Error']['Message']:
+                self.log_dbg(traceback.format_exc())
+                self.log_info(ex.response['Error'])
+                return None
+            return f"[{vpc_id}] {type(ex).__name__} on VPC deletion. {traceback.format_exc()}"
         except Exception as ex:
             return f"[{vpc_id}] {type(ex).__name__} on VPC deletion. {traceback.format_exc()}"
 
@@ -173,15 +182,7 @@ class EC2(Provider):
                     self.log_info(f'Deletion of {interface} skipped due to dry_run mode')
                 else:
                     self.log_info(f'Deleting {interface}')
-                    try:
-                        interface.delete()
-                    except ClientError as exc:
-                        # From https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html
-                        # If a network interface is in use, you may also receive the InvalidParameterValue error.
-                        if exc.response['Error']['Code'] == 'InvalidParameterValue':
-                            self.log_info(exc.response['Error'])
-                            continue
-                        raise
+                    interface.delete()
             if self.dry_run:
                 self.log_info(f'Deletion of {subnet} skipped due to dry_run mode')
             else:
@@ -279,7 +280,6 @@ class EC2(Provider):
         vpc_errors = []
         vpc_notify = []
         vpc_locked = []
-        vpc_known_exception = "botocore.exceptions.ClientError: An error occurred (DependencyViolation)"
         for region in self.all_regions:
             response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
             self.log_dbg(f"Found {len(response['Vpcs'])} VPC's in {region}")
@@ -297,10 +297,7 @@ class EC2(Provider):
                         del_responce = self.delete_vpc(region, resource_vpc, vpc_id)
                         if del_responce is not None:
                             self.log_err(del_responce)
-                            # Our cleanup is not perfect yet so often at this stage we have VPC's
-                            # which has dependencies still and we don't want to have emails about this known problem
-                            if vpc_known_exception not in del_responce:
-                                vpc_errors.append(del_responce)
+                            vpc_errors.append(del_responce)
                     elif not self.dry_run:
                         vpc_locked.append(f'{vpc_id} (OwnerId={response_vpc["OwnerId"]}) in {region} is locked')
         self.report_cleanup_results(vpc_errors, vpc_notify, vpc_locked)
