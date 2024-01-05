@@ -65,6 +65,9 @@ case "$CMD" in
 	"rmclusters")
 		python3 manage.py rmclusters
 		;;
+	"dumpstate")
+		python3 manage.py dumpstate
+		;;
 	*)
 		python3 manage.py "$@"
 esac
