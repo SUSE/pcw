@@ -170,7 +170,7 @@ class MockedEC2Client():
     def describe_route_tables(self, Filters):
         return MockedEC2Client.routing_tables
 
-    def delete_route(self, RouteTableId):
+    def delete_route(self, RouteTableId, DestinationCidrBlock=None, DestinationIpv6CidrBlock=None):
         if RouteTableId == '2':
             MockedEC2Client.delete_route_called = True
 
