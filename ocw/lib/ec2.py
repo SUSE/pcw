@@ -253,10 +253,18 @@ class EC2(Provider):
                     if self.dry_run:
                         self.log_info(f"{route_table['RouteTableId']} route will not be deleted due to dry_run mode")
                         self.log_dbg(route)
-                    else:
+                    elif 'DestinationCidrBlock' in route:
                         self.log_info(f"Delete route {route_table['RouteTableId']}")
                         self.log_dbg(route)
-                        self.ec2_client(region).delete_route(RouteTableId=route_table['RouteTableId'])
+                        self.ec2_client(region).delete_route(RouteTableId=route_table['RouteTableId'],
+                                                             DestinationCidrBlock=route['DestinationCidrBlock'])
+                    elif 'DestinationIpv6CidrBlock' in route:
+                        self.log_info(f"Delete route {route_table['RouteTableId']}")
+                        self.log_dbg(route)
+                        self.ec2_client(region).delete_route(RouteTableId=route_table['RouteTableId'],
+                                                             DestinationIpv6CidrBlock=route['DestinationIpv6CidrBlock'])
+                    else:
+                        raise RuntimeError(f'Failed to delete {route}')
             if route_table['Associations'] == []:
                 if self.dry_run:
                     self.log_info(f"{route_table['RouteTableId']} routing table will not be deleted due to dry_run mode")
