@@ -1,7 +1,11 @@
 # Ignore git, data and cache files
 .git
+.github
 .cache
+.pytest_cache
+
 __pycache__
 /db
+/tests
 # Also ignore templates
 /templates

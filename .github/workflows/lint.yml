@@ -41,13 +41,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: 'Dockerfile'
+          dockerfile: 'containers/Dockerfile'
       - uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: 'Dockerfile_dev'
+          dockerfile: 'containers/Dockerfile_dev'
       - uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: 'Dockerfile_k8s'
+          dockerfile: 'containers/Dockerfile_k8s'
       - uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: 'Dockerfile_k8s_dev'
+          dockerfile: 'containers/Dockerfile_k8s_dev'
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: 'containers/Dockerfile_base'
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: 'containers/Dockerfile_base_k8s'
