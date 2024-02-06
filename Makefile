@@ -27,18 +27,20 @@ codecov:
 	pytest -v --cov --cov-report=html && xdg-open htmlcov/index.html
 
 # Build containers
-docker-container:
-	docker build . -t ${CONT_TAG}
-podman-container:
-	podman build . -t ${CONT_TAG}
-podman-container-devel:
-	podman build -f Dockerfile_dev -t pcw-devel
-podman-container-k8s:
-	podman build -f Dockerfile_k8s -t pcw-k8s-cleaner
-podman-container-k8s-devel:
-	podman build -f Dockerfile_k8s_dev -t pcw-k8s-cleaner-devel
+container:
+	podman build . -t ${CONT_TAG} -f containers/Dockerfile
+container-base:
+	podman build . -t ${CONT_TAG}-base -f containers/Dockerfile_base
+container-base-k8s:
+	podman build . -t ${CONT_TAG}-base-k8s -f containers/Dockerfile_base_k8s
+container-devel:
+	podman build . -t ${CONT_TAG}-devel -f containers/Dockerfile_dev
+container-k8s:
+	podman build . -t ${CONT_TAG}-k8s-cleaner -f containers/Dockerfile_k8s
+container-k8s-devel:
+	podman build . -t ${CONT_TAG}-k8s-cleaner-devel -f containers/Dockerfile_k8s_dev
 
 # Container linting
 .PHONY: container-lint
-container-lint: Dockerfile*
-	hadolint Dockerfile*
+container-lint: containers/Dockerfile*
+	hadolint containers/Dockerfile*

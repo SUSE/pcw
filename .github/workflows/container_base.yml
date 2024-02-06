@@ -1,0 +1,58 @@
+---
+# See https://docs.github.com/en/actions/publishing-packages/publishing-docker-images#publishing-images-to-github-packages
+
+name: Container workflow
+
+on:
+  schedule:
+    - cron: 0 8 * * *
+
+env:
+  REGISTRY: ghcr.io
+  PCW_IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        suffix: [base_main, base_k8s]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@dbef88086f6cef02e264edb7dbf63250c17cef6c
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.PCW_IMAGE_PREFIX }}_${{ matrix.suffix }}
+
+      - name: Build and push Docker base image (PCW)
+        if: ${{ matrix.suffix == 'base_main' }}
+        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56
+        with:
+          context: .
+          file: containers/Dockerfile_base
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Build and push Docker base image (K8S)
+        if: ${{ matrix.suffix == 'base_k8s' }}
+        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56
+        with:
+          context: .
+          file: containers/Dockerfile_${{ matrix.suffix }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

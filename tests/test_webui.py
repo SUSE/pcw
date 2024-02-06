@@ -59,7 +59,7 @@ def image(random_port, client):
     try:
         client.images.build(
             path=".",
-            dockerfile="Dockerfile",
+            dockerfile="containers/Dockerfile",
             tag=image_name,
         )
     except APIError as exc:
