@@ -1,6 +1,6 @@
 ---
 
-name: PCW
+name: Unit tests and codecov
 on:
   - push
   - pull_request
