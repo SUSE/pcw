@@ -1,14 +1,7 @@
-FROM registry.suse.com/bci/python:3.11
+FROM ghcr.io/suse/pcw_base_main:master
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UWSGI_WSGI_FILE=/pcw/webui/wsgi.py UWSGI_MASTER=1
 ENV UWSGI_HTTP_AUTO_CHUNKED=1 UWSGI_HTTP_KEEPALIVE=1 UWSGI_LAZY_APPS=1 UWSGI_WSGI_ENV_BEHAVIOR=holy
-
-## System preparation steps ################################################# ##
-
-RUN zypper -n in gcc libffi-devel && zypper clean && rm -rf /var/cache
-
-COPY requirements.txt requirements_test.txt requirements_k8s.txt /tmp/
-RUN pip install --no-cache-dir wheel && pip install --no-cache-dir -r /tmp/requirements_test.txt
 
 WORKDIR /pcw
 
