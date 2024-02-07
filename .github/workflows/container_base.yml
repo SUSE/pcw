@@ -5,7 +5,7 @@ name: Container workflow
 
 on:
   schedule:
-    - cron: 0 8 * * *
+    - cron: '0 8 * * *'
 
 env:
   REGISTRY: ghcr.io
