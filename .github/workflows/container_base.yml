@@ -6,6 +6,9 @@ name: Base image build and push
 on:
   schedule:
     - cron: '0 8 * * *'
+  push:
+    branches:
+      - master
 
 env:
   REGISTRY: ghcr.io
