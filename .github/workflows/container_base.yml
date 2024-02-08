@@ -1,11 +1,14 @@
 ---
 # See https://docs.github.com/en/actions/publishing-packages/publishing-docker-images#publishing-images-to-github-packages
 
-name: Container workflow
+name: Base image build and push
 
 on:
   schedule:
     - cron: '0 8 * * *'
+  push:
+    branches:
+      - master
 
 env:
   REGISTRY: ghcr.io

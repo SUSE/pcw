@@ -1,5 +1,5 @@
 ---
-name: Lint
+name: Lint , flake8 and hadolint
 
 'on': [push, pull_request]
 

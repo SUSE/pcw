@@ -1,7 +1,7 @@
 ---
 # See https://docs.github.com/en/actions/publishing-packages/publishing-docker-images#publishing-images-to-github-packages
 
-name: Container workflow
+name: PCW images build and push
 
 on:
   release:

@@ -2,7 +2,8 @@ failure-threshold: warning
 format: tty
 
 # Ignored rules:
-# DL3013 - Specify package version because we don't want to do that
-# DL3037 - Specify package version because we don't want to do that
+# DL3013 - Pin versions in pip.
+# DL3007 - Using latest is prone to errors if the image will ever update. Pin the version explicitly to a release tag.
+# DL3037 - Specify version with zypper install -y <package>[=]<version>
 # DL4006 - Use SHELL option `-o pipefail` because that's non OCI container option
-ignored: [DL3013, DL3037, DL4006]
+ignored: [DL3013, DL3007, DL3037, DL4006]
