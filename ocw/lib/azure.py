@@ -194,7 +194,7 @@ class Azure(Provider):
                 continue
             for version in self.compute_mgmt_client().gallery_image_versions.list_by_gallery_image(
                     self.__resource_group, gallery.name, image.name):
-                if Instance.TAG_IGNORE in version.tags:
+                if version.tags is not None and Instance.TAG_IGNORE in version.tags:
                     self.log_info(f"Image version {version} for image {image} in gallery {self.__gallery} has {Instance.TAG_IGNORE} tag")
                     continue
                 properties = self.get_resource_properties(version.id)
