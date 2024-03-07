@@ -17,5 +17,6 @@ def dump_state():
                 Influx().dump_resource(ProviderChoice.AZURE.value, Influx.VMS_QUANTITY, Azure(namespace).list_instances)
                 Influx().dump_resource(ProviderChoice.AZURE.value, Influx.IMAGES_QUANTITY, Azure(namespace).list_images)
                 Influx().dump_resource(ProviderChoice.AZURE.value, Influx.DISK_QUANTITY, Azure(namespace).list_disks)
+                Influx().dump_resource(ProviderChoice.AZURE.value, Influx.IMAGE_VERSION_QUANTITY, Azure(namespace).get_img_versions_count)
         except Exception:
             logger.exception("[%s] Dump state failed!: \n %s", namespace, traceback.format_exc())

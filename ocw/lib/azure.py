@@ -18,9 +18,9 @@ class Azure(Provider):
 
     def __init__(self, namespace: str):
         super().__init__(namespace)
-        self.__resource_group = PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', namespace)
+        self.__resource_group: str = str(PCWConfig.get_feature_property('cleanup', 'azure-storage-resourcegroup', namespace))
         self.check_credentials()
-        self.__gallery = PCWConfig.get_feature_property('cleanup', 'azure-gallery-name', namespace)
+        self.__gallery: str = str(PCWConfig.get_feature_property('cleanup', 'azure-gallery-name', namespace))
 
     def __new__(cls, namespace: str) -> 'Azure':
         if namespace not in Azure.__instances:
@@ -206,3 +206,14 @@ class Azure(Provider):
                         self.compute_mgmt_client().gallery_image_versions.begin_delete(
                                 self.__resource_group, gallery.name, image.name, version.name
                         )
+
+    def get_img_versions_count(self) -> int:
+        self.log_dbg("Call get_img_versions_count")
+        gallery = self.compute_mgmt_client().galleries.get(self.__resource_group, self.__gallery)
+        all_img_versions = 0
+        for image_definition in self.compute_mgmt_client().gallery_images.list_by_gallery(self.__resource_group, gallery.name):
+            img_versions = len(list(self.compute_mgmt_client().gallery_image_versions.list_by_gallery_image(
+                    self.__resource_group, gallery.name, image_definition.name)))
+            self.log_dbg(f"{image_definition.name} has {img_versions} versions")
+            all_img_versions += img_versions
+        return all_img_versions

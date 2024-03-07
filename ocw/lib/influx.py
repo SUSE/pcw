@@ -17,6 +17,7 @@ class Influx:
     VMS_QUANTITY: str = "vms_quantity"
     IMAGES_QUANTITY: str = "images_quantity"
     DISK_QUANTITY: str = "disk_quantity"
+    IMAGE_VERSION_QUANTITY: str = "img_version_quantity"
 
     def __init__(self) -> None:
         if self.__client is None:
@@ -47,6 +48,12 @@ class Influx:
                 logger.warning("Failed to write to influxdb(record=%s): %s", point, exception)
 
     def dump_resource(self, provider: str, field: str, dump_method: Callable) -> None:
-        items_cnt = len(dump_method())
-        logger.debug("%d instances found in %s", items_cnt, provider)
+        return_value = dump_method()
+        if isinstance(return_value, list):
+            items_cnt = len(return_value)
+        elif isinstance(return_value, int):
+            items_cnt = return_value
+        else:
+            raise ValueError(f"{dump_method} returned unsupported type {type(return_value)}")
+        logger.debug("%s=%d for %s", field, items_cnt, provider)
         self.write(provider, field, items_cnt)
