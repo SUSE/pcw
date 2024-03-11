@@ -58,10 +58,27 @@ def mock_compute_mgmt_client(monkeypatch):
         def compute_mgmt_client():
             pass
         compute_mgmt_client.images = lambda: None
+        compute_mgmt_client.galleries = lambda: None
+        compute_mgmt_client.gallery_images = lambda: None
+        compute_mgmt_client.gallery_image_versions = lambda: None
+        compute_mgmt_client.galleries.get = lambda rg, name: FakeGalleryAndImageDefinition()
+        compute_mgmt_client.gallery_images.list_by_gallery = lambda rg, name: [FakeGalleryAndImageDefinition()]
+        compute_mgmt_client.gallery_image_versions.list_by_gallery_image = lambda rg, gallery, definitionname: [1, 2, 3, 4, 5]
         compute_mgmt_client.images.begin_delete = lambda rg, name: deleted_images.append(name)
         return compute_mgmt_client
 
     monkeypatch.setattr(Azure, 'compute_mgmt_client', mock_compute_mgmt_client)
+
+
+# This class is faking two unrelated entities:
+# 1. Gallery returned by compute_mgmt_client.galleries.get
+# 2. ImageDefinition returned by compute_mgmt_client.gallery_images.list_by_gallery
+# But because all what we need in this case is "something what has property 'name'"
+# it is fine to use same class
+class FakeGalleryAndImageDefinition:
+
+    def __init__(self) -> None:
+        self.name = "name"
 
 
 class FakeDisk:
@@ -369,3 +386,7 @@ def test_get_vm_types_in_resource_group(azure_patch, monkeypatch):
     # when one of VMs throw azure.core.exceptions.ResourceNotFoundError we returning None
     ret = azure.get_vm_types_in_resource_group('fire!!!')
     assert ret is None
+
+
+def test_get_img_versions_count(azure_patch, mock_compute_mgmt_client):
+    assert Azure('fake').get_img_versions_count() == 5
