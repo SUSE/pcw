@@ -18,6 +18,7 @@ class Influx:
     IMAGES_QUANTITY: str = "images_quantity"
     DISK_QUANTITY: str = "disk_quantity"
     IMAGE_VERSION_QUANTITY: str = "img_version_quantity"
+    NAMESPACE_TAG: str = "namespace"
 
     def __init__(self) -> None:
         if self.__client is None:
@@ -39,15 +40,15 @@ class Influx:
             cls.instance = super(Influx, cls).__new__(cls)
         return cls.instance
 
-    def write(self, measurement: str, field: str, value: int) -> None:
+    def write(self, measurement: str, field: str, value: int, namespace: str) -> None:
         if self.__client:
-            point = Point(measurement).field(field, value)
+            point = Point(measurement).field(field, value).tag(Influx.NAMESPACE_TAG, namespace)
             try:
                 self.__client.write(bucket=self.bucket, org=self.org, record=point)
             except (InfluxDBError, HTTPError) as exception:
                 logger.warning("Failed to write to influxdb(record=%s): %s", point, exception)
 
-    def dump_resource(self, provider: str, field: str, dump_method: Callable) -> None:
+    def dump_resource(self, provider: str, field: str, namespace: str, dump_method: Callable) -> None:
         return_value = dump_method()
         if isinstance(return_value, list):
             items_cnt = len(return_value)
@@ -56,4 +57,4 @@ class Influx:
         else:
             raise ValueError(f"{dump_method} returned unsupported type {type(return_value)}")
         logger.debug("%s=%d for %s", field, items_cnt, provider)
-        self.write(provider, field, items_cnt)
+        self.write(provider, field, items_cnt, namespace=namespace)
