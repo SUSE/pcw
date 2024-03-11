@@ -43,7 +43,7 @@ jobs:
 
       - name: Build and push Docker base image (PCW)
         if: ${{ matrix.suffix == 'base_main' }}
-        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56
+        uses: docker/build-push-action@af5a7ed5ba88268d5278f7203fb52cd833f66d6e
         with:
           context: .
           file: containers/Dockerfile_base
@@ -52,7 +52,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
       - name: Build and push Docker base image (K8S)
         if: ${{ matrix.suffix == 'base_k8s' }}
-        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56
+        uses: docker/build-push-action@af5a7ed5ba88268d5278f7203fb52cd833f66d6e
         with:
           context: .
           file: containers/Dockerfile_${{ matrix.suffix }}
