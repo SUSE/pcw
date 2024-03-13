@@ -192,8 +192,10 @@ class Azure(Provider):
             if Instance.TAG_IGNORE in image.tags:
                 self.log_info(f"Gallery {self.__gallery} image {image} has {Instance.TAG_IGNORE} tag")
                 continue
-            for version in self.compute_mgmt_client().gallery_image_versions.list_by_gallery_image(
-                    self.__resource_group, gallery.name, image.name):
+            versions = list(self.compute_mgmt_client().gallery_image_versions.list_by_gallery_image(
+                self.__resource_group, gallery.name, image.name))
+            self.log_dbg(f"Image {image} in gallery {self.__gallery} has {len(versions)} versions")
+            for version in versions:
                 if version.tags is not None and Instance.TAG_IGNORE in version.tags:
                     self.log_info(f"Image version {version} for image {image} in gallery {self.__gallery} has {Instance.TAG_IGNORE} tag")
                     continue
@@ -206,6 +208,15 @@ class Azure(Provider):
                         self.compute_mgmt_client().gallery_image_versions.begin_delete(
                                 self.__resource_group, gallery.name, image.name, version.name
                         )
+            # Delete image definition if all image versions were deleted
+            if not versions:
+                if self.dry_run:
+                    self.log_info(f"Deletion of image {gallery.name}/{image.name} skipped due to dry run mode")
+                else:
+                    self.log_info(f"Delete image '{gallery.name}/{image.name}'")
+                    self.compute_mgmt_client().gallery_images.begin_delete(
+                            self.__resource_group, gallery.name, image.name
+                    )
 
     def get_img_versions_count(self) -> int:
         self.log_dbg("Call get_img_versions_count")
