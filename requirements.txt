@@ -7,7 +7,7 @@ azure-identity==1.14.1
 cachetools
 msrestazure==0.6.4
 uwsgi==2.0.24
-requests==2.31.0
+requests==2.32.1
 Django~=5.0.4
 django-tables2==2.6.0
 django-filter==23.2
