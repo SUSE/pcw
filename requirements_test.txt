@@ -7,4 +7,4 @@ flake8
 pytest-cov
 pylint
 podman~=4.9.0
-selenium~=4.17.2
+selenium~=4.21.0
