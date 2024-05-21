@@ -4,6 +4,8 @@ import random
 import os
 import shutil
 import sys
+import time
+from enum import StrEnum
 from subprocess import DEVNULL
 
 import pytest
@@ -17,14 +19,14 @@ USERNAME = "username"
 PASSWORD = "password"
 PORT = 8000
 
-XPATH = {
-    "login": "/html/body/div[1]/div/div[2]/ul/li[2]/form",
-    "login2": "/html/body/div[2]/form/input[2]",
-    "logout": "/html/body/div[1]/div/div[2]/ul/li[2]/form",
-}
+
+class Xpath(StrEnum):
+    LOGIN = "//button[contains(@class, 'btn btn-primary') and text()='Login']"
+    LOGIN2 = "//input[@type='submit' and @value='login']"
+    LOGOUT = "//button[contains(@class, 'btn btn-primary') and text()='Logout']"
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def client():
     if os.getenv("SKIP_SELENIUM"):
         pytest.skip("Skipping because SKIP_SELENIUM is set")
@@ -44,22 +46,21 @@ def client():
     client.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def random_port():
     # Get random number for ephemeral port, container and image name
     # Typical values from /proc/sys/net/ipv4/ip_local_port_range
     return random.randint(32768, 60999)
 
 
-@pytest.fixture(scope="session")
-def image(random_port, client):
-    image_name = f"pcw-test{random_port}"
-
-    # Build image
+def build_image(client, image_name, dockerfile):
+    """
+    Build image
+    """
     try:
         client.images.build(
             path=".",
-            dockerfile="containers/Dockerfile",
+            dockerfile=dockerfile,
             tag=image_name,
         )
     except APIError as exc:
@@ -71,14 +72,41 @@ def image(random_port, client):
                 print(line.get("stream"), file=sys.stderr, end="")
         pytest.fail(f"{exc}")
 
+
+@pytest.fixture
+def image(random_port, client, tmp_path):
+    base_image_name = f"pcw-base{random_port}"
+    image_name = f"pcw-test{random_port}"
+
+    # Build base image
+    build_image(client, base_image_name, "containers/Dockerfile_base")
+
+    # We must change the FROM image in Dockerfile to use above image instead
+    with open("containers/Dockerfile", encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    dockerfile = tmp_path / "Dockerfile"
+    with open(dockerfile, "x", encoding="utf-8") as f:
+        for line in lines:
+            if line.startswith("FROM"):
+                print(f"FROM {base_image_name}", file=f)
+            else:
+                print(line, file=f)
+
+    try:
+        build_image(client, image_name, dockerfile)
+    except Exception:
+        client.images.remove(base_image_name)
+        raise
+
     yield image_name
 
     # Cleanup
     with contextlib.suppress(APIError, PodmanError):
+        client.images.remove(base_image_name)
         client.images.remove(image_name)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def container(random_port, image, client):
     try:
         # Run container
@@ -89,6 +117,7 @@ def container(random_port, image, client):
             remove=True,
             ports={f"{PORT}/tcp": random_port}
         )
+        time.sleep(3)
         # Create user in database
         container.exec_run(f"/pcw/container-startup createuser {USERNAME} {PASSWORD}")
     except (APIError, PodmanError) as exc:
@@ -115,9 +144,9 @@ def browser(container):
 
 def test_login_logout(random_port, browser):  # pylint: disable=redefined-outer-name
     browser.get(f"http://127.0.0.1:{random_port}")
-    browser.find_element(By.XPATH, XPATH["login"]).click()
+    browser.find_element(By.XPATH, Xpath.LOGIN).click()
     browser.find_element(By.NAME, value="username").send_keys(USERNAME)
     browser.find_element(By.NAME, value="password").send_keys(PASSWORD)
-    browser.find_element(By.XPATH, XPATH["login2"]).click()
+    browser.find_element(By.XPATH, Xpath.LOGIN2).click()
     assert "OpenQA-CloudWatch" in browser.title
-    browser.find_element(By.XPATH, XPATH["logout"]).click()
+    browser.find_element(By.XPATH, Xpath.LOGOUT).click()
