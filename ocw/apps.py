@@ -3,7 +3,7 @@ import logging
 from django.apps import AppConfig
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
-from pytz import utc
+from datetime import timezone
 
 logger = logging.getLogger(__name__)
 __SCHEDULER = None
@@ -20,7 +20,7 @@ def getScheduler():  # pylint: disable=invalid-name
                 'coalesce': False,
                 'max_instances': 1
             }
-        __SCHEDULER = BackgroundScheduler(executors=executors, job_defaults=job_defaults, timezone=utc)
+        __SCHEDULER = BackgroundScheduler(executors=executors, job_defaults=job_defaults, timezone=timezone.utc)
     return __SCHEDULER
 
 

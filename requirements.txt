@@ -8,10 +8,10 @@ cachetools
 msrestazure==0.6.4
 uwsgi==2.0.24
 requests==2.32.1
-Django~=4.2.2
-django-tables2==2.6.0
-django-filter==23.2
-django-bootstrap4==23.1
+Django~=5.0.6
+django-tables2==2.7.0
+django-filter==23.5
+django-bootstrap5==24.2
 texttable
 oauth2client
 google-api-python-client==2.96.0
