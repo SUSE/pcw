@@ -27,12 +27,9 @@ codecov:
 	pytest -v --cov --cov-report=html && xdg-open htmlcov/index.html
 
 # Build containers
+.PHONY: container container-devel container-k8s container-k8s-devel
 container:
 	podman build . -t ${CONT_TAG} -f containers/Dockerfile
-container-base:
-	podman build . -t ${CONT_TAG}-base -f containers/Dockerfile_base
-container-base-k8s:
-	podman build . -t ${CONT_TAG}-base-k8s -f containers/Dockerfile_base_k8s
 container-devel:
 	podman build . -t ${CONT_TAG}-devel -f containers/Dockerfile_dev
 container-k8s:

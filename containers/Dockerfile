@@ -1,4 +1,9 @@
-FROM ghcr.io/suse/pcw_base_main:master
+FROM registry.suse.com/bci/python:3.11
+
+COPY requirements.txt /pcw/
+RUN source /etc/os-release && zypper addrepo -G -cf "https://download.opensuse.org/repositories/SUSE:/CA/$VERSION_ID/SUSE:CA.repo" && \
+    zypper -n in ca-certificates-suse gcc libffi-devel && \
+    pip install --no-cache-dir wheel && pip install --no-cache-dir -r /pcw/requirements.txt && zypper clean && rm -rf /var/cache
 
 # Copy program files only
 COPY ocw  /pcw/ocw/

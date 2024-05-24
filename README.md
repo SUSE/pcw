@@ -83,11 +83,9 @@ By default, PCW runs on http://127.0.0.1:8000/
 
 In [containers](containers/) folder you main find several Dockerfiles to build several different images:
 
- - [Dockerfile_base](containers/Dockerfile_base) basic image based on [bci-python3.11](https://registry.suse.com/categories/bci-devel/repositories/bci-python311) image which contains all dependencies needed for PCW execution except k8s cleanup. Image used as base for final image with actual PCW code
- - [Dockerfile_base_k8s](containers/Dockerfile_base_k8s) basic image based on [bci-python3.11](https://registry.suse.com/categories/bci-devel/repositories/bci-python311) image which contains all dependencies needed for k8s cleanup PCW execution. Image used as base for final image with actual PCW code
- - [Dockerfile](containers/Dockerfile) image based on [Dockerfile_base](containers/Dockerfile_base) and can be used to run all PCW functionality except k8s cleanup
- - [Dockerfile_k8s](containers/Dockerfile_k8s) image based on [Dockerfile_base_k8s](containers/Dockerfile_base_k8s) and can be used to run k8s cleanup
- - [Dockerfile_k8s_dev](containers/Dockerfile_k8s_dev) and [Dockerfile_dev](containers/Dockerfile_dev) images which contains same set of dependencies as [Dockerfile](containers/Dockerfile) and [Dockerfile_k8s](containers/Dockerfile_k8s) and expecting PCW source code to be mounted as volumes. Very usefull for development experiments
+ - [Dockerfile](containers/Dockerfile) image based on [bci-python3.11](https://registry.suse.com/categories/bci-devel/repositories/bci-python311) and can be used to run all PCW functionality except k8s cleanup
+ - [Dockerfile_k8s](containers/Dockerfile_k8s) image based on [bci-python3.11](https://registry.suse.com/categories/bci-devel/repositories/bci-python311) and can be used to run k8s cleanup
+ - [Dockerfile_k8s_dev](containers/Dockerfile_k8s_dev) and [Dockerfile_dev](containers/Dockerfile_dev) images which contains same set of dependencies as [Dockerfile](containers/Dockerfile) and [Dockerfile_k8s](containers/Dockerfile_k8s) and expect PCW source code to be mounted as volumes. Very usefull for development experiments
 
 ## Running a container
 

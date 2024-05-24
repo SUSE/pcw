@@ -51,9 +51,3 @@ jobs:
       - uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: 'containers/Dockerfile_k8s_dev'
-      - uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: 'containers/Dockerfile_base'
-      - uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: 'containers/Dockerfile_base_k8s'

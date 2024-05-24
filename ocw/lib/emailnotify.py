@@ -52,7 +52,7 @@ def send_cluster_notification(namespace, clusters):
         clusters_str = ''
         for region in clusters:
             clusters_list = ' '.join([str(cluster) for cluster in clusters[region]])
-            clusters_str = f'{clusters_str}\n{region,} : {clusters_list}'
+            clusters_str = f'{clusters_str}\n{region} : {clusters_list}'
         logger.debug("Full clusters list - %s", clusters_str)
         send_mail(f"[{namespace}] EC2 clusters found", clusters_str,
                   receiver_email=PCWConfig.get_feature_property('notify', 'to', namespace))
