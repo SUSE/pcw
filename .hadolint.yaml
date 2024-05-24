@@ -6,4 +6,5 @@ format: tty
 # DL3007 - Using latest is prone to errors if the image will ever update. Pin the version explicitly to a release tag.
 # DL3037 - Specify version with zypper install -y <package>[=]<version>
 # DL4006 - Use SHELL option `-o pipefail` because that's non OCI container option
-ignored: [DL3013, DL3007, DL3037, DL4006]
+# SC1091 - ShellCheck warning, it can't read and follow sourced file
+ignored: [DL3013, DL3007, DL3037, DL4006, SC1091]
