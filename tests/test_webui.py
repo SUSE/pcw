@@ -75,34 +75,14 @@ def build_image(client, image_name, dockerfile):
 
 @pytest.fixture
 def image(random_port, client, tmp_path):
-    base_image_name = f"pcw-base{random_port}"
     image_name = f"pcw-test{random_port}"
 
-    # Build base image
-    build_image(client, base_image_name, "containers/Dockerfile_base")
-
-    # We must change the FROM image in Dockerfile to use above image instead
-    with open("containers/Dockerfile", encoding="utf-8") as f:
-        lines = f.read().splitlines()
-    dockerfile = tmp_path / "Dockerfile"
-    with open(dockerfile, "x", encoding="utf-8") as f:
-        for line in lines:
-            if line.startswith("FROM"):
-                print(f"FROM {base_image_name}", file=f)
-            else:
-                print(line, file=f)
-
-    try:
-        build_image(client, image_name, dockerfile)
-    except Exception:
-        client.images.remove(base_image_name)
-        raise
+    build_image(client, image_name, "containers/Dockerfile")
 
     yield image_name
 
     # Cleanup
     with contextlib.suppress(APIError, PodmanError):
-        client.images.remove(base_image_name)
         client.images.remove(image_name)
 
 
