@@ -199,8 +199,8 @@ class Azure(Provider):
                 if version.tags is not None and Instance.TAG_IGNORE in version.tags:
                     self.log_info(f"Image version {version} for image {image} in gallery {self.__gallery} has {Instance.TAG_IGNORE} tag")
                     continue
-                properties = self.get_resource_properties(version.id)
-                if self.is_outdated(parse(properties['publishingProfile']['publishedDate'])):
+                if version.provisioning_state == "Failed" or \
+                        self.is_outdated(parse(self.get_resource_properties(version.id)['publishingProfile']['publishedDate'])):
                     if self.dry_run:
                         self.log_info(f"Deletion of version {gallery.name}/{image.name}/{version.name} skipped due to dry run mode")
                     else:
