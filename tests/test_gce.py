@@ -40,7 +40,7 @@ class MockResource:
         return self.responses.pop(0)
 
     def delete(self, *args, **kwargs):
-        for resource in ('image', 'disk', 'instance', 'firewall', 'forwardingRule', 'route', 'network', 'subnetwork'):
+        for resource in ('object', 'image', 'disk', 'instance', 'firewall', 'forwardingRule', 'route', 'network', 'subnetwork'):
             if resource in kwargs:
                 if self.error_reason:
                     return MockRequest(error_reason=self.error_reason)
@@ -58,6 +58,7 @@ class MockResource:
 
 
 class MockClient:
+    def objects(self): pass
     def disks(self): pass
     def firewalls(self): pass
     def forwardingRules(self): pass
@@ -76,6 +77,7 @@ def gce():
         patch.object(GCE, 'read_auth_json', return_value={}),
     ):
         gce = GCE('fake')
+        gce.storage_client = MockClient
         gce.compute_client = MockClient
         gce.compute_client.instances = MockResource([MockRequest({'items': ['instance1', 'instance2']}), None])
         yield gce
@@ -98,14 +100,14 @@ def mocked_resource():
     return MockResource([
         MockRequest({   # on images().list()
             'items': [
-                {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
-                {'name': 'delete1', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
+                {'name': 'keep', 'creationTimestamp': now_age, 'timeCreated': now_age, 'network': 'mynetwork'},
+                {'name': 'delete1', 'creationTimestamp': older_than_max_age, 'timeCreated': older_than_max_age, 'network': 'mynetwork'}
             ], 'id': "id"}),
         MockRequest(),  # on images().delete()
         MockRequest({   # on images().list_next()
             'items': [
-                {'name': 'keep', 'creationTimestamp': now_age, 'network': 'mynetwork'},
-                {'name': 'delete2', 'creationTimestamp': older_than_max_age, 'network': 'mynetwork'}
+                {'name': 'keep', 'creationTimestamp': now_age, 'timeCreated': now_age, 'network': 'mynetwork'},
+                {'name': 'delete2', 'creationTimestamp': older_than_max_age, 'timeCreated': older_than_max_age, 'network': 'mynetwork'}
             ], 'id': "id"}),
         MockRequest({'error': {'errors': [{'message': 'err message'}]},
                     'warnings': [{'message': 'warning message'}]}),
@@ -150,11 +152,18 @@ def _test_cleanup(gce, resource_type, cleanup_call, resources):
         patch.object(gce, 'list_zones', return_value=['zone1']),
     ):
         setattr(gce.compute_client, resource_type, resources)
+        setattr(gce.storage_client, resource_type, resources)
         cleanup_call()
         if gce.dry_run:
             assert resources.deleted_resources == []
         else:
             assert resources.deleted_resources == ['delete1', 'delete2']
+
+
+@mark.parametrize("dry_run", [True, False])
+def test_cleanup_blobs(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "objects", gce.cleanup_blobs, mocked_resource)
 
 
 @mark.parametrize("dry_run", [True, False])
@@ -214,6 +223,7 @@ def test_cleanup_networks(gce, mocked_resource, dry_run):
 
 
 def test_cleanup_all(gce):
+    gce.cleanup_blobs = MagicMock()
     gce.cleanup_disks = MagicMock()
     gce.cleanup_images = MagicMock()
     gce.cleanup_firewalls = MagicMock()
