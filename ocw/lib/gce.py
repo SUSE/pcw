@@ -6,7 +6,7 @@ from dateutil.parser import parse
 import googleapiclient.discovery
 from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
-from webui.PCWConfig import ConfigFile
+from webui.PCWConfig import ConfigFile, PCWConfig
 from .provider import Provider
 
 
@@ -21,9 +21,14 @@ class GCE(Provider):
     def __init__(self, namespace):
         super().__init__(namespace)
 
+        try:
+            self.__bucket = PCWConfig.get_feature_property('cleanup', 'gce-bucket', namespace)
+        except LookupError:
+            self.__bucket = None
         self.__skip_networks = frozenset(ConfigFile().getList('cleanup/gce-skip-networks', ["default"]))
 
         self.__compute_client = None
+        self.__storage_client = None
         self.private_key_data = self.get_data()
         self.project = self.private_key_data["project_id"]
 
@@ -41,6 +46,7 @@ class GCE(Provider):
 
     def _delete_resource(self, api_call, resource_name, *_, **kwargs) -> None:
         resource_type = {
+            self.storage_client().objects: "blob",
             self.compute_client().disks: "disk",
             self.compute_client().firewalls: "firewall",
             self.compute_client().forwardingRules: "forwardingRule",
@@ -86,6 +92,14 @@ class GCE(Provider):
                 "compute", "v1", credentials=credentials, cache_discovery=False
             )
         return self.__compute_client
+
+    def storage_client(self):
+        if self.__storage_client is None:
+            credentials = service_account.Credentials.from_service_account_info(self.private_key_data)
+            self.__storage_client = googleapiclient.discovery.build(
+                "storage", "v1", credentials=credentials, cache_discovery=False
+            )
+        return self.__storage_client
 
     def list_instances(self, zone) -> list:
         """ List all instances by zone."""
@@ -134,6 +148,8 @@ class GCE(Provider):
 
     def cleanup_all(self) -> None:
         self.log_info("Call cleanup_all")
+        if self.__bucket is not None:
+            self.cleanup_blobs()
         self.cleanup_disks()
         self.cleanup_images()
         self.cleanup_firewalls()
@@ -141,6 +157,16 @@ class GCE(Provider):
         self.cleanup_routes()
         self.cleanup_subnetworks()
         self.cleanup_networks()
+
+    def cleanup_blobs(self) -> None:
+        self.log_dbg("Blobs cleanup")
+        blobs = self._paginated(self.storage_client().objects, bucket=self.__bucket)
+        self.log_dbg(f"{len(blobs)} blobs found")
+        for blob in blobs:
+            if self.is_outdated(parse(blob["timeCreated"]).astimezone(timezone.utc)):
+                self._delete_resource(
+                    self.storage_client().objects, blob["name"], bucket=self.__bucket, object=blob["name"]
+                )
 
     def cleanup_disks(self) -> None:
         self.log_dbg("Disks cleanup")

@@ -55,11 +55,12 @@ class PCWConfig():
     @staticmethod
     def get_feature_property(feature: str, feature_property: str, namespace: str | None = None) -> str | int:
         default_values: dict[str, dict[str, int | type[int] | str | type[str] | type[str] | None]] = {
-            'cleanup/max-age-hours': {'default': 24 * 7, 'return_type': int},
             'cleanup/azure-gallery-name': {'default': 'test_image_gallery', 'return_type': str},
             'cleanup/azure-storage-resourcegroup': {'default': 'openqa-upload', 'return_type': str},
             'cleanup/azure-storage-account-name': {'default': 'openqa', 'return_type': str},
             'cleanup/ec2-max-age-days': {'default': -1, 'return_type': int},
+            'cleanup/gce-bucket': {'default': None, 'return_type': str},
+            'cleanup/max-age-hours': {'default': 24 * 7, 'return_type': int},
             'cleanup/openstack-image-max-age-days': {'default': 3, 'return_type': int},
             'cleanup/openstack-vm-max-age-days': {'default': 1, 'return_type': int},
             'cleanup/openstack-key-max-days': {'default': 1, 'return_type': int},
