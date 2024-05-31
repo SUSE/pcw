@@ -116,6 +116,13 @@ class EC2(Provider):
     def list_instances(self, region: str) -> list:
         return list(self.ec2_resource(region).instances.all())
 
+    def count_all_instances(self) -> int:
+        instance_quantity = 0
+        for region in self.all_regions:
+            instances = self.list_instances(region=region)
+            instance_quantity += len(instances)
+        return instance_quantity
+
     def get_all_regions(self) -> list:
         regions_resp = self.ec2_client(EC2.default_region).describe_regions()
         regions = [region['RegionName'] for region in regions_resp['Regions']]
@@ -323,6 +330,20 @@ class EC2(Provider):
             send_mail(f'{len(vpc_notify)} VPC\'s should be deleted, skipping due vpc-notify-only=True', ','.join(vpc_notify))
         if len(vpc_locked) > 0:
             send_mail('VPC deletion locked by running VMs', '\n'.join(vpc_locked))
+
+    def count_all_images(self) -> int:
+        all_images_cnt = 0
+        for region in self.all_regions:
+            response = self.ec2_client(region).describe_images(Owners=['self'])
+            all_images_cnt += len(response['Images'])
+        return all_images_cnt
+
+    def count_all_volumes(self) -> int:
+        all_volumes_cnt = 0
+        for region in self.all_regions:
+            response = self.ec2_client(region).describe_volumes()
+            all_volumes_cnt += len(response['Volumes'])
+        return all_volumes_cnt
 
     def cleanup_images(self, valid_period_days: float) -> None:
         self.log_dbg('Call cleanup_images')

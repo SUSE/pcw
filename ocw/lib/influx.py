@@ -17,6 +17,7 @@ class Influx:
     VMS_QUANTITY: str = "vms_quantity"
     IMAGES_QUANTITY: str = "images_quantity"
     DISK_QUANTITY: str = "disk_quantity"
+    VOLUMES_QUANTITY: str = "volumes_quanity"
     IMAGE_VERSION_QUANTITY: str = "img_version_quantity"
     NAMESPACE_TAG: str = "namespace"
 

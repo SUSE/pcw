@@ -47,6 +47,7 @@ def ec2_patch(monkeypatch):
     mocked_ec2_resource.Vpc = mocked_vpc
     mocked_ec2_resource.meta = mocked_meta
     mocked_ec2_resource.VpcPeeringConnection = lambda id: MockedVpcPeeringConnection()
+    mocked_ec2_resource.instances = MockedCollectionWithAllMethod()
     mocked_meta.client = mocked_client
     # don't mix up this with EC2.delete_vpc . this one is boto3 side of the call
     mocked_client.delete_vpc = mocked_boto3_delete_vpc
@@ -507,3 +508,27 @@ def test_cleanup_all_calling_all(ec2_patch, monkeypatch):
     ec2_patch.cleanup_all()
 
     assert called_stack == ['cleanup_images', 'cleanup_snapshots', 'cleanup_volumes', 'cleanup_vpcs']
+
+
+def test_count_all_instances(ec2_patch):
+    assert ec2_patch.count_all_instances() == 1
+
+
+def test_count_all_images(ec2_patch):
+    MockedEC2Client.response = {
+        'Images': [
+            {'Name': Faker().uuid4(), 'CreationDate': now_age_str, 'ImageId': 0},
+            {'Name': Faker().uuid4(), 'CreationDate': older_than_max_age_str, 'ImageId': 2},
+        ]
+    }
+    assert ec2_patch.count_all_images() == 2
+
+
+def test_count_all_volumes(ec2_patch):
+    MockedEC2Client.response = {
+        'Volumes': [{'VolumeId': MockedEC2Client.volumeid_to_delete, 'CreateTime': older_than_max_age_date},
+                    {'VolumeId': 'too_young_to_die', 'CreateTime': now_age_date},
+                    {'VolumeId': MockedEC2Client.volumeid_to_delete, 'CreateTime': older_than_max_age_date,
+                     'Tags': [{'Key': 'pcw_ignore', 'Value': '1'}]}, ]
+    }
+    assert ec2_patch.count_all_volumes() == 3
