@@ -1,7 +1,9 @@
+import os
 import logging
 import traceback
 from webui.PCWConfig import PCWConfig
 from ocw.lib.azure import Azure
+from ocw.lib.ec2 import EC2
 from ocw.enums import ProviderChoice
 from ocw.lib.influx import Influx
 
@@ -9,6 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 def dump_state():
+    if os.getenv("INFLUX_TOKEN") is None:
+        logger.warning("INFLUX_TOKEN is not set, dumping state is not possible")
+        return
+    if not PCWConfig.has("influxdb/url"):
+        logger.warning("pcw.ini missing influxdb configuration, dumping state is not possible")
+        return
     for namespace in PCWConfig.get_namespaces_for("influxdb"):
         try:
             providers = PCWConfig.get_providers_for("influxdb", namespace)
@@ -37,6 +45,25 @@ def dump_state():
                     Influx.IMAGE_VERSION_QUANTITY,
                     namespace,
                     Azure(namespace).get_img_versions_count,
+                )
+            if ProviderChoice.EC2 in providers:
+                Influx().dump_resource(
+                    ProviderChoice.EC2.value,
+                    Influx.VMS_QUANTITY,
+                    namespace,
+                    EC2(namespace).count_all_instances
+                )
+                Influx().dump_resource(
+                    ProviderChoice.EC2.value,
+                    Influx.IMAGES_QUANTITY,
+                    namespace,
+                    EC2(namespace).count_all_images
+                )
+                Influx().dump_resource(
+                    ProviderChoice.EC2.value,
+                    Influx.VOLUMES_QUANTITY,
+                    namespace,
+                    EC2(namespace).count_all_volumes
                 )
         except Exception:
             logger.exception(

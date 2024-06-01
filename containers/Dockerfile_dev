@@ -1,9 +1,9 @@
 FROM registry.suse.com/bci/python:3.11
 
-COPY requirements.txt /pcw/
+COPY requirements.txt requirements_k8s.txt requirements_test.txt /pcw/
 RUN source /etc/os-release && zypper addrepo -G -cf "https://download.opensuse.org/repositories/SUSE:/CA/$VERSION_ID/SUSE:CA.repo" && \
     zypper -n in ca-certificates-suse gcc libffi-devel && \
-    pip install --no-cache-dir wheel && pip install --no-cache-dir -r /pcw/requirements.txt && zypper clean && rm -rf /var/cache
+    pip install --no-cache-dir wheel && pip install --no-cache-dir -r /pcw/requirements_test.txt && zypper clean && rm -rf /var/cache
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UWSGI_WSGI_FILE=/pcw/webui/wsgi.py UWSGI_MASTER=1
 ENV UWSGI_HTTP_AUTO_CHUNKED=1 UWSGI_HTTP_KEEPALIVE=1 UWSGI_LAZY_APPS=1 UWSGI_WSGI_ENV_BEHAVIOR=holy
