@@ -352,8 +352,13 @@ class EC2(Provider):
             self.log_dbg(f"Found {len(response['Images'])} images in {region}")
             for img in response['Images']:
                 if EC2.is_outdated(parse(img['CreationDate']), valid_period_days):
-                    if self.dry_run:
-                        self.log_info(f"Image deletion {img['ImageId']} skipped due to dry run mode")
+                    tags = img.get('Tags', [])
+                    pcw_ignore_tag = next((tag for tag in tags if tag['Key'] == Instance.TAG_IGNORE), None)
+                    if pcw_ignore_tag:
+                        self.log_dbg(f"Ignoring {img['Name']} due to 'pcw_ignore' tag set to '1'")
                     else:
-                        self.log_info(f"Delete image '{img['Name']}' (ami:{img['ImageId']})")
-                        self.ec2_client(region).deregister_image(ImageId=img['ImageId'], DryRun=False)
+                        if self.dry_run:
+                            self.log_info(f"Image deletion {img['ImageId']} skipped due to dry run mode")
+                        else:
+                            self.log_info(f"Delete image '{img['Name']}' (ami:{img['ImageId']})")
+                            self.ec2_client(region).deregister_image(ImageId=img['ImageId'], DryRun=False)
