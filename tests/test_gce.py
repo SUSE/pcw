@@ -253,3 +253,35 @@ def test_get_error_reason():
     assert GCE.get_error_reason(MockHttpError({'error': {'errors': []}})) == "unknown"
     assert GCE.get_error_reason(MockHttpError({'error': {'errors': [{}]}})) == "unknown"
     assert GCE.get_error_reason(MockHttpError({'error': {'errors': [{'reason': 'aaa'}]}})) == "aaa"
+
+
+def test_count_all_instances(gce):
+    with (
+        patch.object(gce, 'list_regions', return_value=['region1']),
+        patch.object(gce, 'list_zones', return_value=['zone1']),
+    ):
+        assert gce.count_all_instances() == 2
+
+
+def test_count_all_images(gce):
+    with (patch.object(gce, '_paginated', return_value=[1, 2, 3, 4])):
+        assert gce.count_all_images() == 4
+
+
+def test_count_all_disks(gce):
+    with (
+        patch.object(gce, 'list_regions', return_value=['region1']),
+        patch.object(gce, 'list_zones', return_value=['zone1']),
+        patch.object(gce, '_paginated', return_value=[1, 2, 3, 4]),
+    ):
+        assert gce.count_all_disks() == 4
+
+
+def test_count_all_blobs(gce):
+    with (patch.object(gce, '_paginated', return_value=[1, 2, 3, 4])):
+        assert gce.count_all_blobs() == 4
+
+
+def test_count_all_networks(gce):
+    with (patch.object(gce, '_paginated', return_value=[1, 2, 3, 4])):
+        assert gce.count_all_networks() == 4
