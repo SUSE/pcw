@@ -19,6 +19,7 @@ class Influx:
     DISK_QUANTITY: str = "disk_quantity"
     VOLUMES_QUANTITY: str = "volumes_quanity"
     IMAGE_VERSION_QUANTITY: str = "img_version_quantity"
+    VPC_QUANTITY: str = "vpc_quantity"
     NAMESPACE_TAG: str = "namespace"
 
     def __init__(self) -> None:

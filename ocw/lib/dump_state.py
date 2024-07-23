@@ -65,6 +65,12 @@ def dump_state():
                     namespace,
                     EC2(namespace).count_all_volumes
                 )
+                Influx().dump_resource(
+                    ProviderChoice.EC2.value,
+                    Influx.VPC_QUANTITY,
+                    namespace,
+                    EC2(namespace).count_all_vpc
+                )
         except Exception:
             logger.exception(
                 "[%s] Dump state failed!: \n %s", namespace, traceback.format_exc()
