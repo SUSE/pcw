@@ -4,6 +4,7 @@ import traceback
 from webui.PCWConfig import PCWConfig
 from ocw.lib.azure import Azure
 from ocw.lib.ec2 import EC2
+from ocw.lib.gce import GCE
 from ocw.enums import ProviderChoice
 from ocw.lib.influx import Influx
 
@@ -64,6 +65,43 @@ def dump_state():
                     Influx.VOLUMES_QUANTITY,
                     namespace,
                     EC2(namespace).count_all_volumes
+                )
+                Influx().dump_resource(
+                    ProviderChoice.EC2.value,
+                    Influx.VPC_QUANTITY,
+                    namespace,
+                    EC2(namespace).count_all_vpc
+                )
+            if ProviderChoice.GCE in providers:
+                Influx().dump_resource(
+                    ProviderChoice.GCE.value,
+                    Influx.VMS_QUANTITY,
+                    namespace,
+                    GCE(namespace).count_all_instances
+                )
+                Influx().dump_resource(
+                    ProviderChoice.GCE.value,
+                    Influx.IMAGES_QUANTITY,
+                    namespace,
+                    GCE(namespace).count_all_images
+                )
+                Influx().dump_resource(
+                    ProviderChoice.GCE.value,
+                    Influx.DISK_QUANTITY,
+                    namespace,
+                    GCE(namespace).count_all_disks
+                )
+                Influx().dump_resource(
+                    ProviderChoice.GCE.value,
+                    Influx.BLOB_QUANTITY,
+                    namespace,
+                    GCE(namespace).count_all_blobs
+                )
+                Influx().dump_resource(
+                    ProviderChoice.GCE.value,
+                    Influx.NETWORK_QUANTITY,
+                    namespace,
+                    GCE(namespace).count_all_networks
                 )
         except Exception:
             logger.exception(

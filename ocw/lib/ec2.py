@@ -345,6 +345,13 @@ class EC2(Provider):
             all_volumes_cnt += len(response['Volumes'])
         return all_volumes_cnt
 
+    def count_all_vpc(self) -> int:
+        all_vpcs = 0
+        for region in self.all_regions:
+            response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
+            all_vpcs += len(response['Vpcs'])
+        return all_vpcs
+
     def cleanup_images(self, valid_period_days: float) -> None:
         self.log_dbg('Call cleanup_images')
         for region in self.all_regions:

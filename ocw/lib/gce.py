@@ -264,3 +264,22 @@ class GCE(Provider):
                 self._delete_resource(
                     self.compute_client().networks, network["name"], project=self.project, network=network["name"]
                 )
+
+    def count_all_instances(self) -> int:
+        return len(self.list_all_instances())
+
+    def count_all_images(self) -> int:
+        return len(self._paginated(self.compute_client().images, project=self.project))
+
+    def count_all_disks(self) -> int:
+        all_disks = 0
+        for region in self.list_regions():
+            for zone in self.list_zones(region):
+                all_disks += len(self._paginated(self.compute_client().disks, project=self.project, zone=zone))
+        return all_disks
+
+    def count_all_blobs(self) -> int:
+        return len(self._paginated(self.storage_client().objects, bucket=self.__bucket))
+
+    def count_all_networks(self) -> int:
+        return len(self._paginated(self.compute_client().networks, project=self.project))
