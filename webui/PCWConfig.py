@@ -61,9 +61,6 @@ class PCWConfig():
             'cleanup/ec2-max-age-days': {'default': -1, 'return_type': int},
             'cleanup/gce-bucket': {'default': None, 'return_type': str},
             'cleanup/max-age-hours': {'default': 24 * 7, 'return_type': int},
-            'cleanup/openstack-image-max-age-days': {'default': 3, 'return_type': int},
-            'cleanup/openstack-vm-max-age-days': {'default': 1, 'return_type': int},
-            'cleanup/openstack-key-max-days': {'default': 1, 'return_type': int},
             'updaterun/default_ttl': {'default': 44400, 'return_type': int},
             'notify/to': {'default': None, 'return_type': str},
             'notify/age-hours': {'default': 12, 'return_type': int},
@@ -94,7 +91,7 @@ class PCWConfig():
     @staticmethod
     def get_providers_for(feature: str, namespace: str):
         return ConfigFile().getList(f'{feature}.namespace.{namespace}/providers',
-                                    ConfigFile().getList(f'{feature}/providers', ['EC2', 'AZURE', 'GCE', 'OSTACK']))
+                                    ConfigFile().getList(f'{feature}/providers', ['EC2', 'AZURE', 'GCE']))
 
     @staticmethod
     def get_k8s_clusters_for_provider(namespace: str, provider: str) -> list:
