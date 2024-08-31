@@ -29,7 +29,6 @@ PCW has three main flows :
         c. Volumes in all regions defined
         d. VPC's ( deletion of VPC means deletion of all assigned to VPC entities first ( security groups , networks etc. ))
     - For GCE deleting disks, images & network resources (check details in [ocw/lib/gce.py](ocw/lib/gce.py))
-    - For Openstack deleting instances, images & keypairs (check details in [ocw/lib/openstack.py](ocw/lib/openstack.py)
 3. **Dump entities quantity ( implemented in [ocw/lib/dumpstate.py](ocw/lib/dumpstate.py) )**. To be able to react fast on possible bugs in PCW and/or unexpected creation of many resources there is ability to dump real time data from each CSP into defined InfluxDB instance. This allow building real-time dashboards and/or setup  notification flow.
 
 
@@ -55,7 +54,7 @@ Configuration of PCW happens via a global config file in `/etc/pcw.ini`. See [te
 
 ### CSP credentials
 To be able to connect to CSP PCW needs Service Principal details. Depending on namespaces defined in `pcw.ini`  PCW will expect some JSON files to be created
-under `/var/pcw/[namespace name]/[Azure/EC2/GCE/Openstack].json`. See [templates/var/example_namespace/](templates/var/example_namespace/) for examples.
+under `/var/pcw/[namespace name]/[Azure/EC2/GCE].json`. See [templates/var/example_namespace/](templates/var/example_namespace/) for examples.
 
 PCW supports email notifications about left-over instances. See the `notify` section therein and their corresponding comments.
 
