@@ -32,6 +32,7 @@ class OpenQALinkColumn(tables.Column):
                                link['url'], link['title'], link['title'], static('img/openqa.svg'))
         return ""
 
+
 class TagsColumn(tables.TemplateColumn):
 
     def __init__(self, template_name=None, **extra):

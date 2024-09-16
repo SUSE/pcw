@@ -1,4 +1,3 @@
-from datetime import timedelta
 import smtplib
 import logging
 from email.mime.text import MIMEText
@@ -6,7 +5,6 @@ from texttable import Texttable
 from django.urls import reverse
 from webui.PCWConfig import PCWConfig
 from webui.settings import build_absolute_uri
-from ..models import Instance
 
 logger = logging.getLogger(__name__)
 

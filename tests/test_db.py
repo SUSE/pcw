@@ -179,7 +179,6 @@ def test_update_run(update_run_patch, monkeypatch):
     def mocked_auto_delete_instances():
         call_stack.append('auto_delete_instances')
 
-
     monkeypatch.setattr('ocw.lib.db._update_provider', mocked__update_provider)
     monkeypatch.setattr('ocw.lib.db.auto_delete_instances', mocked_auto_delete_instances)
 
