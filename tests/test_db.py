@@ -179,16 +179,13 @@ def test_update_run(update_run_patch, monkeypatch):
     def mocked_auto_delete_instances():
         call_stack.append('auto_delete_instances')
 
-    def mocked_send_leftover_notification():
-        call_stack.append('send_leftover_notification')
 
     monkeypatch.setattr('ocw.lib.db._update_provider', mocked__update_provider)
     monkeypatch.setattr('ocw.lib.db.auto_delete_instances', mocked_auto_delete_instances)
-    monkeypatch.setattr('ocw.lib.db.send_leftover_notification', mocked_send_leftover_notification)
 
     update_run()
 
-    assert call_stack == ['_update_provider', 'auto_delete_instances', 'send_leftover_notification']
+    assert call_stack == ['_update_provider', 'auto_delete_instances']
 
 
 def test_update_run_update_provider_throw_exception(update_run_patch, monkeypatch):
@@ -202,20 +199,16 @@ def test_update_run_update_provider_throw_exception(update_run_patch, monkeypatc
     def mocked_auto_delete_instances():
         call_stack.append('auto_delete_instances')
 
-    def mocked_send_leftover_notification():
-        call_stack.append('send_leftover_notification')
-
     def mocked_send_mail(arg1, arg2):
         call_stack.append('send_mail')
 
     monkeypatch.setattr('ocw.lib.db._update_provider', mocked__update_provider)
     monkeypatch.setattr('ocw.lib.db.auto_delete_instances', mocked_auto_delete_instances)
-    monkeypatch.setattr('ocw.lib.db.send_leftover_notification', mocked_send_leftover_notification)
     monkeypatch.setattr('ocw.lib.db.send_mail', mocked_send_mail)
 
     update_run()
 
-    assert call_stack == ['_update_provider', 'send_mail', 'auto_delete_instances', 'send_leftover_notification']
+    assert call_stack == ['_update_provider', 'send_mail', 'auto_delete_instances']
 
 
 def test_delete_instances_azure(monkeypatch):

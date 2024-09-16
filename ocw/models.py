@@ -32,7 +32,6 @@ class Instance(models.Model):
     instance_id = models.CharField(max_length=200)
     region = models.CharField(max_length=64, default='')
     namespace = models.CharField(max_length=64, default='')
-    notified = models.BooleanField(default=False)
     ignore = models.BooleanField(default=False)
     TAG_IGNORE = 'pcw_ignore'
 

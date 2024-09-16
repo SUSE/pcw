@@ -31,22 +31,6 @@ def draw_instance_table(objects):
     return table.draw()
 
 
-def send_leftover_notification():
-    if PCWConfig.has('notify'):
-        all_instances = Instance.objects
-        all_instances = all_instances.filter(active=True, age__gt=timedelta(hours=PCWConfig.get_feature_property(
-            'notify', 'age-hours'))).exclude(ignore=True)
-        body_prefix = f"Message from {build_absolute_uri()}\n\n"
-        # Handle namespaces
-        for namespace in PCWConfig.get_namespaces_for('notify'):
-            receiver_email = PCWConfig.get_feature_property('notify', 'to', namespace)
-            namespace_objects = all_instances.filter(namespace=namespace)
-            if namespace_objects.filter(notified=False).count() > 0 and receiver_email:
-                send_mail(f'CSP left overs - {namespace}',
-                          body_prefix + draw_instance_table(namespace_objects), receiver_email=receiver_email)
-        all_instances.update(notified=True)
-
-
 def send_cluster_notification(namespace, clusters):
     if len(clusters) and PCWConfig.has('notify'):
         clusters_str = ''
