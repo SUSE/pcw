@@ -33,19 +33,6 @@ class OpenQALinkColumn(tables.Column):
         return ""
 
 
-class MailColumn(tables.BooleanColumn):
-    @property
-    def header(self):
-        return ""
-
-    def render(self, value, record, bound_column):
-        value = self._get_bool_value(record, value, bound_column)
-        if value:
-            return format_html('<img alt="Email notification was send" src="{}" width=20 height=20/>',
-                               static('img/notified.png'))
-        return ""
-
-
 class TagsColumn(tables.TemplateColumn):
 
     def __init__(self, template_name=None, **extra):
@@ -58,7 +45,6 @@ class TagsColumn(tables.TemplateColumn):
 
 class InstanceTable(tables.Table):
     tags = TagsColumn()
-    notified = MailColumn()
     type = tables.Column(accessor=A('get_type'))
     first_seen = tables.DateTimeColumn(format='M d Y')
     last_seen = tables.DateTimeColumn(format='M d Y')

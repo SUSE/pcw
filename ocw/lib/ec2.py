@@ -325,7 +325,12 @@ class EC2(Provider):
 
     def report_cleanup_results(self, vpc_errors: list, vpc_notify: list, vpc_locked: list) -> None:
         if len(vpc_errors) > 0:
-            send_mail(f'Errors on VPC deletion in [{self._namespace}]', '\n'.join(vpc_errors))
+            # this is most common error message which we can not fix.
+            # So no point to spam us with notifications about it
+            known_error = "An error occurred (DependencyViolation) when calling the DeleteVpc operation"
+            filtered = [x for x in vpc_errors if known_error not in x]
+            if len(filtered) > 0:
+                send_mail(f'Errors on VPC deletion in [{self._namespace}]', '\n'.join(vpc_errors))
         if len(vpc_notify) > 0:
             send_mail(f'{len(vpc_notify)} VPC\'s should be deleted, skipping due vpc-notify-only=True', ','.join(vpc_notify))
         if len(vpc_locked) > 0:
