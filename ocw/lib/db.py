@@ -8,7 +8,7 @@ from django.db import transaction
 from ocw.apps import getScheduler
 from webui.PCWConfig import PCWConfig
 from ..models import Instance, StateChoice, ProviderChoice, CspInfo
-from .emailnotify import send_mail, send_leftover_notification
+from .emailnotify import send_mail
 from .azure import Azure
 from .ec2 import EC2
 from .gce import GCE
@@ -155,7 +155,6 @@ def update_run() -> None:
                           traceback.format_exc())
 
     auto_delete_instances()
-    send_leftover_notification()
     RUNNING = False
     if not error_occured:
         LAST_UPDATE = datetime.now(timezone.utc)

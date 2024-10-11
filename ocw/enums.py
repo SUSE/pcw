@@ -20,7 +20,6 @@ class ProviderChoice(ChoiceEnum):
     GCE = 'Google'
     EC2 = 'EC2'
     AZURE = 'Azure'
-    OSTACK = 'Openstack'
 
     @staticmethod
     def from_str(provider):
@@ -30,8 +29,6 @@ class ProviderChoice(ChoiceEnum):
             return ProviderChoice.EC2
         if provider.upper() == ProviderChoice.AZURE:
             return ProviderChoice.AZURE
-        if provider.upper() == ProviderChoice.OSTACK:
-            return ProviderChoice.OSTACK
         raise ValueError(f"{provider} is not convertable to ProviderChoice")
 
 

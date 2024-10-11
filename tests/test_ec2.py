@@ -532,3 +532,7 @@ def test_count_all_volumes(ec2_patch):
                      'Tags': [{'Key': 'pcw_ignore', 'Value': '1'}]}, ]
     }
     assert ec2_patch.count_all_volumes() == 3
+
+
+def test_count_all_vpcs(ec2_patch_for_vpc):
+    assert ec2_patch_for_vpc.count_all_vpc() == 1
