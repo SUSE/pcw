@@ -45,7 +45,7 @@ jobs:
 
       - name: Build Docker image (PCW)
         if: ${{ matrix.suffix == 'main' }}
-        uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
         with:
           context: .
           file: containers/Dockerfile
@@ -54,7 +54,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
       - name: Build Docker image (K8S)
         if: ${{ matrix.suffix == 'k8s' }}
-        uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
         with:
           context: .
           file: containers/Dockerfile_${{ matrix.suffix }}
@@ -91,7 +91,7 @@ jobs:
 
       - name: Build and push Docker image (PCW)
         if: ${{ matrix.suffix == 'main' }}
-        uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
         with:
           context: .
           file: containers/Dockerfile
@@ -100,7 +100,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
       - name: Build and push Docker image (K8S)
         if: ${{ matrix.suffix == 'k8s' }}
-        uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
         with:
           context: .
           file: containers/Dockerfile_${{ matrix.suffix }}
