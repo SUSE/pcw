@@ -64,7 +64,6 @@ class PCWConfig():
             'updaterun/default_ttl': {'default': 44400, 'return_type': int},
             'notify/to': {'default': None, 'return_type': str},
             'notify/age-hours': {'default': 12, 'return_type': int},
-            'cluster.notify/to': {'default': None, 'return_type': str},
             'notify/smtp': {'default': None, 'return_type': str},
             'notify/smtp-port': {'default': 25, 'return_type': int},
             'notify/from': {'default': 'pcw@publiccloud.qa.suse.de', 'return_type': str},
