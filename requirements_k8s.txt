@@ -2,5 +2,5 @@ azure-cli==2.65.0
 azure-identity==1.19.0
 azure-mgmt-resource==23.1.1
 boto3==1.35.39
-google_api_python_client==2.149.0
+google_api_python_client==2.151.0
 kubernetes
