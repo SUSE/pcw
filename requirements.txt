@@ -11,7 +11,7 @@ Django~=5.0.6
 django-tables2==2.7.0
 django-filter==23.5
 django-bootstrap5==24.2
-google-api-python-client==2.149.0
+google-api-python-client==2.156.0
 httplib2==0.22.0
 influxdb-client==1.46.0
 msrest==0.7.1
