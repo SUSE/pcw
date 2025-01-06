@@ -6,9 +6,9 @@
 {% block content %}
     <link rel="stylesheet" href="{% static 'css/instance_table.css' %}">
     {% if filter %}
-        <button data-toggle="collapse" class="btn btn-primary btn-sm" data-target="#table_filter">Edit filter<span class="glyphicon glyphicon-filter"></span></button>
+        <button data-bs-toggle="collapse" class="btn btn-primary btn-sm" data-bs-target="#table_filter">Edit filter<span class="glyphicon glyphicon-filter"></span></button>
                 Displaying {{ filter.qs.count }} of {{ filter.queryset.count }} items.
-        <div id="table_filter" class="well collapse {{ request.GET.state|yesno:"in, " }} ">
+        <div id="table_filter" class="card p-3 collapse {{ request.GET.state|yesno:"show, " }} ">
         <form action="" method="get" class="form">
             {% bootstrap_form filter.form %}
             <a class="btn btn-default" role="button" href='{{ request.path }}' >Clear</a>
