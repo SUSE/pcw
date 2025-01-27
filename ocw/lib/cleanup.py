@@ -4,8 +4,7 @@ from webui.PCWConfig import PCWConfig
 from ocw.lib.azure import Azure
 from ocw.lib.ec2 import EC2
 from ocw.lib.gce import GCE
-from ocw.lib.eks import EKS
-from ocw.lib.emailnotify import send_mail, send_cluster_notification
+from ocw.lib.emailnotify import send_mail
 from ocw.enums import ProviderChoice
 
 logger = logging.getLogger(__name__)
@@ -28,16 +27,3 @@ def cleanup_run():
         except Exception as ex:
             logger.exception("[%s] Cleanup failed!", namespace)
             send_mail(f'{type(ex).__name__} on Cleanup in [{namespace}]', traceback.format_exc())
-
-
-def list_clusters():
-    for namespace in PCWConfig.get_namespaces_for('clusters'):
-        try:
-            clusters = EKS(namespace).all_clusters()
-            quantity = sum(len(clusters[c1]) for c1 in clusters)
-            logger.info("%d cluster(s) found", quantity)
-            if quantity > 0:
-                send_cluster_notification(namespace, clusters)
-        except Exception as ex:
-            logger.exception("[%s] List clusters failed!", namespace)
-            send_mail(f'{type(ex).__name__} on List clusters in [{namespace}]', traceback.format_exc())

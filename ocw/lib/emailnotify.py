@@ -29,17 +29,6 @@ def draw_instance_table(objects):
     return table.draw()
 
 
-def send_cluster_notification(namespace, clusters):
-    if len(clusters) and PCWConfig.has('notify'):
-        clusters_str = ''
-        for region in clusters:
-            clusters_list = ' '.join([str(cluster) for cluster in clusters[region]])
-            clusters_str = f'{clusters_str}\n{region} : {clusters_list}'
-        logger.debug("Full clusters list - %s", clusters_str)
-        send_mail(f"[{namespace}] EC2 clusters found", clusters_str,
-                  receiver_email=PCWConfig.get_feature_property('notify', 'to', namespace))
-
-
 def send_mail(subject, message, receiver_email=None):
     if PCWConfig.has('notify'):
         smtp_server = PCWConfig.get_feature_property('notify', 'smtp')

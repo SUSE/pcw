@@ -39,13 +39,13 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81
+        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96
         with:
           images: ${{ env.REGISTRY }}/${{ env.PCW_IMAGE_PREFIX }}_${{ matrix.suffix }}
 
       - name: Build Docker image (PCW)
         if: ${{ matrix.suffix == 'main' }}
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355
         with:
           context: .
           file: containers/Dockerfile
@@ -54,7 +54,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
       - name: Build Docker image (K8S)
         if: ${{ matrix.suffix == 'k8s' }}
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355
         with:
           context: .
           file: containers/Dockerfile_${{ matrix.suffix }}
@@ -85,13 +85,13 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81
+        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96
         with:
           images: ${{ env.REGISTRY }}/${{ env.PCW_IMAGE_PREFIX }}_${{ matrix.suffix }}
 
       - name: Build and push Docker image (PCW)
         if: ${{ matrix.suffix == 'main' }}
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355
         with:
           context: .
           file: containers/Dockerfile
@@ -100,7 +100,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
       - name: Build and push Docker image (K8S)
         if: ${{ matrix.suffix == 'k8s' }}
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355
         with:
           context: .
           file: containers/Dockerfile_${{ matrix.suffix }}
