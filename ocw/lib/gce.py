@@ -177,9 +177,14 @@ class GCE(Provider):
                 self.log_dbg(f"{len(disks)} disks found")
                 for disk in disks:
                     if self.is_outdated(parse(disk["creationTimestamp"]).astimezone(timezone.utc)):
-                        self._delete_resource(
-                            self.compute_client().disks, disk["name"], project=self.project, zone=zone, disk=disk["name"]
-                        )
+                        labels = disk.get('labels', [])
+                        pcw_ignore_tag = 'pcw_ignore' in labels
+                        if pcw_ignore_tag:
+                            self.log_dbg(f"Ignoring {disk['name']} due to 'pcw_ignore' label set to '1'")
+                        else:
+                            self._delete_resource(
+                                self.compute_client().disks, disk["name"], project=self.project, zone=zone, disk=disk["name"]
+                            )
 
     def cleanup_images(self) -> None:
         self.log_dbg("Images cleanup")
