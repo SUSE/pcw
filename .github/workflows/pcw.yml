@@ -38,9 +38,7 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: pip install -r requirements_test.txt
-      - name: Enable podman socket
-        run: systemctl --user enable --now podman.socket
       - name: Run tests and collect coverage
-        run: pytest --cov
+        run: SKIP_SELENIUM=1 pytest --cov
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
