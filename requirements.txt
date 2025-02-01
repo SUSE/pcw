@@ -13,7 +13,7 @@ django-filter==23.5
 django-bootstrap5==24.2
 google-api-python-client==2.156.0
 httplib2==0.22.0
-influxdb-client==1.46.0
+influxdb-client==1.48.0
 msrest==0.7.1
 openqa-client==4.2.3
 protobuf==5.28.2
