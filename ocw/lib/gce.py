@@ -56,6 +56,9 @@ class GCE(Provider):
             self.compute_client().routes: "route",
             self.compute_client().subnetworks: "subnetwork",
         }.get(api_call, "resource")
+        if "default" in resource_name and "firewall" not in resource_type:
+            self.log_info(f"Skipped deletion of default {resource_type} {resource_name}")
+            return
         if self.dry_run:
             self.log_info(f"Deletion of {resource_type} {resource_name} skipped due to dry run mode")
             return
