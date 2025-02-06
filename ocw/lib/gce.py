@@ -62,8 +62,8 @@ class GCE(Provider):
         labels = resource_details.get('labels', {})
         if labels:
             self.log_dbg(f"Resource {resource_type}/{resource_name} has these labels: {labels}")
-            if 'pcw_ignore' in labels and labels["pcw_ignore"] == "1":
-                self.log_info(f"Skipping deletion of {resource_type} {resource_name} due to 'pcw_ignore' label set to 1")
+            if 'pcw_ignore' in labels:
+                self.log_info(f"Skipping deletion of {resource_type} {resource_name} due to 'pcw_ignore' label set on resource")
                 return
 
         if self.dry_run:

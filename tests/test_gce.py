@@ -50,11 +50,8 @@ class MockResource:
                 return MockRequest(None)
         raise ValueError("Unexpected delete request")
 
-    def get(self, project, region):
-        def something():
-            pass
-        something.execute = lambda: self.responses
-        return something
+    def get(self, *args, **kwargs):
+        return MockRequest()
 
 
 class MockClient:
@@ -111,6 +108,12 @@ def mocked_resource():
             ], 'id': "id"}),
         MockRequest({'error': {'errors': [{'message': 'err message'}]},
                     'warnings': [{'message': 'warning message'}]}),
+        MockRequest({
+            'items': [
+                {'name': 'pcw_ignore', 'creationTimestamp': older_than_max_age, 'timeCreated': older_than_max_age, 'network': 'mynetwork', 'labels': {'pcw_ignore': '1'}}
+            ], 'id': "id"
+        }),
+        MockRequest(),  # on images().delete()  
         None   # on images().list_next()
     ])
 
@@ -142,7 +145,14 @@ def test_list_regions(gce):
 def test_list_zones(gce):
     gce.compute_client.regions = MockResource({'zones': ['somethingthatIdonotknow/RabbitHole']})
     gce.compute_client.list_zones = {'zones': ['somethingthatIdonotknow/RabbitHole']}
-    assert gce.list_zones('Oxfordshire') == ['RabbitHole']
+    
+    mock_region_response = {
+        'zones': ['somethingthatIdonotknow/RabbitHole']
+    }
+ 
+    # Mock the regions().get() method to return the mock response
+    with patch.object(gce.compute_client.regions(), 'get', return_value=MockRequest(mock_region_response)):
+        assert gce.list_zones('Oxfordshire') == ['RabbitHole']
 
 
 def _test_cleanup(gce, resource_type, cleanup_call, resources):
@@ -156,8 +166,10 @@ def _test_cleanup(gce, resource_type, cleanup_call, resources):
         cleanup_call()
         if gce.dry_run:
             assert resources.deleted_resources == []
-        else:
+        elif resources.get("labels") == "pcw_ignore":
             assert resources.deleted_resources == ['delete1', 'delete2']
+        else:
+            assert resources.deleted_resources == ['delete1', 'delete2', 'pcw_ignore']
 
 
 @mark.parametrize("dry_run", [True, False])
@@ -220,6 +232,23 @@ def test_cleanup_subnetworks(gce, mocked_resource, dry_run):
 def test_cleanup_networks(gce, mocked_resource, dry_run):
     gce.dry_run = dry_run
     _test_cleanup(gce, "networks", gce.cleanup_networks, mocked_resource)
+
+
+@mark.parametrize("dry_run", [True, False])
+def test_pcw_ignore_label(gce, mocked_resource, dry_run):
+    resource_with_pcw_ignore = MockResource([
+        MockRequest({
+            'items': [
+                {'name': 'keep', 'creationTimestamp': '01/01/2023, 12:00:00', 'timeCreated': '01/01/2023, 12:00:00', 'network': 'mynetwork', 'labels': {'pcw_ignore': '1'}},
+                {'name': 'delete1', 'creationTimestamp': '01/01/2023, 12:00:00', 'timeCreated': '01/01/2023, 12:00:00', 'network': 'mynetwork'}
+            ], 'id': "id"
+        }),
+        MockRequest(),  # on images().delete()
+        None   # on images().list_next()
+    ])
+    
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "images", gce.cleanup_images, mocked_resource)
 
 
 def test_cleanup_all(gce):
