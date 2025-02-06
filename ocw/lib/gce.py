@@ -56,6 +56,16 @@ class GCE(Provider):
             self.compute_client().routes: "route",
             self.compute_client().subnetworks: "subnetwork",
         }.get(api_call, "resource")
+
+        # Get object details / metadata and check the labels
+        resource_details = api_call().get(**kwargs).execute()
+        labels = resource_details.get('labels', {})
+        if labels:
+            self.log_dbg(f"Resource {resource_type}/{resource_name} has these labels: {labels}")
+            if 'pcw_ignore' in labels and labels["pcw_ignore"] == "1":
+                self.log_info(f"Skipping deletion of {resource_type} {resource_name} due to 'pcw_ignore' label set to 1")
+                return
+
         if self.dry_run:
             self.log_info(f"Deletion of {resource_type} {resource_name} skipped due to dry run mode")
             return
