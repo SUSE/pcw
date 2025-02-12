@@ -56,6 +56,16 @@ class GCE(Provider):
             self.compute_client().routes: "route",
             self.compute_client().subnetworks: "subnetwork",
         }.get(api_call, "resource")
+
+        # Get object details / metadata and check the labels
+        resource_details = api_call().get(**kwargs).execute()
+        labels = resource_details.get('labels', {})
+        if labels:
+            self.log_dbg(f"Resource {resource_type}/{resource_name} has these labels: {labels}")
+            if 'pcw_ignore' in labels:
+                self.log_info(f"Skipping deletion of {resource_type} {resource_name} due to 'pcw_ignore' label set on resource")
+                return
+
         if self.dry_run:
             self.log_info(f"Deletion of {resource_type} {resource_name} skipped due to dry run mode")
             return
@@ -177,14 +187,9 @@ class GCE(Provider):
                 self.log_dbg(f"{len(disks)} disks found")
                 for disk in disks:
                     if self.is_outdated(parse(disk["creationTimestamp"]).astimezone(timezone.utc)):
-                        labels = disk.get('labels', [])
-                        pcw_ignore_tag = 'pcw_ignore' in labels
-                        if pcw_ignore_tag:
-                            self.log_dbg(f"Ignoring {disk['name']} due to 'pcw_ignore' label set to '1'")
-                        else:
-                            self._delete_resource(
-                                self.compute_client().disks, disk["name"], project=self.project, zone=zone, disk=disk["name"]
-                            )
+                        self._delete_resource(
+                            self.compute_client().disks, disk["name"], project=self.project, zone=zone, disk=disk["name"]
+                        )
 
     def cleanup_images(self) -> None:
         self.log_dbg("Images cleanup")
@@ -192,14 +197,9 @@ class GCE(Provider):
         self.log_dbg(f"{len(images)} images found")
         for image in images:
             if self.is_outdated(parse(image["creationTimestamp"]).astimezone(timezone.utc)):
-                labels = image.get('labels', [])
-                pcw_ignore_tag = 'pcw_ignore' in labels
-                if pcw_ignore_tag:
-                    self.log_dbg(f"Ignoring {image['name']} due to 'pcw_ignore' label set to '1'")
-                else:
-                    self._delete_resource(
-                        self.compute_client().images, image["name"], project=self.project, image=image["name"]
-                    )
+                self._delete_resource(
+                    self.compute_client().images, image["name"], project=self.project, image=image["name"]
+                )
 
     def cleanup_firewalls(self) -> None:
         self.log_dbg("Firewalls cleanup")
