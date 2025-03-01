@@ -1,6 +1,6 @@
 azure-cli==2.69.0
 azure-identity==1.20.0
 azure-mgmt-resource==23.1.1
-boto3==1.37.2
+boto3==1.37.4
 google_api_python_client==2.162.0
 kubernetes
