@@ -108,8 +108,6 @@ def container(random_port, image, client):
     # Cleanup
     with contextlib.suppress(APIError, PodmanError):
         container.stop()
-    with contextlib.suppress(APIError, PodmanError):
-        container.remove()
 
 
 @pytest.fixture
