@@ -62,6 +62,7 @@ class PCWConfig():
             'cleanup/gce-bucket': {'default': None, 'return_type': str},
             'cleanup/max-age-hours': {'default': 24 * 7, 'return_type': int},
             'updaterun/default_ttl': {'default': 44400, 'return_type': int},
+            'updaterun/reset_deleting_after': {'default': 2 * 44400, 'return_type': int},
             'notify/to': {'default': None, 'return_type': str},
             'notify/age-hours': {'default': 12, 'return_type': int},
             'notify/smtp': {'default': None, 'return_type': str},
