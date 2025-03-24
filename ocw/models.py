@@ -24,6 +24,11 @@ class Instance(models.Model):
     provider = models.CharField(max_length=8, choices=ProviderChoice.choices())
     first_seen = models.DateTimeField()
     last_seen = models.DateTimeField()
+    deleting_since = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when the instance entered DELETING state"
+    )
     age = models.DurationField(default=timedelta())
     ttl = models.DurationField(default=timedelta(0))
     active = models.BooleanField(default=False, help_text='True if the last sync found this instance on CSP')

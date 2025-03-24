@@ -7,7 +7,7 @@ import dateutil.parser as dateparser
 from django.db import transaction
 from ocw.apps import getScheduler
 from webui.PCWConfig import PCWConfig
-from ..models import Instance, StateChoice, ProviderChoice, CspInfo
+from ..models import Instance, StateChoice, ProviderChoice, CspInfo, format_seconds
 from .emailnotify import send_mail
 from .azure import Azure
 from .ec2 import EC2
@@ -154,6 +154,7 @@ def update_run() -> None:
                 send_mail(f'Error on update {provider} in namespace {namespace}',
                           traceback.format_exc())
 
+    reset_stale_deleting()
     auto_delete_instances()
     RUNNING = False
     if not error_occured:
@@ -161,6 +162,70 @@ def update_run() -> None:
 
     if not getScheduler().get_job('update_db'):
         init_cron()
+
+
+def is_deleting_stale(instance: type[Instance]):
+    '''
+    Check if the instance has been in a deleting state longer than the configured threshold.
+    '''
+    # Return False if state is not in deleting states
+    if instance.state not in [StateChoice.DELETING]:
+        return False
+
+    # Return True if deleting_since is not set (treat as stale)
+    if instance.deleting_since is None:
+        return True
+
+    default_reset_deleting_after = int(
+        PCWConfig.get_feature_property('updaterun', 'reset_deleting_after', instance.namespace)
+    )
+
+    # Calculate time since entering DELETING
+    now = datetime.now(tz=timezone.utc)
+    time_in_deleting = now - instance.deleting_since
+
+    # Check if time in DELETING exceeds the threshold
+    return time_in_deleting.total_seconds() > default_reset_deleting_after
+
+
+def reset_stale_deleting() -> None:
+    '''
+    Reset instances in DELETING state if they are stale according to is_deleting_stale().
+    '''
+    for namespace in PCWConfig.get_namespaces_for('default'):
+        logger.debug("Checking for stale DELETING instances in namespace %s", namespace)
+
+        # Query instances in DELETING state
+        suspect_instances = Instance.objects.filter(
+            state=StateChoice.DELETING,
+            namespace=namespace
+        )
+
+        if not suspect_instances.exists():
+            logger.debug("No DELETING instances found in namespace %s", namespace)
+            continue
+
+        # Filter out stale instances using is_deleting_stale()
+        stale_instances = [instance for instance in suspect_instances if is_deleting_stale(instance)]
+
+        # Reset stale instances to ACTIVE and clear deleting_since
+        for instance in stale_instances:
+            if instance.deleting_since is not None:
+                time_in_deleting = datetime.now(tz=timezone.utc) - instance.deleting_since
+                time_str = format_seconds(time_in_deleting.total_seconds())
+            else:
+                time_str = "unknown (deleting_since not set)"
+
+            logger.info(
+                "[%s] Resetting instance %s:%s from DELETING to ACTIVE "
+                "(time in DELETING %s exceeds threshold, %s)",
+                namespace, instance.provider, instance.instance_id,
+                time_str,
+                instance.all_time_fields()
+            )
+            instance.state = StateChoice.ACTIVE
+            instance.deleting_since = None  # Undefine deleting_since
+            instance.save(update_fields=['state', 'deleting_since'])
 
 
 def delete_instance(instance: type[Instance]) -> None:
@@ -175,6 +240,7 @@ def delete_instance(instance: type[Instance]) -> None:
             f"Provider({instance.provider}).delete() isn't implemented")
 
     instance.state = StateChoice.DELETING
+    instance.deleting_since = datetime.now(tz=timezone.utc)
     instance.save()
 
 
