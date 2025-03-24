@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Log in to the Container registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -45,7 +45,7 @@ jobs:
 
       - name: Build Docker image (PCW)
         if: ${{ matrix.suffix == 'main' }}
-        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
         with:
           context: .
           file: containers/Dockerfile
@@ -54,7 +54,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
       - name: Build Docker image (K8S)
         if: ${{ matrix.suffix == 'k8s' }}
-        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
         with:
           context: .
           file: containers/Dockerfile_${{ matrix.suffix }}
@@ -77,7 +77,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Log in to the Container registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -91,7 +91,7 @@ jobs:
 
       - name: Build and push Docker image (PCW)
         if: ${{ matrix.suffix == 'main' }}
-        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
         with:
           context: .
           file: containers/Dockerfile
@@ -100,7 +100,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
       - name: Build and push Docker image (K8S)
         if: ${{ matrix.suffix == 'k8s' }}
-        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
         with:
           context: .
           file: containers/Dockerfile_${{ matrix.suffix }}
