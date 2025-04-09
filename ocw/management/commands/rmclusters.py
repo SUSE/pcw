@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from webui.PCWConfig import PCWConfig
-from ocw.lib.ec2 import EC2
+from ocw.lib.eks import EKS
 
 
 class Command(BaseCommand):
@@ -8,4 +8,4 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         for namespace in PCWConfig.get_namespaces_for('clusters'):
-            EC2(namespace).delete_all_clusters()
+            EKS(namespace).delete_all_clusters()
