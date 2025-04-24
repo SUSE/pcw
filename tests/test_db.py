@@ -221,7 +221,8 @@ def test_reset_stale_deleting(monkeypatch):
             'state': StateChoice.DELETING,
             'deleting_since': now - timedelta(hours=3),  # 3 hours ago
             'should_reset': True,
-            'desc': "Stale (3h > 2h)"
+            'desc': "Stale (3h > 2h)",
+            'pcw_ignore': False
         },
         # Case 2: Not Stale (1h < 2h)
         {
@@ -229,7 +230,8 @@ def test_reset_stale_deleting(monkeypatch):
             'state': StateChoice.DELETING,
             'deleting_since': now - timedelta(hours=1),  # 1 hour ago
             'should_reset': False,
-            'desc': "Not Stale (1h < 2h)"
+            'desc': "Not Stale (1h < 2h)",
+            'pcw_ignore': False
         },
         # Case 3: Non-Deleting (ACTIVE)
         {
@@ -237,7 +239,8 @@ def test_reset_stale_deleting(monkeypatch):
             'state': StateChoice.ACTIVE,
             'deleting_since': now - timedelta(hours=3),  # Shouldn’t matter
             'should_reset': False,
-            'desc': "Non-Deleting (ACTIVE)"
+            'desc': "Non-Deleting (ACTIVE)",
+            'pcw_ignore': False
         },
         # Case 4: Edge (2h = 2h)
         {
@@ -245,7 +248,8 @@ def test_reset_stale_deleting(monkeypatch):
             'state': StateChoice.DELETING,
             'deleting_since': now - timedelta(hours=2),  # Exactly 2 hours ago
             'should_reset': True,
-            'desc': "Edge (2h = 2h)"
+            'desc': "Edge (2h = 2h)",
+            'pcw_ignore': False
         },
         # Case 5: Edge (1h 59m < 2h)
         {
@@ -253,7 +257,17 @@ def test_reset_stale_deleting(monkeypatch):
             'state': StateChoice.DELETING,
             'deleting_since': now - timedelta(hours=1) - timedelta(minutes=59),  # Exactly 2 hours ago
             'should_reset': False,
-            'desc': "Edge (1h 59m < 2h)"
+            'desc': "Edge (1h 59m < 2h)",
+            'pcw_ignore': False
+        },
+        # Case 6: Stale (3h > 2h) but pcw_ignore tag is True
+        {
+            'instance_id': "test-instance-stale-but-ignored",
+            'state': StateChoice.DELETING,
+            'deleting_since': now - timedelta(hours=3),  # 3 hours ago
+            'should_reset': False,
+            'desc': "Stale (3h > 2h)",
+            'pcw_ignore': True
         },
     ]
 
@@ -279,11 +293,18 @@ def test_reset_stale_deleting(monkeypatch):
                 active=case['state'] == StateChoice.ACTIVE
             )
             instance.save()
+            tags = {'openqa_ttl': str(default_ttl)}
+            if case['pcw_ignore']:
+                tags[Instance.TAG_IGNORE] = "True"
+
             CspInfo.objects.create(
                 instance=instance,
-                tags=json.dumps({'openqa_ttl': str(default_ttl)}),
+                tags=json.dumps(tags),
                 type="test_type"
             )
+
+            instance.set_alive() # required so that ignore is recomputed
+            instance.save()  # required to save the ignore field
             instances.append(instance)
 
     # Run the function
@@ -302,6 +323,8 @@ def test_reset_stale_deleting(monkeypatch):
         print(f"deleting_since: {instance.deleting_since}")
         print(f"time_in_deleting: {time_in_deleting}s")
         print(f"threshold: {threshold}s")
+        print(f"pcw_ignore expected: {case['pcw_ignore']}, actual: {instance.ignore}")
+        print(f"should_reset: {case['should_reset']}")
 
         if case['should_reset']:
             assert instance.state == StateChoice.ACTIVE, f"State should reset to ACTIVE for {case['desc']}"

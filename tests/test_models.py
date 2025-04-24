@@ -201,3 +201,36 @@ def test_get_tag(example_instance_data, example_cspinfo_data):
     assert cspinfo.get_tag('openqa_var_name') == "Test Job"
     assert cspinfo.get_tag('non_existent_tag') is None
     assert cspinfo.get_tag('non_existent_tag', default_value="N/A") == "N/A"
+
+
+@pytest.mark.django_db
+def test_is_ignored(example_instance_data, example_cspinfo_data):
+    instance = Instance.objects.create(**example_instance_data)
+    cspinfo = CspInfo.objects.create(instance=instance, **example_cspinfo_data)
+
+    # Test when pcw_ignore tag is not present
+    cspinfo.tags = '{"openqa_var_server": "http://example.com", "openqa_var_job_id": "12345"}'
+    cspinfo.save()
+    instance.set_alive()
+    assert instance.ignore is False
+
+    # Test when pcw_ignore tag is present and set to true but set_alive wasn't called on instance
+    cspinfo.tags = '{"openqa_var_server": "http://example.com", "openqa_var_job_id": "12345", "pcw_ignore": "true"}'
+    cspinfo.save()
+    assert instance.ignore is False
+
+    # Test when pcw_ignore tag is present and set to true and set_alive was called on instance
+    instance.set_alive()
+    assert instance.ignore is True
+
+    # Test when pcw_ignore tag is present but set to false
+    cspinfo.tags = '{"openqa_var_server": "http://example.com", "openqa_var_job_id": "12345", "pcw_ignore": "false"}'
+    cspinfo.save()
+    instance.set_alive()
+    assert instance.ignore is True
+
+    # Test when tags are empty
+    cspinfo.tags = '{}'
+    cspinfo.save()
+    instance.set_alive()
+    assert instance.ignore is False

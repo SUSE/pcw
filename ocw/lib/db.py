@@ -168,6 +168,9 @@ def is_deleting_stale(instance: type[Instance]):
     '''
     Check if the instance has been in a deleting state longer than the configured threshold.
     '''
+    if instance.ignore:
+        return False
+
     # Return False if state is not in deleting states
     if instance.state not in [StateChoice.DELETING]:
         return False
