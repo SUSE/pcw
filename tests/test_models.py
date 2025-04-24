@@ -204,7 +204,7 @@ def test_get_tag(example_instance_data, example_cspinfo_data):
 
 
 @pytest.mark.django_db
-def test_is_ignored(example_instance_data, example_cspinfo_data):
+def test_ignore(example_instance_data, example_cspinfo_data):
     instance = Instance.objects.create(**example_instance_data)
     cspinfo = CspInfo.objects.create(instance=instance, **example_cspinfo_data)
 

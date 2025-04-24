@@ -232,6 +232,9 @@ def reset_stale_deleting() -> None:
 
 
 def delete_instance(instance: type[Instance]) -> None:
+    if instance.ignore:
+        return
+
     if instance.provider == ProviderChoice.AZURE:
         Azure(instance.namespace).delete_resource(instance.instance_id)
     elif instance.provider == ProviderChoice.EC2:

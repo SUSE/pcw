@@ -35,7 +35,7 @@ class GCEMock:
 
 
 class InstanceMock:
-    def __init__(self, provider, state=None, ttl=None, first_seen=None):
+    def __init__(self, provider, state=None, ttl=None, first_seen=None, last_seen=None, deleting_since=None, ignore=False):
         self.state = state if state is not None else None
         self.instance_id = fake.uuid4()
         self.region = None
@@ -46,6 +46,7 @@ class InstanceMock:
         self.first_seen = first_seen if first_seen else datetime.now(tz=timezone.utc)
         self.last_seen = self.first_seen  # For all_time_fields()
         self.age = timedelta(seconds=0)  # Placeholder
+        self.ignore = ignore
 
     def save(self, update_fields=None):
         self.save_called = True
@@ -262,7 +263,7 @@ def test_reset_stale_deleting(monkeypatch):
         },
         # Case 6: Stale (3h > 2h) but pcw_ignore tag is True
         {
-            'instance_id': "test-instance-stale-but-ignored",
+            'instance_id': "test-instance-stale-but-pcw-ignore",
             'state': StateChoice.DELETING,
             'deleting_since': now - timedelta(hours=3),  # 3 hours ago
             'should_reset': False,
@@ -303,8 +304,12 @@ def test_reset_stale_deleting(monkeypatch):
                 type="test_type"
             )
 
-            instance.set_alive() # required so that ignore is recomputed
-            instance.save()  # required to save the ignore field
+            # required so that ignore is recomputed
+            instance.set_alive()
+
+            # required to save the ignore field
+            instance.save()
+
             instances.append(instance)
 
     # Run the function
@@ -371,6 +376,24 @@ def test_delete_instances_azure(monkeypatch):
     assert instance.save_called
     assert instance.state == StateChoice.DELETING
 
+    instance_with_state = InstanceMock(ProviderChoice.AZURE, StateChoice.ACTIVE)
+
+    delete_instance(instance_with_state)
+
+    assert instance_with_state.save_called
+    assert instance_with_state.state == StateChoice.DELETING
+
+
+def test_delete_instances_azure_pcw_ignore(monkeypatch):
+    monkeypatch.setattr(Azure, '__new__', lambda cls, namespace: AzureMock())
+
+    instance = InstanceMock(ProviderChoice.AZURE, StateChoice.ACTIVE, None, None, None, None, True)
+
+    delete_instance(instance)
+
+    assert not instance.save_called
+    assert instance.state == StateChoice.ACTIVE
+
 
 def test_delete_instances_ec2(monkeypatch):
     monkeypatch.setattr(EC2, '__new__', lambda cls, namespace: EC2Mock())
@@ -382,6 +405,24 @@ def test_delete_instances_ec2(monkeypatch):
     assert instance.save_called
     assert instance.state == StateChoice.DELETING
 
+    instance_with_state = InstanceMock(ProviderChoice.EC2, StateChoice.ACTIVE)
+
+    delete_instance(instance_with_state)
+
+    assert instance_with_state.save_called
+    assert instance_with_state.state == StateChoice.DELETING
+
+
+def test_delete_instances_ec2_pcw_ignore(monkeypatch):
+    monkeypatch.setattr(EC2, '__new__', lambda cls, namespace: EC2Mock())
+
+    instance = InstanceMock(ProviderChoice.EC2, StateChoice.ACTIVE, None, None, None, None, True)
+
+    delete_instance(instance)
+
+    assert not instance.save_called
+    assert instance.state == StateChoice.ACTIVE
+
 
 def test_delete_instances_gce(monkeypatch):
     monkeypatch.setattr(GCE, '__new__', lambda cls, namespace: GCEMock())
@@ -392,3 +433,21 @@ def test_delete_instances_gce(monkeypatch):
 
     assert instance.save_called
     assert instance.state == StateChoice.DELETING
+
+    instance_with_state = InstanceMock(ProviderChoice.GCE, StateChoice.ACTIVE)
+
+    delete_instance(instance_with_state)
+
+    assert instance_with_state.save_called
+    assert instance_with_state.state == StateChoice.DELETING
+
+
+def test_delete_instances_gce_pcw_ignore(monkeypatch):
+    monkeypatch.setattr(GCE, '__new__', lambda cls, namespace: GCEMock())
+
+    instance = InstanceMock(ProviderChoice.GCE, StateChoice.ACTIVE, None, None, None, None, True)
+
+    delete_instance(instance)
+
+    assert not instance.save_called
+    assert instance.state == StateChoice.ACTIVE
