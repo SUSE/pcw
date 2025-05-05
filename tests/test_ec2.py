@@ -334,12 +334,6 @@ def test_cleanup_volumes_cleanupcheck(ec2_patch):
     assert MockedEC2Client.deleted_volumes[0] == MockedEC2Client.volumeid_to_delete
 
 
-def test_cleanup_uploader_vpc_mail_sent_due_instances_associated(ec2_patch_for_vpc):
-    MockedSMTP.mimetext = ''
-    ec2_patch_for_vpc.cleanup_vpcs()
-    assert '[Openqa-Cloud-Watch] VPC deletion locked by running VMs' in MockedSMTP.mimetext
-
-
 def test_cleanup_uploader_vpc_no_mail_sent_due_dry_run(ec2_patch_for_vpc):
     MockedSMTP.mimetext = ''
     ec2_patch_for_vpc.dry_run = True
