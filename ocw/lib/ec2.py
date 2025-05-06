@@ -293,7 +293,6 @@ class EC2(Provider):
         self.log_dbg('Do cleanup of VPCs')
         vpc_errors = []
         vpc_notify = []
-        vpc_locked = []
         for region in self.all_regions:
             response = self.ec2_client(region).describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['false']}])
             self.log_dbg(f"Found {len(response['Vpcs'])} VPC's in {region}")
@@ -312,9 +311,7 @@ class EC2(Provider):
                         if del_responce is not None:
                             self.log_err(del_responce)
                             vpc_errors.append(del_responce)
-                    elif not self.dry_run:
-                        vpc_locked.append(f'{vpc_id} (OwnerId={response_vpc["OwnerId"]}) in {region} is locked')
-        self.report_cleanup_results(vpc_errors, vpc_notify, vpc_locked)
+        self.report_cleanup_results(vpc_errors, vpc_notify)
 
     def vpc_can_be_deleted(self, resource_vpc, vpc_id) -> bool:
         for subnet in resource_vpc.subnets.all():
@@ -323,7 +320,7 @@ class EC2(Provider):
                 return False
         return True
 
-    def report_cleanup_results(self, vpc_errors: list, vpc_notify: list, vpc_locked: list) -> None:
+    def report_cleanup_results(self, vpc_errors: list, vpc_notify: list) -> None:
         if len(vpc_errors) > 0:
             # this is most common error message which we can not fix.
             # So no point to spam us with notifications about it
@@ -333,8 +330,6 @@ class EC2(Provider):
                 send_mail(f'Errors on VPC deletion in [{self._namespace}]', '\n'.join(vpc_errors))
         if len(vpc_notify) > 0:
             send_mail(f'{len(vpc_notify)} VPC\'s should be deleted, skipping due vpc-notify-only=True', ','.join(vpc_notify))
-        if len(vpc_locked) > 0:
-            send_mail('VPC deletion locked by running VMs', '\n'.join(vpc_locked))
 
     def count_all_images(self) -> int:
         all_images_cnt = 0
