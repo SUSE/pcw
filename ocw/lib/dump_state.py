@@ -39,7 +39,7 @@ def dump_state():
                     ProviderChoice.AZURE.value,
                     Influx.DISK_QUANTITY,
                     namespace,
-                    Azure(namespace).list_disks,
+                    Azure(namespace).report_list_disks,
                 )
                 Influx().dump_resource(
                     ProviderChoice.AZURE.value,

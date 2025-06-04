@@ -115,6 +115,13 @@ class Azure(Provider):
     def list_disks(self):
         return self.list_resource(filters="resourceType eq 'Microsoft.Compute/disks'")
 
+    def report_list_disks(self):
+        return self.unscoped_list_resource(filters="resourceType eq 'Microsoft.Compute/disks'")
+
+    def unscoped_list_resource(self, filters=None) -> list:
+        return list(self.resource_mgmt_client().resources.list(
+            filter=filters, expand="changedTime"))
+
     def list_resource(self, filters=None) -> list:
         return list(self.resource_mgmt_client().resources.list_by_resource_group(
             self.__resource_group, filter=filters, expand="changedTime"))
