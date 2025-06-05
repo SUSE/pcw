@@ -112,8 +112,18 @@ class Azure(Provider):
     def list_images(self):
         return self.list_resource(filters="resourceType eq 'Microsoft.Compute/images'")
 
+    def report_list_images(self):
+        return self.unscoped_list_resource(filters="resourceType eq 'Microsoft.Compute/images'")
+
     def list_disks(self):
         return self.list_resource(filters="resourceType eq 'Microsoft.Compute/disks'")
+
+    def report_list_disks(self):
+        return self.unscoped_list_resource(filters="resourceType eq 'Microsoft.Compute/disks'")
+
+    def unscoped_list_resource(self, filters=None) -> list:
+        return list(self.resource_mgmt_client().resources.list(
+            filter=filters, expand="changedTime"))
 
     def list_resource(self, filters=None) -> list:
         return list(self.resource_mgmt_client().resources.list_by_resource_group(
@@ -220,11 +230,25 @@ class Azure(Provider):
 
     def get_img_versions_count(self) -> int:
         self.log_dbg("Call get_img_versions_count")
-        gallery = self.compute_mgmt_client().galleries.get(self.__resource_group, self.__gallery)
-        all_img_versions = 0
-        for image_definition in self.compute_mgmt_client().gallery_images.list_by_gallery(self.__resource_group, gallery.name):
-            img_versions = len(list(self.compute_mgmt_client().gallery_image_versions.list_by_gallery_image(
-                    self.__resource_group, gallery.name, image_definition.name)))
-            self.log_dbg(f"{image_definition.name} has {img_versions} versions")
-            all_img_versions += img_versions
-        return all_img_versions
+
+        compute_client = self.compute_mgmt_client()
+        resource_client = self.resource_mgmt_client()  # You need to have this method or client setup
+
+        total_versions = 0
+
+        for rg in resource_client.resource_groups.list():
+            rg_name = rg.name
+            try:
+                galleries = compute_client.galleries.list_by_resource_group(rg_name)
+                for gallery in galleries:
+                    images = compute_client.gallery_images.list_by_gallery(rg_name, gallery.name)
+                    for image in images:
+                        versions = list(compute_client.gallery_image_versions.list_by_gallery_image(
+                            rg_name, gallery.name, image.name
+                        ))
+                        version_count = len(versions)
+                        total_versions += version_count
+            except Exception as e:
+                self.log_err(f"Skipping resource group {rg_name} due to error: {e}")
+
+        return total_versions
