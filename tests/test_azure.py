@@ -47,27 +47,66 @@ def bs_client_one_pcw_ignore(monkeypatch):
     monkeypatch.setattr(Azure, 'bs_client', lambda *args, **kwargs: fakeblobserviceclient)
 
 
+class FakeResourceGroup:
+    def __init__(self, name):
+        self.name = name
+
+
+class FakeGallery:
+    def __init__(self, name):
+        self.name = name
+
+
+class FakeImage:
+    def __init__(self, name):
+        self.name = name
+
+
+class FakeVersion:
+    def __init__(self, name):
+        self.name = name
+
+
 @pytest.fixture
 def mock_compute_mgmt_client(monkeypatch):
-
     global deleted_images
-    # to make sure that we not failing due to other test left dirty env.
     deleted_images = list()
 
-    def mock_compute_mgmt_client(self):
-        def compute_mgmt_client():
+    def compute_mgmt_client(self):
+        def client():
             pass
-        compute_mgmt_client.images = lambda: None
-        compute_mgmt_client.galleries = lambda: None
-        compute_mgmt_client.gallery_images = lambda: None
-        compute_mgmt_client.gallery_image_versions = lambda: None
-        compute_mgmt_client.galleries.get = lambda rg, name: FakeGalleryAndImageDefinition()
-        compute_mgmt_client.gallery_images.list_by_gallery = lambda rg, name: [FakeGalleryAndImageDefinition()]
-        compute_mgmt_client.gallery_image_versions.list_by_gallery_image = lambda rg, gallery, definitionname: [1, 2, 3, 4, 5]
-        compute_mgmt_client.images.begin_delete = lambda rg, name: deleted_images.append(name)
-        return compute_mgmt_client
+        client.images = lambda: None
+        client.galleries = lambda: None
+        client.gallery_images = lambda: None
+        client.gallery_image_versions = lambda: None
 
-    monkeypatch.setattr(Azure, 'compute_mgmt_client', mock_compute_mgmt_client)
+        client.galleries.list_by_resource_group = lambda rg: [
+            FakeGallery("gallery1"),
+            FakeGallery("gallery2")
+        ]
+
+        client.gallery_images.list_by_gallery = lambda rg, gallery: {
+            "gallery1": [FakeImage("image1")],
+            "gallery2": [FakeImage("image2")]
+        }[gallery]
+
+        client.gallery_image_versions.list_by_gallery_image = lambda rg, gallery, image: {
+            ("rg1", "gallery1", "image1"): [FakeVersion("v1"), FakeVersion("v2"), FakeVersion("v3")],
+            ("rg1", "gallery2", "image2"): [FakeVersion("v1"), FakeVersion("v2")]
+        }[(rg, gallery, image)]
+
+        client.images.begin_delete = lambda rg, name: deleted_images.append(name)
+        return client
+
+    def resource_mgmt_client(self):
+        def client():
+            pass
+        client.resource_groups = lambda: None
+        client.resource_groups.list = lambda: [FakeResourceGroup("rg1")]
+        return client
+
+    monkeypatch.setattr(Azure, 'compute_mgmt_client', compute_mgmt_client)
+    monkeypatch.setattr(Azure, 'resource_mgmt_client', resource_mgmt_client)
 
 
 # This class is faking two unrelated entities:

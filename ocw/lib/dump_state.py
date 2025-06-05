@@ -33,7 +33,7 @@ def dump_state():
                     ProviderChoice.AZURE.value,
                     Influx.IMAGES_QUANTITY,
                     namespace,
-                    Azure(namespace).list_images,
+                    Azure(namespace).report_list_images,
                 )
                 Influx().dump_resource(
                     ProviderChoice.AZURE.value,
