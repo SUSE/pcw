@@ -1,9 +1,9 @@
 FROM registry.suse.com/bci/python:3.11
 
-RUN zypper -n in gcc tar gzip kubernetes1.28-client aws-cli && zypper clean && rm -rf /var/cache
+RUN zypper -n in gcc tar gzip kubernetes1.33-client aws-cli && zypper clean && rm -rf /var/cache
 
 # Google cli installation
-RUN curl -sf https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-415.0.0-linux-x86_64.tar.gz | tar -zxf - -C /opt \
+RUN curl -sf https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-427.0.0-linux-x86_64.tar.gz | tar -zxf - -C /opt \
 && /opt/google-cloud-sdk/bin/gcloud components install gke-gcloud-auth-plugin
 
 # Install python dependences
@@ -15,7 +15,7 @@ COPY ocw /pcw/ocw/
 COPY webui/PCWConfig.py /pcw/webui/PCWConfig.py
 COPY cleanup_k8s.py LICENSE README.md setup.cfg /pcw/
 
-ENV PATH ${PATH}:/opt/google-cloud-sdk/bin/
+ENV PATH=${PATH}:/opt/google-cloud-sdk/bin/
 
 WORKDIR /pcw
 
