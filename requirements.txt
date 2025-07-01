@@ -1,7 +1,7 @@
 apscheduler==3.11.0
 azure-identity==1.23.0
 azure-mgmt-compute==34.1.0
-azure-mgmt-resource==23.3.0
+azure-mgmt-resource==24.0.0
 azure-mgmt-storage==23.0.0
 azure-storage-blob==12.25.1
 boto3==1.39.0
