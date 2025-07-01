@@ -8,7 +8,7 @@ boto3==1.39.0
 botocore==1.39.0
 cachetools==5.5.2
 django~=5.1.6
-django-bootstrap5==24.3
+django-bootstrap5==25.1
 django-filter==25.1
 django-tables2==2.7.5
 google-api-python-client==2.174.0
