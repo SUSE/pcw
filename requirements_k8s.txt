@@ -1,5 +1,5 @@
 azure-cli==2.75.0
-azure-identity==1.23.0
+azure-identity==1.24.0
 azure-mgmt-resource==23.3.0
 boto3==1.39.0
 google_api_python_client==2.174.0
