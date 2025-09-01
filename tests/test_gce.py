@@ -40,7 +40,11 @@ class MockResource:
         return self.responses.pop(0)
 
     def delete(self, *args, **kwargs):
-        for resource in ('object', 'image', 'disk', 'instance', 'firewall', 'forwardingRule', 'route', 'network', 'subnetwork'):
+        resources = (
+            'object', 'image', 'disk', 'instance', 'instanceGroup', 'firewall',
+            'forwardingRule', 'route', 'network', 'backendService', 'subnetwork'
+        )
+        for resource in resources:
             if resource in kwargs:
                 if self.error_reason:
                     return MockRequest(error_reason=self.error_reason)
@@ -61,7 +65,9 @@ class MockClient:
     def forwardingRules(self): pass
     def images(self): pass
     def instances(self): pass
+    def instanceGroups(self): pass
     def networks(self): pass
+    def regionBackendServices(self): pass
     def routes(self): pass
     def subnetworks(self): pass
 
@@ -192,6 +198,12 @@ def test_cleanup_images(gce, mocked_resource, dry_run):
 
 
 @mark.parametrize("dry_run", [True, False])
+def test_cleanup_instance_groups(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "instanceGroups", gce.cleanup_instance_groups, mocked_resource)
+
+
+@mark.parametrize("dry_run", [True, False])
 def test_cleanup_firewalls(gce, mocked_resource, dry_run):
     gce.dry_run = dry_run
     _test_cleanup(gce, "firewalls", gce.cleanup_firewalls, mocked_resource)
@@ -207,6 +219,12 @@ def test_cleanup_forwarding_rules(gce, mocked_resource, dry_run):
 def test_cleanup_routes(gce, mocked_resource, dry_run):
     gce.dry_run = dry_run
     _test_cleanup(gce, "routes", gce.cleanup_routes, mocked_resource)
+
+
+@mark.parametrize("dry_run", [True, False])
+def test_cleanup_region_backend_services(gce, mocked_resource, dry_run):
+    gce.dry_run = dry_run
+    _test_cleanup(gce, "regionBackendServices", gce.cleanup_region_backend_services, mocked_resource)
 
 
 def test_cleanup_routes_delete_default_route_raise_exception(gce_dry_run_false, mocked_resource):
@@ -245,16 +263,20 @@ def test_cleanup_all(gce):
     gce.cleanup_blobs = MagicMock()
     gce.cleanup_disks = MagicMock()
     gce.cleanup_images = MagicMock()
+    gce.cleanup_instance_groups = MagicMock()
     gce.cleanup_firewalls = MagicMock()
     gce.cleanup_forwarding_rules = MagicMock()
+    gce.cleanup_region_backend_services = MagicMock()
     gce.cleanup_routes = MagicMock()
     gce.cleanup_subnetworks = MagicMock()
     gce.cleanup_networks = MagicMock()
     gce.cleanup_all()
     gce.cleanup_disks.assert_called_once()
     gce.cleanup_images.assert_called_once()
+    gce.cleanup_instance_groups.assert_called_once()
     gce.cleanup_firewalls.assert_called_once()
     gce.cleanup_forwarding_rules.assert_called_once()
+    gce.cleanup_region_backend_services.assert_called_once()
     gce.cleanup_routes.assert_called_once()
     gce.cleanup_networks.assert_called_once()
     gce.cleanup_subnetworks.assert_called_once()
