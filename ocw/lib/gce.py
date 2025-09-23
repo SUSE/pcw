@@ -52,7 +52,9 @@ class GCE(Provider):
             self.compute_client().forwardingRules: "forwardingRule",
             self.compute_client().images: "image",
             self.compute_client().instances: "instance",
+            self.compute_client().instanceGroups: "instanceGroup",
             self.compute_client().networks: "network",
+            self.compute_client().regionBackendServices: "regionBackendService",
             self.compute_client().routes: "route",
             self.compute_client().subnetworks: "subnetwork",
         }.get(api_call, "resource")
@@ -162,6 +164,8 @@ class GCE(Provider):
             self.cleanup_blobs()
         self.cleanup_disks()
         self.cleanup_images()
+        self.cleanup_region_backend_services()
+        self.cleanup_instance_groups()
         self.cleanup_firewalls()
         self.cleanup_forwarding_rules()
         self.cleanup_routes()
@@ -227,6 +231,35 @@ class GCE(Provider):
                     self._delete_resource(
                         self.compute_client().forwardingRules, rule["name"],
                         project=self.project, region=region, forwardingRule=rule["name"]
+                    )
+
+    def cleanup_instance_groups(self) -> None:
+        self.log_dbg("Instance groups cleanup")
+        for region in self.list_regions():
+            for zone in self.list_zones(region):
+                groups = self._paginated(
+                    self.compute_client().instanceGroups, project=self.project, zone=zone
+                )
+                self.log_dbg(f"{len(groups)} instance groups found")
+                for group in groups:
+                    if self.is_outdated(parse(group["creationTimestamp"]).astimezone(timezone.utc)):
+                        self._delete_resource(
+                            self.compute_client().instanceGroups, group["name"],
+                            project=self.project, zone=zone, instanceGroup=group["name"]
+                        )
+
+    def cleanup_region_backend_services(self) -> None:
+        self.log_dbg("Region backend services cleanup")
+        for region in self.list_regions():
+            services = self._paginated(
+                self.compute_client().regionBackendServices, project=self.project, region=region
+            )
+            self.log_dbg(f"{len(services)} region backend services found")
+            for service in services:
+                if self.is_outdated(parse(service["creationTimestamp"]).astimezone(timezone.utc)):
+                    self._delete_resource(
+                        self.compute_client().regionBackendServices, service["name"],
+                        project=self.project, region=region, backendService=service["name"]
                     )
 
     def cleanup_routes(self) -> None:
