@@ -241,6 +241,12 @@ def test_cleanup_routes_delete_default_route_not_raise_exception(gce_dry_run_fal
     gce_dry_run_false.cleanup_routes()
 
 
+def test_cleanup_instance_groups_delete_managed_group_not_raise_exception(gce_dry_run_false, mocked_resource):
+    setattr(gce_dry_run_false.compute_client, "instanceGroups", mocked_resource)
+    mocked_resource.error_reason = "resourceIsManaged"
+    gce_dry_run_false.cleanup_instance_groups()
+
+
 @mark.parametrize("dry_run", [True, False])
 def test_cleanup_subnetworks(gce, mocked_resource, dry_run):
     gce.dry_run = dry_run
