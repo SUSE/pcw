@@ -78,9 +78,11 @@ class GCE(Provider):
             self.log_dbg(f"Deletion response: {response}")
             self.log_info(f"{resource_type.title()} '{resource_name}' deleted")
         except HttpError as err:
-            if GCE.get_error_reason(err) == 'resourceInUseByAnotherResource':
+            error_reason = GCE.get_error_reason(err)
+            log_msg = f"{resource_type.title()} '{resource_name}' can not be deleted. {err}"
+            if error_reason == 'resourceInUseByAnotherResource':
                 self.log_dbg(f"{resource_type.title()} '{resource_name}' can not be deleted because in use")
-            elif GCE.get_error_reason(err) == 'badRequest':
+            elif error_reason == 'badRequest':
                 # These are system generated routes when you create a network. These
                 # will be deleted by the deletion of the network and do not block the
                 # deletion of that network.
@@ -90,10 +92,12 @@ class GCE(Provider):
                 # returns "compute#route" for all routes.
                 # All this creating false alarms in log which we want to prevent.
                 # Only way to prevent is mute error
-                if resource_type.title() == "Route" and "The local route cannot be deleted" in str(err):
+                if resource_type.title() == "Route":
                     self.log_info("Skip deletion of local route")
                 else:
-                    self.log_err(f"{resource_type.title()} '{resource_name}' can not be deleted. Error : {err}")
+                    self.log_err(log_msg)
+            elif error_reason == 'resourceIsManaged' and resource_type.title() == 'Instancegroup':
+                self.log_err(log_msg)
             else:
                 raise err
 
