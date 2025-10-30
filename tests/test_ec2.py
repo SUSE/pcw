@@ -89,6 +89,7 @@ class MockedEC2Client():
     response = {}
     deleted_images = list()
     deleted_volumes = list()
+    deleted_keys = list()
     snapshotid_to_delete = 'delete_me'
     volumeid_to_delete = 'delete_me'
     snapshotid_i_have_ami = 'you_can_not_delete_me'
@@ -139,6 +140,9 @@ class MockedEC2Client():
     def deregister_image(self, *args, **kwargs):
         MockedEC2Client.deleted_images.append(kwargs['ImageId'])
 
+    def delete_key_pair(self, *args, **kwargs):
+        MockedEC2Client.deleted_keys.append(kwargs['KeyName'])
+
     def delete_snapshot(self, SnapshotId):
         if MockedEC2Client.delete_snapshot_raise_error:
             error_response = {'Error': {'Code': 'InvalidSnapshot.InUse', 'Message': 'Message'}}
@@ -153,6 +157,9 @@ class MockedEC2Client():
         return MockedEC2Client.response
 
     def describe_vpcs(self, Filters):
+        return MockedEC2Client.response
+
+    def describe_key_pairs(self):
         return MockedEC2Client.response
 
     def describe_vpc_endpoints(self, Filters):
@@ -299,6 +306,16 @@ def test_cleanup_snapshots_cleanup_all_new(ec2_patch):
     }
     ec2_patch.cleanup_snapshots(ec2_max_age_days)
     assert len(MockedEC2Client.ec2_snapshots) == 2
+
+
+def test_cleanup_keypairs(ec2_patch):
+    MockedEC2Client.response = {'KeyPairs': [{'KeyName': 'key1'}]}
+    ec2_patch.dry_run = True
+    ec2_patch.cleanup_keypairs()
+    assert len(MockedEC2Client.deleted_keys) == 0
+    ec2_patch.dry_run = False
+    ec2_patch.cleanup_keypairs()
+    assert len(MockedEC2Client.deleted_keys) == 1
 
 
 def test_cleanup_snapshots_cleanup_one_old(ec2_patch):
