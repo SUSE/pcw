@@ -369,3 +369,15 @@ class EC2(Provider):
                         else:
                             self.log_info(f"Delete image '{img['Name']}' (ami:{img['ImageId']})")
                             self.ec2_client(region).deregister_image(ImageId=img['ImageId'], DryRun=False)
+
+    def cleanup_keypairs(self):
+        self.log_dbg('Call cleanup_images')
+        for region in self.all_regions:
+            response = self.ec2_client(region).describe_key_pairs()
+            self.log_dbg(f"Found {len(response['KeyPairs'])} images in {region}")
+            for keypair in response['KeyPairs']:
+                if self.dry_run:
+                    self.log_info(f"KeyPair deletion {keypair['KeyName']} skipped due to dry run mode")
+                else:
+                    self.log_info(f"Delete KeyPair '{keypair['KeyName']}'")
+                    self.ec2_client(region).delete_key_pair(KeyName=keypair['KeyName'])
