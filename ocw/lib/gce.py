@@ -144,7 +144,10 @@ class GCE(Provider):
                 .get(project=self.project, region=region)
                 .execute()
             )
-            return [basename(z) for z in region["zones"]]
+            if "zones" in region:
+                return [basename(z) for z in region["zones"]]
+            self.log_err("Zones are missing in {}", region)
+            return []
         except HttpError as exc:
             if GCE.get_error_reason(exc) == 'notFound':
                 self.log_dbg("list_zones: region {} not found", region)
