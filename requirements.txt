@@ -3,7 +3,7 @@ azure-identity==1.25.0
 azure-mgmt-compute==34.1.0
 azure-mgmt-resource==23.3.0
 azure-mgmt-storage==23.0.0
-azure-storage-blob==12.25.1
+azure-storage-blob==12.26.0
 boto3==1.40.36
 botocore==1.40.36
 cachetools==5.5.2
