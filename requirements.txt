@@ -7,7 +7,7 @@ azure-storage-blob==12.25.1
 boto3==1.40.36
 botocore==1.40.36
 cachetools==5.5.2
-django~=5.1.6
+django~=4.2.24
 django-bootstrap5==24.3
 django-filter==25.1
 django-tables2==2.7.5
