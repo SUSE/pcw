@@ -42,4 +42,4 @@ jobs:
       - name: Run tests and collect coverage
         run: SKIP_SELENIUM=1 pytest --cov
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
