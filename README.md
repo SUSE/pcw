@@ -1,5 +1,9 @@
 [![codecov](https://codecov.io/gh/SUSE/pcw/branch/master/graph/badge.svg)](https://codecov.io/gh/SUSE/pcw)
 
+
+# PROJECT IS NOT IN ACTIVE DEVELOPMENT AND ARCHIVED
+
+
 # OpenQA Public cloud Helper
 
 ![PCW project logo](https://repository-images.githubusercontent.com/140823511/394bbeff-cd84-42f2-8a36-b4cd3923e4be)
